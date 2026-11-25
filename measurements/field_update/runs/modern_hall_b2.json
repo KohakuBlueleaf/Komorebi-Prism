@@ -1,0 +1,148 @@
+{
+ "check": "prism.stages.indirect.field_update.check.check",
+ "pipeline": "field",
+ "numbers": {
+  "scene": "modern_hall",
+  "sun": [
+   120.0,
+   40.0
+  ],
+  "bounces": 2,
+  "stepped": false,
+  "codes": [
+   0,
+   0
+  ],
+  "row_codes": [
+   0,
+   0
+  ],
+  "host_s": [
+   {
+    "commands_s": 0.1812,
+    "read_s": 0.0,
+    "apply_s": 0.0,
+    "write_s": 0.0,
+    "s": 0.1813
+   },
+   {
+    "commands_s": 0.128,
+    "read_s": 0.0,
+    "apply_s": 0.0,
+    "write_s": 0.0,
+    "s": 0.128
+   }
+  ],
+  "times": [
+   {
+    "total": 180.7713,
+    "fetch": 3.6474,
+    "zero": 43.6233,
+    "sources": 38.8504,
+    "rows": 22.2041,
+    "pack": 44.3535,
+    "store": 1.0519,
+    "apply_most": 3.8167,
+    "unit": [
+     3.631127810876933e-06,
+     3.631127810876933e-06,
+     5.826870983582921e-05
+    ],
+    "passes_ms": [
+     {
+      "store": 0.0843,
+      "apply": 3.8167,
+      "fetch": 0.1566,
+      "next": 4.6202
+     },
+     {
+      "store": 0.0861,
+      "apply": 3.8147,
+      "fetch": 0.1569,
+      "next": 14.3047
+     }
+    ]
+   },
+   {
+    "total": 127.8146,
+    "fetch": 0.3567,
+    "zero": 0.0,
+    "sources": 38.7733,
+    "rows": 22.518,
+    "pack": 44.6802,
+    "store": 1.0533,
+    "apply_most": 3.81,
+    "unit": [
+     3.631127810876933e-06,
+     3.631127810876933e-06,
+     5.826870983582921e-05
+    ],
+    "passes_ms": [
+     {
+      "store": 0.0846,
+      "apply": 3.81,
+      "fetch": 0.1575,
+      "next": 4.2403
+     },
+     {
+      "store": 0.0854,
+      "apply": 3.8094,
+      "fetch": 0.1577,
+      "next": 8.0877
+     }
+    ]
+   }
+  ],
+  "transport": {
+   "ticks": 190412,
+   "ticks_sum": 762308,
+   "ticks_least": 190412,
+   "served": 4,
+   "code": 0
+  },
+  "field": {
+   "texels": 738432,
+   "share_equal": 0.8357573886288785,
+   "code_most": 10,
+   "has_equal": true
+  },
+  "pages_equal": false,
+  "scale": {
+   "card": 15.215184211730957,
+   "reference": 15.235889434814453,
+   "relative": 0.0013589769847098033
+  },
+  "sky": {
+   "most": 0.000678036641724398,
+   "differ": 70710
+  },
+  "l0": {
+   "most": 0.0006780401568357196,
+   "differ": 61543
+  },
+  "e": {
+   "most": 8.644766674648828,
+   "differ": 145183
+  },
+  "scale_words_equal": [
+   true,
+   true
+  ],
+  "unit": {
+   "most": 0.0013589734301241313,
+   "differ": 3
+  },
+  "verdict": {
+   "ok": true,
+   "rule": "code most <= 12",
+   "failed": []
+  }
+ },
+ "seconds": 3.0994376610033214,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T04:36:42+08:00"
+}

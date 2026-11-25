@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "komorebi-prism"
+version = "0.0.0"
+description = "A real-time rendering pipeline on Tenstorrent Blackhole cards, built on Komorebi"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.13"
+# komorebi-tt's runtime extra is the pinned tt-metal build a card run needs.
+dependencies = ["numpy", "komorebi-tt[runtime]>=0.5.3"]
+
+[project.urls]
+Homepage = "https://github.com/KohakuBlueleaf/Komorebi-Prism"
+Repository = "https://github.com/KohakuBlueleaf/Komorebi-Prism"
+Issues = "https://github.com/KohakuBlueleaf/Komorebi-Prism/issues"
+
+[project.optional-dependencies]
+# The viewer's server (JPEG frames); its page is built with Node.js and npm.
+viewer = ["pillow"]
+# Decoding the public scenes' textures (prism_reference.scene.public).
+scenes = ["pillow"]
+dev = ["black", "ruff", "clang-format>=22"]
+
+[tool.setuptools.packages.find]
+where = ["src", "apps"]
+
+[tool.setuptools.package-data]
+"prism_reference.scene.public" = ["*.json"]
+"prism_reference.native" = ["common/*.hpp", "raster/*.hpp", "raster/*.cpp", "trace/*.hpp", "trace/*.cpp"]
+
+[tool.black]
+target-version = ["py313"]
+
+[tool.ruff]
+target-version = "py313"

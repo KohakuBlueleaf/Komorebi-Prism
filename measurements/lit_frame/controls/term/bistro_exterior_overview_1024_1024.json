@@ -1,0 +1,130 @@
+{
+ "check": "prism.stages.post.show.check.check",
+ "pipeline": "lit",
+ "numbers": {
+  "frames": 16,
+  "codes": [
+   0
+  ],
+  "pipeline": [
+   "raster",
+   "material.texture",
+   "direct.shadow_pcf",
+   "direct.light",
+   "post.show"
+  ],
+  "pictures": {
+   "1": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1048576,
+    "later_pieces": 0,
+    "share_over_2": 1.5e-05,
+    "share_over_4": 8e-06,
+    "share_over_8": 2e-06,
+    "max_error": 11,
+    "glass_in_front": {
+     "pixels": 30535,
+     "checked": 30535,
+     "share_over_2": 0.000426,
+     "share_over_4": 0.000164,
+     "share_over_8": 0.0,
+     "max_error": 6
+    }
+   },
+   "2": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1048576,
+    "later_pieces": 0,
+    "share_over_2": 1.5e-05,
+    "share_over_4": 8e-06,
+    "share_over_8": 2e-06,
+    "max_error": 11,
+    "glass_in_front": {
+     "pixels": 30535,
+     "checked": 30535,
+     "share_over_2": 0.000426,
+     "share_over_4": 0.000164,
+     "share_over_8": 0.0,
+     "max_error": 6
+    }
+   },
+   "16": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1048576,
+    "later_pieces": 0,
+    "share_over_2": 1.5e-05,
+    "share_over_4": 8e-06,
+    "share_over_8": 2e-06,
+    "max_error": 11,
+    "glass_in_front": {
+     "pixels": 30535,
+     "checked": 30535,
+     "share_over_2": 0.000426,
+     "share_over_4": 0.000164,
+     "share_over_8": 0.0,
+     "max_error": 6
+    }
+   }
+  },
+  "same_picture": true,
+  "push": true,
+  "tiles": 1024,
+  "cores": 120,
+  "ms": {
+   "count": 2.49888,
+   "count.1": 0.8516800000000001,
+   "count.2": 0.08814,
+   "sum": 0.05596,
+   "sum.1": 0.05568000000000001,
+   "sum.2": 0.0555,
+   "hist": 0.0,
+   "hist.1": 0.026240000000000003,
+   "hist.2": 0.02594,
+   "hsum": 0.0,
+   "hsum.1": 0.07087,
+   "hsum.2": 0.07059,
+   "middle": 0.43262,
+   "middle.1": 0.7107600000000001,
+   "middle.2": 0.57687,
+   "place": 0.09206,
+   "place.1": 0.09732,
+   "place.2": 0.09372,
+   "setup": 2.8813400000000002,
+   "setup.1": 1.9160500000000003,
+   "setup.2": 0.15556,
+   "fill": 2.6399700000000004,
+   "fill.1": 1.90856,
+   "fill.2": 0.13014,
+   "shade": 5.73775,
+   "shade.1": 2.3717200000000003,
+   "shade.2": 0.76187,
+   "light": 1.0977600000000003,
+   "light_glass": 0.7609400000000001,
+   "show": 0.8101400000000001,
+   "push": 0.28749,
+   "frame": 27.27025,
+   "slots": 458064,
+   "slots.1": 507376,
+   "slots.2": 6464,
+   "items": 1024,
+   "items.1": 1301,
+   "items.2": 1120,
+   "marks": 1136,
+   "marks.1": 771,
+   "marks.2": 562,
+   "heavy_tiles": 0,
+   "heavy_tiles.1": 73,
+   "heavy_tiles.2": 67
+  }
+ },
+ "seconds": 59.97126302297693,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T03:13:17+08:00"
+}

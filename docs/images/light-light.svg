@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="830" height="500" viewBox="0 0 830 500" role="img">
+<title>Where the light of a pixel comes from</title>
+<defs><marker id="ha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bc4c00"/></marker><marker id="hb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1b7c83"/></marker><marker id="hm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8250df"/></marker><marker id="hw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0969da"/></marker><marker id="hr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1a7f37"/></marker><marker id="hp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bf3989"/></marker><marker id="hy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9a6700"/></marker><marker id="hg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#818b98"/></marker></defs>
+<rect width="830" height="500" fill="#ffffff"/>
+<rect x="16.0" y="10.0" width="396.0" height="480.0" rx="4" fill="#f6f8fa" stroke="#d1d9e0" stroke-width="1"/>
+<rect x="424.0" y="10.0" width="390.0" height="480.0" rx="4" fill="#f6f8fa" stroke="#d1d9e0" stroke-width="1"/>
+<text x="30.0" y="32.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#bf3989" text-anchor="start" xml:space="preserve">LIGHT: a pixel's terms</text>
+<text x="398.0" y="32.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" fill="#59636e" text-anchor="end" xml:space="preserve">direct.light</text>
+<rect x="30.0" y="56.0" width="92.0" height="28.0" rx="3" fill="#d8c5fb" stroke="#8250df" stroke-width="1"/>
+<text x="76.0" y="75.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">sun</text>
+<text x="132.0" y="69.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">x the shadow map's taps (PCF)</text>
+<rect x="30.0" y="96.0" width="92.0" height="28.0" rx="3" fill="#ffe27a" stroke="#9a6700" stroke-width="1"/>
+<text x="76.0" y="115.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">lamps</text>
+<text x="132.0" y="109.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">the scene's point lights</text>
+<rect x="30.0" y="136.0" width="92.0" height="28.0" rx="3" fill="#ffe27a" stroke="#9a6700" stroke-width="1"/>
+<text x="76.0" y="155.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">specular</text>
+<text x="132.0" y="149.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">of the sun and the lamps</text>
+<rect x="30.0" y="176.0" width="92.0" height="28.0" rx="3" fill="#a6e0e3" stroke="#1b7c83" stroke-width="1"/>
+<text x="76.0" y="195.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">sky</text>
+<text x="132.0" y="189.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">x baked visibility</text>
+<rect x="30.0" y="216.0" width="92.0" height="28.0" rx="3" fill="#eaeef2" stroke="#818b98" stroke-width="1"/>
+<text x="76.0" y="235.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">ambient</text>
+<text x="132.0" y="229.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">a constant</text>
+<rect x="30.0" y="256.0" width="92.0" height="28.0" rx="3" fill="#ffe27a" stroke="#9a6700" stroke-width="1"/>
+<text x="76.0" y="275.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">emissive</text>
+<text x="132.0" y="269.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">the material's own</text>
+<rect x="30.0" y="296.0" width="92.0" height="28.0" rx="3" fill="#a6e0e3" stroke="#1b7c83" stroke-width="1"/>
+<text x="76.0" y="315.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">background</text>
+<text x="132.0" y="309.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">the sky's map where no surface</text>
+<rect x="24.0" y="172.0" width="380.0" height="76.0" rx="4" fill="none" stroke="#bf3989" stroke-width="1.6" stroke-dasharray="5 3"/>
+<text x="394.0" y="194.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#bf3989" text-anchor="end" xml:space="preserve">with the term indirect:</text>
+<text x="394.0" y="211.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#bf3989" text-anchor="end" xml:space="preserve">the field I(P, n) instead</text>
+<rect x="30.0" y="342.0" width="368.0" height="28.0" rx="3" fill="#f7c0de" stroke="#bf3989" stroke-width="1"/>
+<text x="40.0" y="361.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">the tone step: exposure, saturation, curve</text>
+<text x="438.0" y="32.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#bf3989" text-anchor="start" xml:space="preserve">the indirect field</text>
+<text x="800.0" y="32.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" fill="#59636e" text-anchor="end" xml:space="preserve">indirect.field_update</text>
+<rect x="438.0" y="56.0" width="362.0" height="50.0" rx="3" fill="#eaeef2" stroke="#bf3989" stroke-width="1"/>
+<text x="448.0" y="75.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">elements</text>
+<text x="448.0" y="94.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">points sampled by area; sponza 36,832</text>
+<rect x="438.0" y="122.0" width="362.0" height="50.0" rx="3" fill="#f6f8fa" stroke="#bf3989" stroke-width="1"/>
+<text x="448.0" y="141.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">L0</text>
+<text x="448.0" y="160.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">each element's sun (shadow map), lamps, sky</text>
+<rect x="438.0" y="188.0" width="362.0" height="50.0" rx="3" fill="#f6f8fa" stroke="#bf3989" stroke-width="1"/>
+<text x="448.0" y="207.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">E1 = M L0</text>
+<text x="448.0" y="226.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">a bounce pass: indirect.transport's apply</text>
+<rect x="438.0" y="254.0" width="362.0" height="50.0" rx="3" fill="#f6f8fa" stroke="#bf3989" stroke-width="1"/>
+<text x="448.0" y="273.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">Ek = M (albedo/pi E(k-1))</text>
+<text x="448.0" y="292.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">the next passes; bounces, default 2</text>
+<rect x="438.0" y="320.0" width="362.0" height="50.0" rx="3" fill="#f6f8fa" stroke="#bf3989" stroke-width="1"/>
+<text x="448.0" y="339.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">the field</text>
+<text x="448.0" y="358.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">voxels x 6 directions: E + the sky</text>
+<rect x="438.0" y="386.0" width="362.0" height="50.0" rx="3" fill="#f6f8fa" stroke="#bf3989" stroke-width="1"/>
+<text x="448.0" y="405.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">texels, pages</text>
+<text x="448.0" y="424.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">a has-data bit, three square-root codes</text>
+<text x="438.0" y="460.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">M: the transport matrix, hierarchical, applied as y = M x</text>
+<text x="438.0" y="477.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">on every core (x: elements.radiance). Sent when the sun moves.</text>
+<rect x="132.0" y="75.0" width="122.8" height="17.0" rx="8" fill="#f1e8ff" stroke="#8250df" stroke-width="1"/>
+<text x="138.0" y="87.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">light.shadow_map</text>
+<rect x="305.8" y="222.0" width="88.2" height="17.0" rx="8" fill="#ffeff7" stroke="#bf3989" stroke-width="1"/>
+<text x="311.8" y="234.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">light.field</text>
+<line x1="214.0" y1="372.0" x2="214.0" y2="390.0" stroke="#bf3989" stroke-width="1.8" marker-end="url(#hp)"/>
+<rect x="152.6" y="392.0" width="122.8" height="17.0" rx="8" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/>
+<text x="158.6" y="404.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">frame.visibility</text>
+<line x1="619.0" y1="108.0" x2="619.0" y2="120.0" stroke="#bf3989" stroke-width="1.6" marker-end="url(#hp)"/>
+<rect x="669.2" y="129.0" width="122.8" height="17.0" rx="8" fill="#fff8c5" stroke="#9a6700" stroke-width="1"/>
+<text x="675.2" y="141.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">light.shadow_map</text>
+<line x1="619.0" y1="174.0" x2="619.0" y2="186.0" stroke="#bf3989" stroke-width="1.6" marker-end="url(#hp)"/>
+<rect x="648.5" y="195.0" width="143.5" height="17.0" rx="8" fill="#fff8c5" stroke="#9a6700" stroke-width="1"/>
+<text x="654.5" y="207.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">elements.irradiance</text>
+<line x1="619.0" y1="240.0" x2="619.0" y2="252.0" stroke="#bf3989" stroke-width="1.6" marker-end="url(#hp)"/>
+<line x1="619.0" y1="306.0" x2="619.0" y2="318.0" stroke="#bf3989" stroke-width="1.6" marker-end="url(#hp)"/>
+<line x1="619.0" y1="372.0" x2="619.0" y2="384.0" stroke="#bf3989" stroke-width="1.6" marker-end="url(#hp)"/>
+<rect x="703.8" y="393.0" width="88.2" height="17.0" rx="8" fill="#ffeff7" stroke="#bf3989" stroke-width="1"/>
+<text x="709.8" y="405.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">light.field</text>
+<path d="M436.0,411.0 L406.0,411.0 L406.0,250.0" fill="none" stroke="#bf3989" stroke-width="1.8" stroke-linejoin="round" marker-end="url(#hp)"/>
+</svg>

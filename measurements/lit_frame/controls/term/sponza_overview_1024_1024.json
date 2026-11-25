@@ -1,0 +1,117 @@
+{
+ "check": "prism.stages.post.show.check.check",
+ "pipeline": "lit",
+ "numbers": {
+  "frames": 16,
+  "codes": [
+   0
+  ],
+  "pipeline": [
+   "raster",
+   "material.texture",
+   "direct.shadow_pcf",
+   "direct.light",
+   "post.show"
+  ],
+  "pictures": {
+   "1": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1014927,
+    "later_pieces": 33649,
+    "share_over_2": 5e-06,
+    "share_over_4": 3e-06,
+    "share_over_8": 2e-06,
+    "max_error": 13,
+    "glass_in_front": {
+     "pixels": 0,
+     "checked": 0,
+     "share_over_2": 0.0,
+     "share_over_4": 0.0,
+     "share_over_8": 0.0,
+     "max_error": 0
+    }
+   },
+   "2": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1014927,
+    "later_pieces": 33649,
+    "share_over_2": 5e-06,
+    "share_over_4": 3e-06,
+    "share_over_8": 2e-06,
+    "max_error": 13,
+    "glass_in_front": {
+     "pixels": 0,
+     "checked": 0,
+     "share_over_2": 0.0,
+     "share_over_4": 0.0,
+     "share_over_8": 0.0,
+     "max_error": 0
+    }
+   },
+   "16": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1014927,
+    "later_pieces": 33649,
+    "share_over_2": 5e-06,
+    "share_over_4": 3e-06,
+    "share_over_8": 2e-06,
+    "max_error": 13,
+    "glass_in_front": {
+     "pixels": 0,
+     "checked": 0,
+     "share_over_2": 0.0,
+     "share_over_4": 0.0,
+     "share_over_8": 0.0,
+     "max_error": 0
+    }
+   }
+  },
+  "same_picture": true,
+  "push": true,
+  "tiles": 1024,
+  "cores": 120,
+  "ms": {
+   "count": 0.66907,
+   "count.1": 0.10796000000000001,
+   "sum": 0.055670000000000004,
+   "sum.1": 0.05548000000000001,
+   "hist": 0.0,
+   "hist.1": 0.026600000000000002,
+   "hsum": 0.0,
+   "hsum.1": 0.0707,
+   "middle": 0.43304,
+   "middle.1": 0.7086100000000001,
+   "place": 0.09203,
+   "place.1": 0.09721,
+   "setup": 0.8631900000000001,
+   "setup.1": 0.22318000000000002,
+   "fill": 1.49031,
+   "fill.1": 0.16213,
+   "shade": 3.3766100000000003,
+   "shade.1": 0.7818900000000001,
+   "light": 1.1422100000000002,
+   "light_glass": 0.0,
+   "show": 0.8068,
+   "push": 0.28751,
+   "frame": 11.451590000000001,
+   "slots": 219680,
+   "slots.1": 46464,
+   "items": 1024,
+   "items.1": 1307,
+   "marks": 1137,
+   "marks.1": 491,
+   "heavy_tiles": 0,
+   "heavy_tiles.1": 68
+  }
+ },
+ "seconds": 18.355378133011982,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T03:02:33+08:00"
+}

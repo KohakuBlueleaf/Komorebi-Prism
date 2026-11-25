@@ -1,0 +1,54 @@
+# What runs on a hosted runner: no card, no tt-metal tree.
+#
+# Not run here (each needs what the runner does not have):
+#   checks.raster_model               $PRISM_DATA (Sponza's overview) and host gcc / g++
+#   prism_viewer.server.check         a card and $PRISM_DATA
+#   the stages' own checks (raster, texture, light, shadow_pcf, transport, field_update,
+#   show: `check/` of each, run through scripts/run)   a card and $PRISM_DATA
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[viewer]" black==26.10.1 ruff==0.17.5 clang-format==23.1.5
+      - name: Repository rules
+        run: python checks/repo_rules.py
+      - name: black
+        run: black --check src apps checks scripts configs
+      - name: ruff
+        run: ruff check src apps checks scripts configs
+      - name: clang-format
+        run: git ls-files -z '*.c' '*.h' '*.cpp' '*.hpp' | xargs -0 clang-format --dry-run --Werror
+
+  page:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/prism_viewer/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: apps/prism_viewer/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build

@@ -1,0 +1,217 @@
+/* Prism viewer - KohakuTerrarium's Gemstone Terrarium theme: the tokens' one place with
+ * uno.config.js (the gem colours, coral and sage, the warm surfaces). */
+
+:root {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+
+  /* The semantic size scale: a component picks a tier by what its text does. */
+  --kt-fs-micro: 0.65rem;
+  --kt-fs-caption: 0.75rem;
+  --kt-fs-body: 0.875rem;
+  --kt-fs-emphasis: 1rem;
+  --kt-fs-title: 1.125rem;
+  --kt-fs-h2: 1.25rem;
+  --kt-fs-h1: 1.5rem;
+  --kt-fs-figure: 1.75rem; /* a number read at a glance */
+
+  /* Light surfaces ("stone"): the page under white cards. */
+  --color-bg: #f2eee8;
+  --color-surface: #ffffff;
+  --color-surface-alt: #efebe5;
+  --color-border: #e5dfd7;
+  --color-text: #2e2a26;
+  --color-text-muted: #6c655d;
+  --color-text-faint: #8f8880;
+
+  /* The frame's backdrop: the warm dark in both themes, so a picture reads the same. */
+  --kt-stage: #1a1816;
+}
+
+html.dark {
+  --color-bg: #1a1816;
+  --color-surface: #252220;
+  --color-surface-alt: #1e1c1a;
+  --color-border: #3d3835;
+  --color-text: #e8e0d8;
+  --color-text-muted: #a0968c;
+  --color-text-faint: #6f6862;
+  --kt-stage: #121110;
+}
+
+@media (pointer: coarse) {
+  :root {
+    --kt-fs-micro: 0.75rem;
+    --kt-fs-caption: 0.85rem;
+    --kt-fs-body: 1rem;
+    --kt-fs-emphasis: 1.05rem;
+    --kt-fs-title: 1.2rem;
+    --kt-fs-h2: 1.35rem;
+    --kt-fs-h1: 1.6rem;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+    font-size: max(16px, 1rem) !important;
+  }
+}
+
+*,
+::before,
+::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: var(--color-border);
+}
+
+button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+  touch-action: manipulation;
+}
+
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+.kt-text-micro {
+  font-size: var(--kt-fs-micro);
+}
+.kt-text-caption {
+  font-size: var(--kt-fs-caption);
+}
+.kt-text-body {
+  font-size: var(--kt-fs-body);
+}
+.kt-text-emphasis {
+  font-size: var(--kt-fs-emphasis);
+}
+.kt-text-title {
+  font-size: var(--kt-fs-title);
+}
+.kt-text-h2 {
+  font-size: var(--kt-fs-h2);
+}
+.kt-text-figure {
+  font-size: var(--kt-fs-figure);
+  line-height: 1.1;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+/* Element Plus on the warm theme; the primary is iolite. */
+:root {
+  --el-color-primary: var(--kt-color-iolite);
+  --el-color-primary-light-3: color-mix(in srgb, var(--kt-color-iolite) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--kt-color-iolite) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--kt-color-iolite) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--kt-color-iolite) 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, var(--kt-color-iolite) 10%, white);
+  --el-color-primary-dark-2: var(--kt-color-iolite-shadow);
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-overlay: var(--color-surface);
+  --el-bg-color-page: var(--color-bg);
+  --el-fill-color-blank: var(--color-surface);
+  --el-fill-color: var(--color-surface-alt);
+  --el-fill-color-light: var(--color-surface-alt);
+  --el-fill-color-lighter: var(--color-bg);
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border);
+  --el-border-color-lighter: var(--color-border);
+  --el-border-color-hover: var(--color-text-faint);
+  --el-text-color-primary: var(--color-text);
+  --el-text-color-regular: var(--color-text);
+  --el-text-color-secondary: var(--color-text-muted);
+  --el-text-color-placeholder: var(--color-text-faint);
+  --el-font-family: var(--font-sans);
+  --el-font-size-base: var(--kt-fs-body);
+  --el-border-radius-base: 0.5rem;
+}
+
+html.dark {
+  --el-color-primary: var(--kt-color-iolite-light);
+  --el-color-primary-light-3: color-mix(in srgb, var(--kt-color-iolite-light) 70%, black);
+  --el-color-primary-light-5: color-mix(in srgb, var(--kt-color-iolite-light) 50%, black);
+  --el-color-primary-light-7: color-mix(in srgb, var(--kt-color-iolite-light) 30%, black);
+  --el-color-primary-light-8: color-mix(in srgb, var(--kt-color-iolite-light) 20%, black);
+  --el-color-primary-light-9: color-mix(in srgb, var(--kt-color-iolite-light) 10%, black);
+  --el-color-primary-dark-2: var(--kt-color-iolite);
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-overlay: var(--color-surface);
+  --el-bg-color-page: var(--color-bg);
+  --el-fill-color-blank: var(--color-surface);
+  --el-fill-color: var(--color-surface-alt);
+  --el-fill-color-light: var(--color-surface-alt);
+  --el-fill-color-lighter: var(--color-bg);
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border);
+  --el-border-color-lighter: var(--color-border);
+  --el-border-color-hover: var(--color-text-faint);
+  --el-text-color-primary: var(--color-text);
+  --el-text-color-regular: var(--color-text);
+  --el-text-color-secondary: var(--color-text-muted);
+  --el-text-color-placeholder: var(--color-text-faint);
+  --el-mask-color: rgba(0, 0, 0, 0.7);
+}
+
+/* A switch that is on reads as iolite in both themes. */
+.el-switch {
+  --el-switch-on-color: var(--kt-color-iolite);
+  --el-switch-off-color: var(--color-border);
+}
+
+.el-select-dropdown__item.is-hovering {
+  background-color: var(--el-fill-color) !important;
+}
+
+@keyframes kt-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.kohaku-pulse {
+  animation: kt-pulse 1.5s ease-in-out infinite;
+}

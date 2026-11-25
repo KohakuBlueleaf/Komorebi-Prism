@@ -1,0 +1,122 @@
+{
+ "check": "prism.stages.indirect.field_update.check.check",
+ "pipeline": "field",
+ "numbers": {
+  "scene": "modern_hall",
+  "sun": [
+   120.0,
+   40.0
+  ],
+  "bounces": 0,
+  "stepped": false,
+  "codes": [
+   0,
+   0
+  ],
+  "row_codes": [
+   0,
+   0
+  ],
+  "host_s": [
+   {
+    "commands_s": 0.1542,
+    "read_s": 0.0,
+    "apply_s": 0.0,
+    "write_s": 0.0,
+    "s": 0.1542
+   },
+   {
+    "commands_s": 0.11,
+    "read_s": 0.0,
+    "apply_s": 0.0,
+    "write_s": 0.0,
+    "s": 0.11
+   }
+  ],
+  "times": [
+   {
+    "total": 153.7088,
+    "fetch": 3.6241,
+    "zero": 44.0184,
+    "sources": 38.8286,
+    "rows": 22.4976,
+    "pack": 43.6887,
+    "store": 1.0509,
+    "apply_most": null,
+    "unit": [
+     7.471439289474802e-07,
+     7.471439289474802e-07,
+     1.1989418453595135e-05
+    ],
+    "passes_ms": []
+   },
+   {
+    "total": 109.6986,
+    "fetch": 0.357,
+    "zero": 0.0,
+    "sources": 38.7112,
+    "rows": 25.8712,
+    "pack": 43.7069,
+    "store": 1.0518,
+    "apply_most": null,
+    "unit": [
+     7.471439289474802e-07,
+     7.471439289474802e-07,
+     1.1989418453595135e-05
+    ],
+    "passes_ms": []
+   }
+  ],
+  "transport": {
+   "ticks": 0,
+   "ticks_sum": 0,
+   "ticks_least": 0,
+   "served": 0,
+   "code": 0
+  },
+  "field": {
+   "texels": 738432,
+   "share_equal": 0.999981040908303,
+   "code_most": 1,
+   "has_equal": true
+  },
+  "pages_equal": false,
+  "scale": {
+   "card": 3.1306891441345215,
+   "reference": 3.1306889057159424,
+   "relative": 7.615530839434833e-08
+  },
+  "sky": {
+   "most": 0.000678036641724398,
+   "differ": 70710
+  },
+  "l0": {
+   "most": 0.0006780401568357196,
+   "differ": 61543
+  },
+  "e": {
+   "most": 0.000678036641724398,
+   "differ": 70710
+  },
+  "scale_words_equal": [
+   true,
+   true
+  ],
+  "unit": {
+   "most": 7.60809543960108e-08,
+   "differ": 3
+  },
+  "verdict": {
+   "ok": true,
+   "rule": "code most <= 1",
+   "failed": []
+  }
+ },
+ "seconds": 1.7661280040047131,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T02:49:39+08:00"
+}

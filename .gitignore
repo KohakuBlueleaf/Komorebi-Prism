@@ -1,0 +1,25 @@
+# Private working material: never tracked (plans live in .internal/plans/)
+.internal/
+CLAUDE.local.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tools (the viewer's page: node_modules/ and its build in dist/)
+node_modules/
+.ruff_cache/
+.pytest_cache/
+
+# Build caches, data and run outputs live outside the repository; these catch strays
+# (generated/: what tt-metal writes into the folder a card run starts from)
+generated/
+kmr-cache/
+tt-cache/
+/data/
+/runs/
+*.log

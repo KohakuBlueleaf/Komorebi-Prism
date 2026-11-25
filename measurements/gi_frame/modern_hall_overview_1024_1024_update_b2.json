@@ -1,0 +1,396 @@
+{
+ "check": "prism.check.field_frames.check",
+ "pipeline": "gi",
+ "numbers": {
+  "bounces": 2,
+  "terms": [
+   "sky",
+   "ambient",
+   "sun",
+   "shadow",
+   "lamps",
+   "specular",
+   "background",
+   "glass",
+   "indirect"
+  ],
+  "suns": [
+   {
+    "sun": [
+     120.0,
+     40.0
+    ],
+    "codes": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "pictures": {
+     "1": {
+      "checked": 1041740,
+      "later_pieces": 6836,
+      "share_over_2": 3.8e-05,
+      "share_over_4": 4e-06,
+      "share_over_8": 2e-06,
+      "max_error": 11,
+      "glass_in_front": {
+       "pixels": 31452,
+       "checked": 31452,
+       "share_over_2": 0.0,
+       "share_over_4": 0.0,
+       "share_over_8": 0.0,
+       "max_error": 2
+      },
+      "band": {
+       "pixels": 95579,
+       "over_2": 11,
+       "share_over_2": 0.000115,
+       "over_4": 0,
+       "share_over_4": 0.0,
+       "over_8": 0,
+       "share_over_8": 0.0
+      },
+      "outside_band": {
+       "pixels": 946161,
+       "over_2": 29,
+       "share_over_2": 3.1e-05,
+       "over_4": 4,
+       "share_over_4": 4e-06,
+       "over_8": 2,
+       "share_over_8": 2e-06
+      }
+     },
+     "16": {
+      "checked": 1041740,
+      "later_pieces": 6836,
+      "share_over_2": 3.8e-05,
+      "share_over_4": 4e-06,
+      "share_over_8": 2e-06,
+      "max_error": 11,
+      "glass_in_front": {
+       "pixels": 31452,
+       "checked": 31452,
+       "share_over_2": 0.0,
+       "share_over_4": 0.0,
+       "share_over_8": 0.0,
+       "max_error": 2
+      },
+      "band": {
+       "pixels": 95579,
+       "over_2": 11,
+       "share_over_2": 0.000115,
+       "over_4": 0,
+       "share_over_4": 0.0,
+       "over_8": 0,
+       "share_over_8": 0.0
+      },
+      "outside_band": {
+       "pixels": 946161,
+       "over_2": 29,
+       "share_over_2": 3.1e-05,
+       "over_4": 4,
+       "share_over_4": 4e-06,
+       "over_8": 2,
+       "share_over_8": 2e-06
+      }
+     }
+    },
+    "field": {
+     "texels": 738432,
+     "share_equal": 0.8357573886288785,
+     "code_most": 10,
+     "has_equal": true
+    },
+    "scale": {
+     "card": 15.215184211730957,
+     "reference": 15.235889434814453,
+     "relative": 0.0013589769847098033
+    },
+    "updates": 1,
+    "same_picture": true,
+    "verdict": {
+     "ok": true,
+     "rule": "code most <= 12",
+     "failed": []
+    }
+   },
+   {
+    "sun": [
+     200.0,
+     30.0
+    ],
+    "codes": [
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "pictures": {
+     "1": {
+      "checked": 1041740,
+      "later_pieces": 6836,
+      "share_over_2": 4.1e-05,
+      "share_over_4": 4e-06,
+      "share_over_8": 2e-06,
+      "max_error": 13,
+      "glass_in_front": {
+       "pixels": 31452,
+       "checked": 31452,
+       "share_over_2": 0.000127,
+       "share_over_4": 0.0,
+       "share_over_8": 0.0,
+       "max_error": 3
+      },
+      "band": {
+       "pixels": 157014,
+       "over_2": 24,
+       "share_over_2": 0.000153,
+       "over_4": 0,
+       "share_over_4": 0.0,
+       "over_8": 0,
+       "share_over_8": 0.0
+      },
+      "outside_band": {
+       "pixels": 884726,
+       "over_2": 19,
+       "share_over_2": 2.1e-05,
+       "over_4": 4,
+       "share_over_4": 5e-06,
+       "over_8": 2,
+       "share_over_8": 2e-06
+      }
+     },
+     "16": {
+      "checked": 1041740,
+      "later_pieces": 6836,
+      "share_over_2": 4.1e-05,
+      "share_over_4": 4e-06,
+      "share_over_8": 2e-06,
+      "max_error": 13,
+      "glass_in_front": {
+       "pixels": 31452,
+       "checked": 31452,
+       "share_over_2": 0.000127,
+       "share_over_4": 0.0,
+       "share_over_8": 0.0,
+       "max_error": 3
+      },
+      "band": {
+       "pixels": 157014,
+       "over_2": 24,
+       "share_over_2": 0.000153,
+       "over_4": 0,
+       "share_over_4": 0.0,
+       "over_8": 0,
+       "share_over_8": 0.0
+      },
+      "outside_band": {
+       "pixels": 884726,
+       "over_2": 19,
+       "share_over_2": 2.1e-05,
+       "over_4": 4,
+       "share_over_4": 5e-06,
+       "over_8": 2,
+       "share_over_8": 2e-06
+      }
+     }
+    },
+    "field": {
+     "texels": 738432,
+     "share_equal": 0.8381015448951291,
+     "code_most": 10,
+     "has_equal": true
+    },
+    "scale": {
+     "card": 15.20615291595459,
+     "reference": 15.227319717407227,
+     "relative": 0.0013900543132643185
+    },
+    "updates": 2,
+    "same_picture": true,
+    "verdict": {
+     "ok": true,
+     "rule": "code most <= 12",
+     "failed": []
+    }
+   }
+  ],
+  "scale_words": [
+   {
+    "scale_equal": true,
+    "units_equal": true
+   },
+   {
+    "scale_equal": true,
+    "units_equal": true
+   }
+  ],
+  "updates": [
+   {
+    "total": 176.9563,
+    "fetch": 3.6304,
+    "zero": 43.7839,
+    "sources": 38.7039,
+    "rows": 22.4628,
+    "pack": 43.9778,
+    "store": 1.0454,
+    "apply_most": 3.8266,
+    "unit": [
+     3.631127810876933e-06,
+     3.631127810876933e-06,
+     5.826870983582921e-05
+    ],
+    "passes_ms": [
+     {
+      "store": 0.0844,
+      "apply": 3.8266,
+      "fetch": 0.1579,
+      "next": 5.4645
+     },
+     {
+      "store": 0.0853,
+      "apply": 3.8184,
+      "fetch": 0.1565,
+      "next": 9.7579
+     }
+    ],
+    "code": 0
+   },
+   {
+    "total": 132.3461,
+    "fetch": 0.3691,
+    "zero": 0.0,
+    "sources": 39.4693,
+    "rows": 27.354,
+    "pack": 43.8806,
+    "store": 1.0445,
+    "apply_most": 3.8341,
+    "unit": [
+     3.6289725358074065e-06,
+     3.6289725358074065e-06,
+     5.823412357131019e-05
+    ],
+    "passes_ms": [
+     {
+      "store": 0.0843,
+      "apply": 3.8283,
+      "fetch": 0.1563,
+      "next": 3.6335
+     },
+     {
+      "store": 0.0846,
+      "apply": 3.8341,
+      "fetch": 0.1585,
+      "next": 8.4484
+     }
+    ],
+    "code": 0
+   }
+  ],
+  "sun_passes": [
+   {
+    "sun": [
+     120.0,
+     40.0
+    ],
+    "code": 0
+   },
+   {
+    "sun": [
+     200.0,
+     30.0
+    ],
+    "code": 0
+   }
+  ],
+  "sun_times": [
+   {
+    "number": 0,
+    "code": 0,
+    "pass": 7156.9400000000005,
+    "quadrants": [
+     1508.54,
+     1828.54,
+     1700.98,
+     2118.62
+    ]
+   },
+   {
+    "number": 1,
+    "code": 0,
+    "pass": 6371.74,
+    "quadrants": [
+     1619.5,
+     1711.78,
+     1441.58,
+     1598.64
+    ]
+   }
+  ],
+  "ms": {
+   "count": 0.15481999999999999,
+   "count.1": 0.11175,
+   "sum": 0.055920000000000004,
+   "sum.1": 0.05552000000000001,
+   "hist": 0.025070000000000002,
+   "hist.1": 0.0,
+   "hsum": 0.06969,
+   "hsum.1": 0.0,
+   "middle": 0.50803,
+   "middle.1": 0.40074000000000004,
+   "place": 0.09053,
+   "place.1": 0.08843000000000001,
+   "setup": 0.24791000000000002,
+   "setup.1": 0.16294,
+   "fill": 0.22991000000000003,
+   "fill.1": 0.12403,
+   "shade": 1.8021900000000002,
+   "shade.1": 0.40605,
+   "light": 5.931610000000001,
+   "light_glass": 2.1331599999999997,
+   "show": 0.8268800000000002,
+   "push": 0.28622000000000003,
+   "frame": 13.71412,
+   "slots": 20912,
+   "slots.1": 1920,
+   "items": 1054,
+   "items.1": 1024,
+   "marks": 1174,
+   "marks.1": 270,
+   "heavy_tiles": 28,
+   "heavy_tiles.1": 0
+  }
+ },
+ "seconds": 51.11718962597661,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T04:38:10+08:00"
+}

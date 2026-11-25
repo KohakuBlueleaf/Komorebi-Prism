@@ -1,0 +1,122 @@
+{
+ "check": "prism.stages.indirect.field_update.check.check",
+ "pipeline": "field",
+ "numbers": {
+  "scene": "sponza",
+  "sun": [
+   120.0,
+   40.0
+  ],
+  "bounces": 0,
+  "stepped": false,
+  "codes": [
+   0,
+   0
+  ],
+  "row_codes": [
+   0,
+   0
+  ],
+  "host_s": [
+   {
+    "commands_s": 0.0998,
+    "read_s": 0.0,
+    "apply_s": 0.0,
+    "write_s": 0.0,
+    "s": 0.0998
+   },
+   {
+    "commands_s": 0.0909,
+    "read_s": 0.0,
+    "apply_s": 0.0,
+    "write_s": 0.0,
+    "s": 0.0909
+   }
+  ],
+  "times": [
+   {
+    "total": 99.4814,
+    "fetch": 3.2075,
+    "zero": 5.9705,
+    "sources": 41.4228,
+    "rows": 20.6718,
+    "pack": 28.0804,
+    "store": 0.1278,
+    "apply_most": null,
+    "unit": [
+     5.37772166353534e-07,
+     5.37772166353534e-07,
+     8.629630428913515e-06
+    ],
+    "passes_ms": []
+   },
+   {
+    "total": 90.608,
+    "fetch": 0.3556,
+    "zero": 0.0,
+    "sources": 40.9709,
+    "rows": 20.8933,
+    "pack": 28.2605,
+    "store": 0.1273,
+    "apply_most": null,
+    "unit": [
+     5.37772166353534e-07,
+     5.37772166353534e-07,
+     8.629630428913515e-06
+    ],
+    "passes_ms": []
+   }
+  ],
+  "transport": {
+   "ticks": 0,
+   "ticks_sum": 0,
+   "ticks_least": 0,
+   "served": 0,
+   "code": 0
+  },
+  "field": {
+   "texels": 434202,
+   "share_equal": 0.9999815753957836,
+   "code_most": 1,
+   "has_equal": true
+  },
+  "pages_equal": false,
+  "scale": {
+   "card": 2.253377676010132,
+   "reference": 2.2533771991729736,
+   "relative": 2.1161000403222864e-07
+  },
+  "sky": {
+   "most": 6.055289464029894e-07,
+   "differ": 13348
+  },
+  "l0": {
+   "most": 6.664676890355069e-07,
+   "differ": 10616
+  },
+  "e": {
+   "most": 6.055289464029894e-07,
+   "differ": 13348
+  },
+  "scale_words_equal": [
+   true,
+   true
+  ],
+  "unit": {
+   "most": 3.161763403979775e-07,
+   "differ": 3
+  },
+  "verdict": {
+   "ok": true,
+   "rule": "code most <= 1",
+   "failed": []
+  }
+ },
+ "seconds": 1.4910902649862692,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T02:45:39+08:00"
+}

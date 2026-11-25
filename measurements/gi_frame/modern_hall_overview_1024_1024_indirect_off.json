@@ -1,0 +1,173 @@
+{
+ "check": "prism.stages.post.show.check.check",
+ "pipeline": "gi",
+ "numbers": {
+  "frames": 16,
+  "codes": [
+   0
+  ],
+  "pipeline": [
+   "raster",
+   "material.texture",
+   "direct.shadow_pcf",
+   "indirect.transport",
+   "indirect.field_update",
+   "direct.light",
+   "post.show"
+  ],
+  "pictures": {
+   "1": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1041740,
+    "later_pieces": 6836,
+    "share_over_2": 7e-06,
+    "share_over_4": 4e-06,
+    "share_over_8": 3e-06,
+    "max_error": 11,
+    "glass_in_front": {
+     "pixels": 31452,
+     "checked": 31452,
+     "share_over_2": 0.0,
+     "share_over_4": 0.0,
+     "share_over_8": 0.0,
+     "max_error": 1
+    },
+    "band": {
+     "pixels": 323930,
+     "over_2": 0,
+     "share_over_2": 0.0,
+     "over_4": 0,
+     "share_over_4": 0.0,
+     "over_8": 0,
+     "share_over_8": 0.0
+    },
+    "outside_band": {
+     "pixels": 717810,
+     "over_2": 7,
+     "share_over_2": 1e-05,
+     "over_4": 4,
+     "share_over_4": 6e-06,
+     "over_8": 3,
+     "share_over_8": 4e-06
+    }
+   },
+   "2": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1041740,
+    "later_pieces": 6836,
+    "share_over_2": 7e-06,
+    "share_over_4": 4e-06,
+    "share_over_8": 3e-06,
+    "max_error": 11,
+    "glass_in_front": {
+     "pixels": 31452,
+     "checked": 31452,
+     "share_over_2": 0.0,
+     "share_over_4": 0.0,
+     "share_over_8": 0.0,
+     "max_error": 1
+    },
+    "band": {
+     "pixels": 323930,
+     "over_2": 0,
+     "share_over_2": 0.0,
+     "over_4": 0,
+     "share_over_4": 0.0,
+     "over_8": 0,
+     "share_over_8": 0.0
+    },
+    "outside_band": {
+     "pixels": 717810,
+     "over_2": 7,
+     "share_over_2": 1e-05,
+     "over_4": 4,
+     "share_over_4": 6e-06,
+     "over_8": 3,
+     "share_over_8": 4e-06
+    }
+   },
+   "16": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1041740,
+    "later_pieces": 6836,
+    "share_over_2": 7e-06,
+    "share_over_4": 4e-06,
+    "share_over_8": 3e-06,
+    "max_error": 11,
+    "glass_in_front": {
+     "pixels": 31452,
+     "checked": 31452,
+     "share_over_2": 0.0,
+     "share_over_4": 0.0,
+     "share_over_8": 0.0,
+     "max_error": 1
+    },
+    "band": {
+     "pixels": 323930,
+     "over_2": 0,
+     "share_over_2": 0.0,
+     "over_4": 0,
+     "share_over_4": 0.0,
+     "over_8": 0,
+     "share_over_8": 0.0
+    },
+    "outside_band": {
+     "pixels": 717810,
+     "over_2": 7,
+     "share_over_2": 1e-05,
+     "over_4": 4,
+     "share_over_4": 6e-06,
+     "over_8": 3,
+     "share_over_8": 4e-06
+    }
+   }
+  },
+  "same_picture": true,
+  "push": true,
+  "tiles": 1024,
+  "cores": 120,
+  "ms": {
+   "count": 0.155,
+   "count.1": 0.11190000000000001,
+   "sum": 0.055400000000000005,
+   "sum.1": 0.05521000000000001,
+   "hist": 0.025050000000000003,
+   "hist.1": 0.0,
+   "hsum": 0.06968,
+   "hsum.1": 0.0,
+   "middle": 0.51042,
+   "middle.1": 0.40127,
+   "place": 0.09054000000000001,
+   "place.1": 0.08834,
+   "setup": 0.24872,
+   "setup.1": 0.16378,
+   "fill": 0.2297,
+   "fill.1": 0.12458000000000001,
+   "shade": 1.8018600000000002,
+   "shade.1": 0.40553000000000006,
+   "light": 3.37842,
+   "light_glass": 1.52287,
+   "show": 0.7886700000000001,
+   "push": 0.28623000000000004,
+   "frame": 10.515880000000001,
+   "slots": 20912,
+   "slots.1": 1920,
+   "items": 1054,
+   "items.1": 1024,
+   "marks": 1174,
+   "marks.1": 270,
+   "heavy_tiles": 28,
+   "heavy_tiles.1": 0
+  }
+ },
+ "seconds": 12.32772030797787,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T04:24:21+08:00"
+}

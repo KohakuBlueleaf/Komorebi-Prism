@@ -1,0 +1,102 @@
+{
+ "check": "prism.stages.post.show.check.check",
+ "pipeline": "textured",
+ "numbers": {
+  "frames": 16,
+  "codes": [
+   0
+  ],
+  "pipeline": [
+   "raster",
+   "material.texture",
+   "post.show"
+  ],
+  "pictures": {
+   "1": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1048576,
+    "differ": 3,
+    "share": 3e-06,
+    "max_error": 11,
+    "frame_differ": 3,
+    "later_pieces": 0
+   },
+   "2": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1048576,
+    "differ": 3,
+    "share": 3e-06,
+    "max_error": 11,
+    "frame_differ": 3,
+    "later_pieces": 0
+   },
+   "16": {
+    "host_differ": 0,
+    "read_back_differ": 0,
+    "checked": 1048576,
+    "differ": 3,
+    "share": 3e-06,
+    "max_error": 11,
+    "frame_differ": 3,
+    "later_pieces": 0
+   }
+  },
+  "same_picture": true,
+  "push": true,
+  "tiles": 1024,
+  "cores": 120,
+  "ms": {
+   "count": 2.4979700000000005,
+   "count.1": 0.8511700000000001,
+   "count.2": 0.08803,
+   "sum": 0.05537,
+   "sum.1": 0.055810000000000005,
+   "sum.2": 0.054950000000000006,
+   "hist": 0.0,
+   "hist.1": 0.027130000000000005,
+   "hist.2": 0.02671,
+   "hsum": 0.0,
+   "hsum.1": 0.0708,
+   "hsum.2": 0.07068,
+   "middle": 0.43254000000000004,
+   "middle.1": 0.70935,
+   "middle.2": 0.57359,
+   "place": 0.09211000000000001,
+   "place.1": 0.09744,
+   "place.2": 0.09360000000000002,
+   "setup": 2.8743000000000003,
+   "setup.1": 1.91343,
+   "setup.2": 0.15259,
+   "fill": 2.6395500000000003,
+   "fill.1": 1.90832,
+   "fill.2": 0.12900999999999999,
+   "shade": 6.62371,
+   "shade.1": 4.22863,
+   "shade.2": 0.31256,
+   "show": 0.81871,
+   "push": 0.28742,
+   "frame": 27.68849,
+   "slots": 458064,
+   "slots.1": 507376,
+   "slots.2": 6464,
+   "items": 1024,
+   "items.1": 1301,
+   "items.2": 1120,
+   "marks": 1136,
+   "marks.1": 771,
+   "marks.2": 562,
+   "heavy_tiles": 0,
+   "heavy_tiles.1": 73,
+   "heavy_tiles.2": 67
+  }
+ },
+ "seconds": 220.43326759297634,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T02:43:15+08:00"
+}

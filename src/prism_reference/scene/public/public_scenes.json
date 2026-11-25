@@ -1,0 +1,681 @@
+{
+ "environments": {
+  "kloppenheim_05": {
+   "title": "Kloppenheim 05",
+   "page": "https://polyhaven.com/a/kloppenheim_05",
+   "licence": "CC0",
+   "files": [
+    {
+     "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/kloppenheim_05_4k.hdr",
+     "sha256": "da7bc90e8bb1dd13e6e3c57d7fba27662bb487a3def5229f371dd99af1459d25",
+     "bytes": 23441531
+    }
+   ]
+  },
+  "san_giuseppe_bridge": {
+   "title": "San Giuseppe Bridge",
+   "page": "https://polyhaven.com/a/san_giuseppe_bridge",
+   "licence": "CC0",
+   "files": [
+    {
+     "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/4k/san_giuseppe_bridge_4k.hdr",
+     "sha256": "7dbe10dbb6e22eaad44dace49d575e12481af2f36ff6cf13695fdc1b993ecf52",
+     "bytes": 23850538
+    }
+   ]
+  }
+ },
+ "conference": {
+  "title": "Conference Room",
+  "page": "https://casual-effects.com/data/",
+  "licence": "credit required",
+  "attribution": "Conference Room by Anat Grynberg and Greg Ward, from Morgan McGuire's Computer Graphics Archive (https://casual-effects.com/data)",
+  "triangles": 124619,
+  "files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/conference/conference.zip",
+    "sha256": "3dfd86325416ec344bfb2d19290b2e3305cc862ee504a06a52ce0a0e895453f0",
+    "bytes": 1934868
+   }
+  ],
+  "meshes": [
+   {"file": "conference.zip", "member": "conference.obj"}
+  ],
+  "light": [300.0, 600.0, -200.0],
+  "views": {
+   "overview": {"eye": [1250.0, 430.0, 420.0], "target": [0.0, 120.0, -400.0], "fov": 75},
+   "close": {"eye": [650.0, 140.0, -60.0], "target": [50.0, 70.0, -450.0], "fov": 60}
+  }
+ },
+ "sponza": {
+  "title": "Crytek Sponza",
+  "page": "https://casual-effects.com/data/",
+  "licence": "CC BY 3.0",
+  "attribution": "Crytek Sponza by Frank Meinl, Crytek (2010), from Morgan McGuire's Computer Graphics Archive (https://casual-effects.com/data)",
+  "triangles": 262266,
+  "files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/common/model/crytek_sponza/sponza.zip",
+    "sha256": "da005cbee0be2df2abc8513f3ceb61bcb6f69aac112babcd9c00169a27c2770c",
+    "bytes": 80113441
+   }
+  ],
+  "meshes": [
+   {
+    "file": "sponza.zip",
+    "member": "sponza.obj",
+    "material_colours": {
+     "leaf": [0.063, 0.058, 0.03],
+     "vase_round": [0.156, 0.122, 0.124],
+     "Material__57": [0.283, 0.205, 0.014],
+     "Material__298": [0.147, 0.12, 0.079],
+     "bricks": [0.319, 0.283, 0.214],
+     "arch": [0.233, 0.195, 0.145],
+     "ceiling": [0.404, 0.319, 0.197],
+     "column_a": [0.342, 0.292, 0.224],
+     "floor": [0.459, 0.374, 0.256],
+     "column_c": [0.376, 0.338, 0.264],
+     "details": [0.148, 0.133, 0.114],
+     "column_b": [0.278, 0.235, 0.174],
+     "flagpole": [0.296, 0.269, 0.258],
+     "fabric_e": [0.034, 0.14, 0.014],
+     "fabric_d": [0.037, 0.078, 0.216],
+     "fabric_a": [0.173, 0.03, 0.012],
+     "fabric_g": [0.082, 0.114, 0.291],
+     "fabric_c": [0.23, 0.022, 0.008],
+     "fabric_f": [0.038, 0.108, 0.006],
+     "chain": [0.048, 0.06, 0.059],
+     "vase_hanging": [0.021, 0.024, 0.023],
+     "vase": [0.378, 0.304, 0.211],
+     "Material__25": [0.175, 0.137, 0.08],
+     "roof": [0.185, 0.172, 0.181]
+    }
+   }
+  ],
+  "materials": {},
+  "lighting": {"environment": "kloppenheim_05", "turn": 0.0, "sun_to_sky": 5.0, "ambient": [0.35, 0.33, 0.3], "lamp_scale": 1.0, "merge_distance": 50.0, "radius": 1000.0, "size": 10.0, "emissive_scale": 1.0, "exposure": 1.0, "shadow_bias": 3.0},
+  "light": [200.0, 800.0, 100.0],
+  "views": {
+   "overview": {"eye": [-900.0, 600.0, 0.0], "target": [1000.0, 250.0, 0.0], "fov": 75},
+   "close": {"eye": [750.0, 130.0, -170.0], "target": [-400.0, 260.0, 300.0], "fov": 60}
+  }
+ },
+ "bistro_interior": {
+  "title": "Amazon Lumberyard Bistro, interior",
+  "page": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+  "licence": "CC BY 4.0",
+  "attribution": "Amazon Lumberyard Bistro, Open Research Content Archive (ORCA), (c) 2017 Amazon Lumberyard; OBJ version from Morgan McGuire's Computer Graphics Archive (https://casual-effects.com/data)",
+  "triangles": 1020903,
+  "files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/Interior.zip",
+    "sha256": "3faa41f8d6860d1267268348d44d2b74c64a8bfb55dd4b03c562a70ab83b1062",
+    "bytes": 21293389
+   }
+  ],
+  "meshes": [
+   {
+    "file": "Interior.zip",
+    "member": "interior.obj",
+    "material_colours": {
+     "MASTER_Interior_01_Plaster": [0.341, 0.352, 0.339],
+     "MASTER_Interior_01_Wood": [0.072, 0.056, 0.044],
+     "MASTER_Interior_01_Wooden_stuco": [0.107, 0.107, 0.107],
+     "MASTER_Wood_Painted3": [0.039, 0.065, 0.045],
+     "MASTER_Interior_01_Plaster_Red": [0.225, 0.067, 0.051],
+     "MASTER_Interior_01_Grid": [0.216, 0.216, 0.216],
+     "MASTER_Interior_01_Brushed_Metal": [0.422, 0.45, 0.474],
+     "MASTER_Interior_01_Plaster2": [0.341, 0.352, 0.339],
+     "MASTER_Interior_01_Frozen_Glass": [0.216, 0.216, 0.216],
+     "MASTER_Interior_01_Floor_Tile_Hexagonal_BLENDSHADER": [0.098, 0.098, 0.1],
+     "MASTER_Interior_01_Glass": [0.216, 0.216, 0.216],
+     "MASTER_Interior_01_Paris_Bartrim": [0.13, 0.121, 0.108],
+     "MASTER_Interior_01_White_Plastic": [0.376, 0.376, 0.376],
+     "MASTER_Interior_01_Grid1": [0.013, 0.013, 0.013],
+     "MASTER_Interior_01_Material": [0.165, 0.13, 0.096],
+     "MASTER_Interior_01_Paris_Lantern": [0.055, 0.038, 0.022],
+     "curtainB1": [0.233, 0.025, 0.014],
+     "curtainA": [0.196, 0.025, 0.012],
+     "Paris_Ceiling_Lamp": [0.119, 0.118, 0.119],
+     "Paris_Wall_Light_Interior": [0.208, 0.177, 0.129],
+     "Paris_Wall_Bulb_Light": [0.376, 0.376, 0.376],
+     "Wall_Lamp": [0.055, 0.038, 0.022],
+     "Metal_Bronze_01": [0.0, 0.0, 0.0],
+     "Paris_CeilingFan": [0.091, 0.047, 0.027],
+     "Paris_Beertap": [0.028, 0.026, 0.023],
+     "Paris_LiquorBottle_01_Caps": [0.027, 0.017, 0.02],
+     "ToffeeJar_Label": [0.131, 0.113, 0.109],
+     "Paris_LiquorBottle_01_Glass_Wine": [0.014, 0.014, 0.014],
+     "Metal_Worn_01": [0.0, 0.0, 0.0],
+     "Wood": [0.107, 0.107, 0.107],
+     "Plastic_02": [0.222, 0.222, 0.222],
+     "Paris_Painting_Metal": [0.009, 0.009, 0.009],
+     "Paris_Paintings": [0.257, 0.15, 0.094],
+     "Paris_Paintings_Glass": [0.028, 0.028, 0.028],
+     "Paris_BarStool": [0.027, 0.012, 0.007],
+     "ToffeeJar_Metal": [0.004, 0.004, 0.004],
+     "CookieJar_Cookies": [0.741, 0.352, 0.122],
+     "Paris_Radiator": [0.399, 0.288, 0.201],
+     "Cutlery_chrome": [0.076, 0.076, 0.076],
+     "Cutlery_details": [0.076, 0.076, 0.076],
+     "Paris_Table_03": [0.072, 0.056, 0.044],
+     "Plates_Details": [0.798, 0.922, 0.835],
+     "Plates_Ceramic": [0.624, 0.624, 0.584],
+     "NapkinHolder_01": [0.139, 0.126, 0.121],
+     "Paris_Table_cloth_01": [0.047, 0.047, 0.06],
+     "Metal_Chrome1": [0.0, 0.0, 0.0],
+     "Cloth": [0.413, 0.413, 0.413],
+     "Plants_plants": [0.139, 0.139, 0.071],
+     "Plants_Metal_Base_01": [0.0, 0.0, 0.0],
+     "Trolley_Plastic": [0.222, 0.222, 0.222],
+     "Trolley_Wheels": [0.06, 0.126, 0.072],
+     "Trolley_Wood_Painted": [0.039, 0.065, 0.045],
+     "WickerBasket": [0.413, 0.388, 0.361],
+     "Paris_Coasters_01": [0.037, 0.022, 0.013],
+     "Paris_Cashregister": [0.113, 0.065, 0.042],
+     "Paris_Cashregister_Buttons": [0.203, 0.175, 0.154],
+     "Paris_Cashregister_Glass": [0.028, 0.028, 0.028],
+     "Paris_Doormat": [0.019, 0.018, 0.018],
+     "Rubber_Bar_Mat_01": [0.012, 0.012, 0.016],
+     "Plastic_01": [0.222, 0.222, 0.222]
+    }
+   }
+  ],
+  "texture_files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/BuildingTextures",
+    "file": "BuildingTextures.zip",
+    "sha256": "16538a37f34cadec5665d97e5b77ef3581d67ab674b33b9caeef1d277cbde6bf",
+    "bytes": 507671451
+   },
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/OtherTextures",
+    "file": "OtherTextures.zip",
+    "sha256": "0806fee3eeb0e14cd501582edbd2d5caf33c5416a62a871e0f126391096f5c58",
+    "bytes": 431016313
+   },
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/PropTextures",
+    "file": "PropTextures.zip",
+    "sha256": "a179e4ee6367d2b518c4978d7e2e690c59503861634d67d0da8bacfa7196571a",
+    "bytes": 415421476
+   }
+  ],
+  "materials": {"archives": {"BuildingTextures": "BuildingTextures.zip", "OtherTextures": "OtherTextures.zip", "PropTextures": "PropTextures.zip"}},
+  "lighting": {"environment": "kloppenheim_05", "turn": 0.0, "sun_to_sky": 5.0, "ambient": [0.01, 0.01, 0.01], "lamp_scale": 100000.0, "merge_distance": 30.0, "radius": 900.0, "size": 10.0, "emissive_scale": 6.0, "exposure": 1.0, "shadow_bias": 1.0, "reflection": 0.5,
+   "lights": [
+    {"position": [499.1, 303.1, -48.9], "colour": [0.702, 0.566, 0.31]},
+    {"position": [798.9, 307.4, 101.5], "colour": [0.702, 0.566, 0.31]},
+    {"position": [426.3, 309.5, -492.0], "colour": [0.702, 0.566, 0.31]},
+    {"position": [610.7, 293.9, -846.8], "colour": [0.702, 0.566, 0.31]}
+   ]},
+  "light": [600.0, 330.0, -460.0],
+  "views": {
+   "overview": {"eye": [450.0, 260.0, -750.0], "target": [750.0, 150.0, -150.0], "fov": 75},
+   "close": {"eye": [520.0, 150.0, -560.0], "target": [950.0, 130.0, -100.0], "fov": 55}
+  }
+ },
+ "bistro_exterior": {
+  "title": "Amazon Lumberyard Bistro, exterior",
+  "page": "https://developer.nvidia.com/orca/amazon-lumberyard-bistro",
+  "licence": "CC BY 4.0",
+  "attribution": "Amazon Lumberyard Bistro, Open Research Content Archive (ORCA), (c) 2017 Amazon Lumberyard; OBJ version from Morgan McGuire's Computer Graphics Archive (https://casual-effects.com/data)",
+  "triangles": 2833330,
+  "files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/Exterior.zip",
+    "sha256": "f612ba0d8a65811afe0d48a023d31e5b43ac40b78e9b12d15e2b7dc8923c29d4",
+    "bytes": 64186766
+   }
+  ],
+  "meshes": [
+   {
+    "file": "Exterior.zip",
+    "member": "exterior.obj",
+    "material_colours": {
+     "Pavement_Curbstones": [0.091, 0.089, 0.085],
+     "Pavement_Cobblestone_Small_BLENDSHADER": [0.105, 0.108, 0.101],
+     "Pavement_Cobblestone_Big_BLENDSHADER": [0.118, 0.11, 0.101],
+     "Pavement_Cobblestone_02": [0.115, 0.111, 0.107],
+     "Pavement_Brick_BLENDSHADER": [0.217, 0.212, 0.211],
+     "Pavement_Ground_Wet": [0.05, 0.039, 0.029],
+     "Pavement_Manhole_Cover": [0.054, 0.045, 0.036],
+     "Pavement_Cobblestone_Wet_BLENDSHADER": [0.099, 0.096, 0.094],
+     "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER": [0.099, 0.096, 0.094],
+     "Pavement_Cobblestone_01_BLENDSHADER": [0.12, 0.108, 0.094],
+     "Pavement_Cobble_Leaves_BLENDSHADER": [0.12, 0.108, 0.094],
+     "MASTER_Brick_Small_Red_BLENDSHADER": [0.225, 0.098, 0.058],
+     "Concrete3": [0.341, 0.352, 0.339],
+     "MASTER_Focus": [0.029, 0.025, 0.023],
+     "MASTER_Metal": [0.332, 0.332, 0.319],
+     "MASTER_Focus_Glass": [0.006, 0.005, 0.005],
+     "MASTER_Focus_Ornament": [0.031, 0.028, 0.019],
+     "MASTER_Bistro_Main_Door": [0.057, 0.087, 0.064],
+     "MASTER_Concrete_Grooved": [0.195, 0.185, 0.182],
+     "MASTER_Glass_Exterior": [0.03, 0.03, 0.03],
+     "MASTER_Light_Bulb": [0.029, 0.025, 0.023],
+     "MASTER_Wood_Painted3": [0.039, 0.065, 0.045],
+     "MASTER_Concrete1": [0.131, 0.13, 0.13],
+     "MASTER_Side_Letters": [0.134, 0.116, 0.078],
+     "Balcony_Concrete": [0.156, 0.148, 0.141],
+     "Balcony_Trims": [0.092, 0.098, 0.078],
+     "Balcony_Ornaments": [0.111, 0.095, 0.087],
+     "Balcony_Green_Wood": [0.005, 0.037, 0.005],
+     "MASTER_Plastic": [0.326, 0.126, 0.07],
+     "MASTER_Grain_Metal": [0.195, 0.195, 0.231],
+     "MASTER_Concrete_Yellow": [0.303, 0.233, 0.096],
+     "MASTER_Concrete": [0.341, 0.352, 0.339],
+     "MASTER_Concrete_Smooth": [0.308, 0.303, 0.286],
+     "MASTER_Roofing_Shingle_Grey": [0.059, 0.065, 0.065],
+     "MASTER_Concrete_Plaster1_BLENDSHADER": [0.308, 0.303, 0.286],
+     "MASTER_Roofing_Shingle_Green": [0.091, 0.171, 0.183],
+     "MASTER_Trim_Cornice": [0.233, 0.233, 0.233],
+     "MASTER_Forge_Metal": [0.036, 0.036, 0.036],
+     "MASTER_Curtains": [0.486, 0.519, 0.604],
+     "MASTER_Metal_Pipe": [0.195, 0.195, 0.231],
+     "MASTER_Wood_Polished": [0.224, 0.14, 0.082],
+     "MASTER_Doors": [0.017, 0.036, 0.028],
+     "MASTER_Brick_Large_Beige_BLENDSHADER": [0.247, 0.242, 0.205],
+     "MASTER_Wood_Brown": [0.224, 0.14, 0.082],
+     "MASTER_Wood_Painted_Green": [0.262, 0.262, 0.262],
+     "MASTER_Concrete_Plaster": [0.308, 0.303, 0.286],
+     "MASTER_Black_Metal": [0.195, 0.195, 0.231],
+     "MASTER_Brick_Large_White": [0.53, 0.549, 0.566],
+     "MASTER_Building_Details": [0.345, 0.314, 0.312],
+     "MASTER_Wood_Painted_Cyan": [0.362, 0.543, 0.616],
+     "MASTER_Brick_Small_Red": [0.07, 0.033, 0.03],
+     "MASTER_Roofing_Metal_01": [0.019, 0.02, 0.02],
+     "MASTER_Room_Interior": [0.088, 0.063, 0.045],
+     "MASTER_Awning_Beams": [0.228, 0.213, 0.185],
+     "MASTER_Boulangerie": [0.266, 0.149, 0.101],
+     "MASTER_Frosted_Glass": [0.0, 0.216, 0.0],
+     "MASTER_Awning_Fabric_Cyan": [0.275, 0.424, 0.359],
+     "MASTER_Bronze_BLENDSHADER": [0.0, 0.0, 0.0],
+     "MASTER_Concrete_White": [0.337, 0.337, 0.337],
+     "MASTER_Awning_Fabric_Red": [0.192, 0.02, 0.018],
+     "MASTER_Book_Covers": [0.201, 0.129, 0.094],
+     "MASTER_Concrete_Smooth_BLENDSHADER": [0.5, 0.5, 0.5],
+     "MASTER_Wood_Painted_Green_BLENDSHADER": [0.039, 0.065, 0.044],
+     "MASTER_Rollup_Door": [0.0, 0.0, 0.0],
+     "MASTER_Details_Dark": [0.345, 0.314, 0.312],
+     "Foliage_Bux_Hedges46": [0.05, 0.067, 0.023],
+     "Foliage_Leaves": [0.141, 0.239, 0.046],
+     "Foliage_Trunk": [0.114, 0.08, 0.054],
+     "Foliage_Flowers": [0.118, 0.183, 0.068],
+     "Foliage_Paris_Flowers": [0.508, 0.404, 0.394],
+     "Foliage_Linde_Tree_Large_Trunk": [0.146, 0.095, 0.062],
+     "Foliage_Linde_Tree_Large_Orange_Leaves": [0.237, 0.142, 0.042],
+     "Foliage_Linde_Tree_Large_Green_Leaves": [0.241, 0.214, 0.047],
+     "Foliage_Ivy_leaf_a": [0.029, 0.063, 0.022],
+     "Foliage_Ivy_branches": [0.115, 0.086, 0.041],
+     "Streetlight_Glass": [0.033, 0.033, 0.033],
+     "Streetlight_Support_Bulb": [0.033, 0.033, 0.033],
+     "Paris_StringLights_01_White_Color": [0.301, 0.301, 0.301],
+     "Streetlight_Metal": [0.012, 0.011, 0.011],
+     "Streetlight_Chains": [0.364, 0.363, 0.363],
+     "Paris_Streetpivot": [0.028, 0.026, 0.027],
+     "ElectricBox": [0.102, 0.093, 0.083],
+     "Shopsign_Bakery": [0.283, 0.238, 0.227],
+     "Banner_Metal": [0.005, 0.005, 0.005],
+     "Shopsign_Book_Store": [0.534, 0.259, 0.259],
+     "Shopsign_Pharmacy": [0.139, 0.224, 0.136],
+     "Shopsign_Ties_Shop": [0.008, 0.008, 0.008],
+     "Spotlight_Main": [0.029, 0.025, 0.023],
+     "Spotlight_Emissive": [0.029, 0.025, 0.023],
+     "Spotlight_Glass": [0.006, 0.005, 0.005],
+     "Paris_StreetSign_01": [0.05, 0.121, 0.067],
+     "Paris_TrafficSign_A": [0.271, 0.16, 0.175],
+     "MenuSign_01": [0.134, 0.084, 0.057],
+     "MenuSign_02_Mesh": [0.132, 0.104, 0.077],
+     "MenuSign_02_Glass": [0.022, 0.022, 0.022],
+     "Trashcan": [0.06, 0.126, 0.072],
+     "Paris_StringLights_01_Green_Color": [0.0, 0.23, 0.002],
+     "Paris_StringLights_01_Red_Color": [0.422, 0.0, 0.0],
+     "Stringlights": [0.027, 0.027, 0.026],
+     "Paris_StringLights_01_Blue_Color": [0.301, 0.301, 0.301],
+     "Paris_StringLights_01_Pink_Color": [0.516, 0.002, 0.8],
+     "Paris_StringLights_01_Orange_Color": [0.737, 0.343, 0.055],
+     "Bollards": [0.028, 0.031, 0.029],
+     "Vespa": [0.044, 0.08, 0.136],
+     "Vespa_Odometer": [0.544, 0.589, 0.605],
+     "Antenna_Metal": [0.0, 0.0, 0.0],
+     "Antenna_Plastic_Blue": [0.287, 0.287, 0.287],
+     "Antenna_Plastic": [0.287, 0.287, 0.287],
+     "Awnings_Fabric": [0.192, 0.02, 0.018],
+     "Awnings_Beams": [0.199, 0.171, 0.148],
+     "Awnings_Hotel_Fabric": [0.589, 0.042, 0.042],
+     "Bistro_Sign_Main": [0.024, 0.042, 0.029],
+     "Bistro_Sign_Letters": [0.08, 0.08, 0.08],
+     "Plantpots": [0.38, 0.335, 0.319],
+     "Sidewalkbarrier": [0.017, 0.017, 0.016],
+     "Concrete": [0.341, 0.352, 0.339],
+     "Plaster": [0.408, 0.404, 0.38],
+     "Concrete2": [0.5, 0.5, 0.5],
+     "Concrete_Striped": [0.195, 0.185, 0.182],
+     "Chimneys_Metal": [0.0, 0.0, 0.0],
+     "Lantern": [0.055, 0.038, 0.022],
+     "Paris_Chair_01": [0.059, 0.033, 0.019],
+     "Paris_Table_Terrace": [0.056, 0.032, 0.018],
+     "Ashtray": [0.27, 0.27, 0.27],
+     "NapkinHolder": [0.139, 0.126, 0.121],
+     "Paris_LiquorBottle_01_Glass_Wine": [0.014, 0.014, 0.014],
+     "Paris_LiquorBottle_01_Caps": [0.027, 0.017, 0.02],
+     "Paris_LiquorBottle_01_Labels": [0.131, 0.113, 0.109]
+    }
+   }
+  ],
+  "texture_files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/BuildingTextures",
+    "file": "BuildingTextures.zip",
+    "sha256": "16538a37f34cadec5665d97e5b77ef3581d67ab674b33b9caeef1d277cbde6bf",
+    "bytes": 507671451
+   },
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/OtherTextures",
+    "file": "OtherTextures.zip",
+    "sha256": "0806fee3eeb0e14cd501582edbd2d5caf33c5416a62a871e0f126391096f5c58",
+    "bytes": 431016313
+   },
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/bistro/PropTextures",
+    "file": "PropTextures.zip",
+    "sha256": "a179e4ee6367d2b518c4978d7e2e690c59503861634d67d0da8bacfa7196571a",
+    "bytes": 415421476
+   }
+  ],
+  "materials": {"archives": {"BuildingTextures": "BuildingTextures.zip", "OtherTextures": "OtherTextures.zip", "PropTextures": "PropTextures.zip"}},
+  "lighting": {"environment": "san_giuseppe_bridge", "lights": [], "sun": {"direction": [0.0, -0.876, -0.482], "colour": [0.734, 0.583, 0.377]}, "sun_to_sky": 5.0, "ambient": [0.3, 0.3, 0.3], "lamp_scale": 1.0, "merge_distance": 50.0, "radius": 1000.0, "size": 10.0, "emissive_scale": 1.0, "exposure": 1.0, "shadow_bias": 3.0, "reflection": 0.5},
+  "light": [-2000.0, 4000.0, 1000.0],
+  "views": {
+   "overview": {"eye": [-1100.0, 700.0, -100.0], "target": [200.0, 100.0, -2400.0], "fov": 70},
+   "close": {"eye": [-80.0, 140.0, -620.0], "target": [130.0, 70.0, -1150.0], "fov": 60}
+  }
+ },
+ "breakfast_room": {
+  "title": "Breakfast Room",
+  "page": "https://casual-effects.com/data/",
+  "licence": "CC BY 3.0",
+  "attribution": "Breakfast Room by Wig42 (Blend Swap), OBJ version by Morgan McGuire, from Morgan McGuire's Computer Graphics Archive (https://casual-effects.com/data); marble texture public domain (hugolj)",
+  "triangles": 269764,
+  "files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/breakfast_room/breakfast_room.zip",
+    "file": "breakfast_room/breakfast_room.zip",
+    "sha256": "e56ff9b4c89b680cfd5c4c00390533ae28fff7a122d6fc8c92c273a9066c0ca8",
+    "bytes": 6446862
+   }
+  ],
+  "meshes": [
+   {
+    "file": "breakfast_room.zip",
+    "member": "breakfast_room.obj",
+    "material_colours": {
+     "breakfast_room:Artwork": [
+      0.26,
+      0.101,
+      0.091
+     ],
+     "breakfast_room:Floor_Tiles": [
+      0.614,
+      0.506,
+      0.365
+     ]
+    }
+   }
+  ],
+  "materials": {
+   "black_kd_is_texture": true
+  },
+  "lighting": {
+   "environment": "san_giuseppe_bridge",
+   "turn": -134.1,
+   "sun_to_sky": 5.0,
+   "ambient": [
+    0.05,
+    0.05,
+    0.05
+   ],
+   "lamp_scale": 1.0,
+   "merge_distance": 1.0,
+   "radius": 10.0,
+   "size": 0.1,
+   "emissive_scale": 1.0,
+   "exposure": 2.0,
+   "saturation": 1.15,
+   "curve": 1,
+   "shadow_bias": 3.0,
+   "elements": 50000
+  },
+  "light": [
+   0.0,
+   6.0,
+   4.0
+  ],
+  "views": {
+   "overview": {"eye": [-5.2, 4.6, 8.0], "target": [1.2, 0.2, -2.5], "fov": 70},
+   "close": {"eye": [-4.6, 2.2, 1.8], "target": [-0.6, 0.6, -2.0], "fov": 55}
+  }
+ },
+ "salle_de_bain": {
+  "title": "Salle de Bain",
+  "page": "https://casual-effects.com/data/",
+  "licence": "CC BY 3.0",
+  "attribution": "Salle de Bain (c) Nacimus Ait Cherif (Blend Swap), OBJ by Nicholas Hull (NVIDIA) and Morgan McGuire, from Morgan McGuire's Computer Graphics Archive (https://casual-effects.com/data)",
+  "triangles": 1220087,
+  "files": [
+   {
+    "url": "https://casual-effects.com/g3d/data10/research/model/salle_de_bain/salle_de_bain.zip",
+    "file": "salle_de_bain/salle_de_bain.zip",
+    "sha256": "caf37ceca995e19f3a3f983f517f786245561da32aad7cef8e6fea72a1579899",
+    "bytes": 30857397
+   }
+  ],
+  "meshes": [
+   {
+    "file": "salle_de_bain.zip",
+    "member": "salle_de_bain.obj",
+    "material_colours": {
+     "Wood": [
+      0.192,
+      0.078,
+      0.019
+     ],
+     "Label": [
+      0.648,
+      0.639,
+      0.638
+     ],
+     "WoodFloor": [
+      0.298,
+      0.164,
+      0.096
+     ]
+    }
+   }
+  ],
+  "materials": {
+   "black_kd_is_texture": true
+  },
+  "lighting": {
+   "environment": "san_giuseppe_bridge",
+   "turn": -54.1,
+   "sun_to_sky": 5.0,
+   "ambient": [
+    0.05,
+    0.05,
+    0.05
+   ],
+   "lamp_scale": 0.0,
+   "merge_distance": 5.0,
+   "radius": 50.0,
+   "size": 1.0,
+   "emissive_scale": 10.0,
+   "exposure": 2.0,
+   "saturation": 1.15,
+   "curve": 1,
+   "shadow_bias": 3.0,
+   "elements": 50000
+  },
+  "light": [
+   0.0,
+   25.0,
+   0.0
+  ],
+  "views": {
+   "overview": {"eye": [12.0, 18.0, 20.0], "target": [-4.0, 8.0, -15.0], "fov": 70},
+   "close": {"eye": [8.0, 17.0, 8.0], "target": [-4.0, 6.0, -18.0], "fov": 45}
+  }
+ },
+ "modern_hall": {
+  "title": "Modern Hall",
+  "page": "https://benedikt-bitterli.me/resources/",
+  "licence": "CC BY 3.0",
+  "attribution": "Modern Hall by NewSee2l035 (http://www.blendswap.com/blends/view/51997), Tungsten version from Benedikt Bitterli's Rendering Resources (https://benedikt-bitterli.me/resources/), CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)",
+  "triangles": 28655,
+  "files": [
+   {
+    "url": "https://benedikt-bitterli.me/resources/tungsten/staircase2.zip",
+    "file": "staircase2/staircase2.zip",
+    "sha256": "3c4b9f1202a4f921a46dea8d972f96a41415e2709cd1d8b3ded7bc4cac123875",
+    "bytes": 5171335
+   }
+  ],
+  "meshes": [
+   {
+    "file": "staircase2.zip",
+    "member": "staircase2/scene.json",
+    "material_colours": {
+     "Wood": [
+      0.385,
+      0.053,
+      0.001
+     ],
+     "Wallpaper": [
+      0.807,
+      0.746,
+      0.54
+     ],
+     "FloorTiles": [
+      0.614,
+      0.506,
+      0.365
+     ]
+    }
+   }
+  ],
+  "materials": {
+   "emission_scale": 4.575
+  },
+  "lighting": {
+   "environment": "san_giuseppe_bridge",
+   "turn": 0.0,
+   "sun_to_sky": 0.0,
+   "ambient": [
+    0.05,
+    0.05,
+    0.05
+   ],
+   "lamp_scale": 0.0,
+   "merge_distance": 0.5,
+   "radius": 5.0,
+   "size": 0.1,
+   "emissive_scale": 4.575,
+   "exposure": 2.0,
+   "saturation": 1.15,
+   "curve": 1,
+   "shadow_bias": 3.0,
+   "elements": 50000
+  },
+  "light": [
+   -4.0,
+   5.0,
+   1.5
+  ],
+  "views": {
+   "overview": {"eye": [6.912, 1.652, 2.554], "target": [2.328, 1.652, 0.336], "fov": 70},
+   "close": {"eye": [3.2, 2.2, 2.6], "target": [-0.6, 1.2, -1.6], "fov": 60}
+  }
+ },
+ "modern_living_room": {
+  "title": "The Modern Living Room",
+  "page": "https://benedikt-bitterli.me/resources/",
+  "licence": "CC BY 3.0",
+  "attribution": "The Modern Living Room by Wig42 (http://www.blendswap.com/blends/view/75692), Tungsten version from Benedikt Bitterli's Rendering Resources (https://benedikt-bitterli.me/resources/), CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)",
+  "triangles": 786480,
+  "files": [
+   {
+    "url": "https://benedikt-bitterli.me/resources/tungsten/living-room-3.zip",
+    "file": "living-room-3/living-room-3.zip",
+    "sha256": "b7c9e5fe1b72e36665e3b71b2025bba8fd02dcf7965b97b4d9457fabface3e2e",
+    "bytes": 21980339
+   }
+  ],
+  "meshes": [
+   {
+    "file": "living-room-3.zip",
+    "member": "living-room-3/scene.json",
+    "material_colours": {
+     "Picture": [
+      0.616,
+      0.39,
+      0.39
+     ],
+     "Cushions": [
+      0.756,
+      0.416,
+      0.421
+     ],
+     "Floor": [
+      0.711,
+      0.414,
+      0.183
+     ]
+    },
+    "inside": {
+     "point": [
+      -3.0,
+      1.3,
+      -3.0
+     ],
+     "materials": [
+      "Floor",
+      "Walls"
+     ]
+    }
+   }
+  ],
+  "materials": {
+   "emission_scale": 114.425
+  },
+  "lighting": {
+   "environment": "san_giuseppe_bridge",
+   "turn": 0.0,
+   "sun_to_sky": 0.0,
+   "ambient": [
+    0.05,
+    0.05,
+    0.05
+   ],
+   "lamp_scale": 0.0,
+   "merge_distance": 0.5,
+   "radius": 5.0,
+   "size": 0.1,
+   "emissive_scale": 114.425,
+   "exposure": 2.0,
+   "saturation": 1.15,
+   "curve": 1,
+   "shadow_bias": 3.0,
+   "elements": 50000
+  },
+  "light": [
+   -3.0,
+   2.4,
+   -3.0
+  ],
+  "views": {
+   "overview": {"eye": [0.277, 1.018, -5.193], "target": [-1.605, 0.895, -1.33], "fov": 70},
+   "close": {"eye": [-0.6, 0.9, -3.4], "target": [-2.2, 0.6, -1.2], "fov": 50}
+  }
+ }
+}

@@ -1,0 +1,60 @@
+{
+ "check": "prism.stages.indirect.transport.check.check",
+ "pipeline": "apply",
+ "numbers": {
+  "scene": "bistro_interior",
+  "sizes": {
+   "cores": 120,
+   "entries_most": 500,
+   "entries_mean": 286.96666666666664,
+   "table_pages": 4,
+   "own_most": 40,
+   "own_least": 2,
+   "k_most": 83,
+   "rank_most": 12,
+   "tiles_read_most": 9814,
+   "tiles_read_mean": 9300.125,
+   "tiles_read_least": 4680,
+   "x_read_most": 3170,
+   "x_read_mean": 2164.175,
+   "zero_entries": 0
+  },
+  "check": {
+   "emulated": {
+    "median": 2.675295578341072e-05,
+    "p99": 0.00027937055158733476,
+    "most": 0.0016913351682078567,
+    "sum_ratio": 1.0000345790275518
+   },
+   "y_float": {
+    "median": 0.0006037892303357115,
+    "p99": 0.008048074464330207,
+    "most": 0.43765875103668483,
+    "sum_ratio": 0.9997598744506316
+   },
+   "emulated_vs_y_float": {
+    "median": 0.0006032672236838864,
+    "p99": 0.008064045302731297,
+    "most": 0.43770484623650413,
+    "sum_ratio": 0.9997253049217685
+   },
+   "lit": 38633
+  },
+  "time": {
+   "calls": 32,
+   "card_us_median": 4288.01,
+   "card_us_least": 4279.06,
+   "wall_us_median": 4490.295017603785,
+   "wall_us_least": 4475.884954445064
+  },
+  "last_equals_first": true,
+  "y_sha256": "6958d5f4dbfc0443"
+ },
+ "seconds": 62.686241985007655,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T04:39:51+08:00"
+}

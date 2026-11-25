@@ -1,0 +1,177 @@
+{
+ "check": "prism.stages.direct.light.check.thread_frame.check",
+ "pipeline": "lit",
+ "numbers": {
+  "frames": 16,
+  "codes": [
+   0
+  ],
+  "layers": [
+   "opaque",
+   "masked",
+   "glass"
+  ],
+  "sun": [],
+  "tone": {
+   "exposure": 1.0,
+   "saturation": 1.0,
+   "curve": 0
+  },
+  "terms": [
+   "sky",
+   "ambient",
+   "sun",
+   "shadow",
+   "lamps",
+   "specular",
+   "background",
+   "glass"
+  ],
+  "pictures": {
+   "1": {
+    "checked": 921600,
+    "later_pieces": 0,
+    "share_over_2": 6.7e-05,
+    "share_over_4": 2e-05,
+    "share_over_8": 5e-06,
+    "max_error": 12,
+    "glass_in_front": {
+     "pixels": 9156,
+     "checked": 9156,
+     "share_over_2": 0.004478,
+     "share_over_4": 0.00142,
+     "share_over_8": 0.000546,
+     "max_error": 12
+    },
+    "band": {
+     "pixels": 0,
+     "over_2": 0,
+     "share_over_2": 0.0,
+     "over_4": 0,
+     "share_over_4": 0.0,
+     "over_8": 0,
+     "share_over_8": 0.0
+    },
+    "outside_band": {
+     "pixels": 921600,
+     "over_2": 62,
+     "share_over_2": 6.7e-05,
+     "over_4": 18,
+     "share_over_4": 2e-05,
+     "over_8": 5,
+     "share_over_8": 5e-06
+    }
+   },
+   "16": {
+    "checked": 921600,
+    "later_pieces": 0,
+    "share_over_2": 6.7e-05,
+    "share_over_4": 2e-05,
+    "share_over_8": 5e-06,
+    "max_error": 12,
+    "glass_in_front": {
+     "pixels": 9156,
+     "checked": 9156,
+     "share_over_2": 0.004478,
+     "share_over_4": 0.00142,
+     "share_over_8": 0.000546,
+     "max_error": 12
+    },
+    "band": {
+     "pixels": 0,
+     "over_2": 0,
+     "share_over_2": 0.0,
+     "over_4": 0,
+     "share_over_4": 0.0,
+     "over_8": 0,
+     "share_over_8": 0.0
+    },
+    "outside_band": {
+     "pixels": 921600,
+     "over_2": 62,
+     "share_over_2": 6.7e-05,
+     "over_4": 18,
+     "share_over_4": 2e-05,
+     "over_8": 5,
+     "share_over_8": 5e-06
+    }
+   }
+  },
+  "same_picture": true,
+  "sequence": [
+   "count.opaque",
+   "count.masked",
+   "count.glass",
+   "setup.opaque",
+   "setup.masked",
+   "setup.glass",
+   "fill.opaque",
+   "fill.masked",
+   "fill.glass",
+   "shade.opaque",
+   "shade.masked",
+   "shade.glass",
+   "light",
+   "light_glass",
+   "show",
+   "push"
+  ],
+  "sun_map": null,
+  "sun_passes": [],
+  "sun_times": [],
+  "cores": 120,
+  "ms": {
+   "count": 1.3701200000000002,
+   "count.1": 0.08577000000000001,
+   "count.2": 0.38853,
+   "sum": 0.05229,
+   "sum.1": 0.052020000000000004,
+   "sum.2": 0.05177,
+   "hist": 0.027310000000000004,
+   "hist.1": 0.025270000000000004,
+   "hist.2": 0.02672,
+   "hsum": 0.07200999999999999,
+   "hsum.1": 0.06987,
+   "hsum.2": 0.07084,
+   "middle": 0.5911400000000001,
+   "middle.1": 0.5612400000000001,
+   "middle.2": 0.6845399999999999,
+   "place": 0.09151,
+   "place.1": 0.09045,
+   "place.2": 0.09335,
+   "setup": 1.7439300000000002,
+   "setup.1": 0.14995999999999998,
+   "setup.2": 0.54514,
+   "fill": 2.0693,
+   "fill.1": 0.14304000000000003,
+   "fill.2": 0.5043,
+   "shade": 3.6312700000000007,
+   "shade.1": 0.41917000000000004,
+   "shade.2": 0.69903,
+   "light": 2.1541499999999996,
+   "light_glass": 0.8268800000000002,
+   "show": 0.78751,
+   "push": 0.2585,
+   "frame": 18.34212,
+   "slots": 427152,
+   "slots.1": 8816,
+   "slots.2": 159328,
+   "items": 1039,
+   "items.1": 1062,
+   "items.2": 1204,
+   "marks": 1139,
+   "marks.1": 307,
+   "marks.2": 533,
+   "heavy_tiles": 89,
+   "heavy_tiles.1": 46,
+   "heavy_tiles.2": 76
+  }
+ },
+ "seconds": 16.46147060097428,
+ "card": 1,
+ "aiclk_mhz": [
+  1350,
+  1350
+ ],
+ "date": "2026-11-26T02:55:07+08:00"
+}
