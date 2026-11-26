@@ -19,7 +19,7 @@ from prism_common.paths import build_root
 HERE = Path(__file__).resolve().parent
 SOURCES = (dispatch.RUNTIME / "dispatch_choose.c", HERE / "model.c")
 SLICES_MOST = 1024
-SLICE_RECORDS = 64
+SLICE_RECORDS = dispatch.geometry.SLICE_RECORDS
 NONE = 0xFFFFFFFF
 RESULTS = []
 
@@ -61,16 +61,16 @@ def slices_of(slices, seed, empty):
     return records, weights
 
 
-def setting_of(policy, near, first, count, slices, across, slice_tiles, depth):
-    """The model's setting words."""
-    words = (dispatch.POLICIES[policy], near, first, count, slices, across)
-    return np.array([*words, slice_tiles, depth], np.uint32)
+def setting_of(policy, near, first, count, slices, across, depth):
+    """The model's setting words (`across`: the slices a row of the grid)."""
+    words = (dispatch.POLICIES[policy], near, first, count, slices, across, depth)
+    return np.array(words, np.uint32)
 
 
 def run_case(library, policy, first, count, slices, seed, near=2, depth=2, empty=0.1):
     """One pull in the model of asking cores."""
     records, weights = slices_of(slices, seed, empty)
-    setting = setting_of(policy, near, first, count, slices, 60, 16, depth)
+    setting = setting_of(policy, near, first, count, slices, 4, depth)
     who = np.full(slices * SLICE_RECORDS, NONE, np.uint32)
     stats = np.zeros(8, np.uint32)
     arrays = (setting, records, weights)
@@ -119,7 +119,7 @@ def kept_failures(who, records, stats, policy, first, count):
 def threads_case(library, policy, first, count, slices, seed):
     """One pull with four host threads choosing at once, each for a quarter."""
     records, weights = slices_of(slices, seed, 0.05)
-    setting = setting_of(policy, 3, first, count, slices, 60, 16, 1)
+    setting = setting_of(policy, 3, first, count, slices, 4, 1)
     who = np.full(slices * SLICE_RECORDS, NONE, np.uint32)
     stats = np.zeros(8, np.uint32)
     arrays = (setting, records, weights, who, stats)

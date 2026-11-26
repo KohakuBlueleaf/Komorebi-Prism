@@ -9,9 +9,10 @@ _Static_assert(TF_STEP_AT + DP_STEP_WORDS <= TF_WORDS, "the steps' words fit the
 _Static_assert(PAGE_BYTES <= 1024u, "a command's block holds the page");
 
 /* A view's group and what its page does not hold: the group's first rank and cores,
- * the layers in the page, each one's list slots, the count ranges, the slices */
+ * the layers in the page, each one's list slots, the count ranges, the slices and the
+ * slices a row of the grid */
 typedef struct {
-    uint32_t first, count, layers, ranges, slices;
+    uint32_t first, count, layers, ranges, slices, slices_across;
     uint32_t list_slots[TR_LAYERS];
 } view_t;
 
@@ -82,22 +83,36 @@ static uint32_t pull(
     }
 }
 
+/* The first rank of the frame's pulls: above the cores a waiting update wants, when
+ * the program has the job thread's unit; else 0. */
+static uint32_t first_rank(const dr_frame_t* frame) {
+#ifdef DP_JOBS
+    return jobs_unit_frame_first(frame->cores);
+#else
+    (void)frame;
+    return 0;
+#endif
+}
+
 /* The page's words of the view and its layers (a DEPTH view: the layers with depth),
- * the group from the update's cores; the count ranges. 0, or the code. */
+ * the group above the update's cores; the count ranges. 0, or the code. */
 static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t* out) {
     volatile uint32_t* page = page_of();
-    const uint32_t held = dr_number(frame, DP_N_UPDATE_CORES);
+    const uint32_t first = first_rank(frame);
     const uint32_t range_blocks = dr_number(frame, DP_N_RANGE_BLOCKS);
-    const uint32_t slice_tiles = dr_number(frame, DP_N_SLICE_TILES);
-    if (held >= frame->cores) {
+    const uint32_t across = DP_GRID_ACROSS(view->grid);
+    const uint32_t down = DP_GRID_DOWN(view->grid);
+    if (first >= frame->cores) {
         return DP_NO_CORES;
     }
-    if (range_blocks == 0 || slice_tiles == 0 || view->tiles > 0xFFFFu) {
+    if (range_blocks == 0 || across * down > 0xFFFFu) {
         return DP_BAD_NUMBERS;
     }
-    out->first = held;
-    out->count = frame->cores - held;
-    out->slices = (view->tiles + slice_tiles - 1u) / slice_tiles;
+    out->first = first;
+    out->count = frame->cores - first;
+    /* runs of DP_SLICE_TILES along a row (stages/raster/threads/layout.py slices_of) */
+    out->slices_across = (across + DP_SLICE_TILES - 1u) / DP_SLICE_TILES;
+    out->slices = out->slices_across * down;
     if (out->slices > DP_SLICES_MOST) {
         return DP_TOO_MANY;
     }
@@ -111,11 +126,11 @@ static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t
     page[TF_RECORDS] = dr_number(frame, DP_N_RECORDS);
     page[TF_SLICES] = DR_ADDRESS(DP_REGION_SLICES);
     page[TF_SLICE_COUNT] = out->slices;
-    page[TF_SLICE_TILES] = slice_tiles;
+    page[TF_SLICE_TILES] = DP_SLICE_TILES;
     page[TF_HEAVY] = dr_number(frame, DP_N_HEAVY);
     page[TF_TARGET] = depth ? view->target : dr_number(frame, DP_N_DISPLAY);
-    page[TF_TARGET_FIRST] = depth ? view->target_first : 0u;
-    page[TF_TARGET_ACROSS] = depth ? view->target_across : DP_GRID_ACROSS(view->grid);
+    page[TF_PAGE_FIRST] = depth ? view->target_first : 0u;
+    page[TF_PAGE_ACROSS] = depth ? view->target_across : across;
     page[TF_RANGE_BLOCKS] = range_blocks;
     const uint32_t row = DR_LAYER_WORDS * view->index * DR_LAYERS;
     dr_invalidate(DR_REGION_LAYERS, 4u * row, 4u * DR_LAYER_WORDS * frame->layers);
@@ -160,7 +175,7 @@ static uint32_t work_command(km_command_t* command, const view_t* view, uint32_t
 
 /* The sums on every core of the group, then each layer's place a slice (the running
  * sum of the slices' entries) and the choice's slices. 0, or the code. */
-static uint32_t sums(dr_frame_t* frame, const dr_view_t* view, const view_t* one) {
+static uint32_t sums(dr_frame_t* frame, const view_t* one) {
     page_of()[TF_PULL] = 0;
     dr_flush(DP_REGION_PAGE, DP_REGION_PAGE_AT, PAGE_BYTES);
     km_command_t command;
@@ -182,8 +197,7 @@ static uint32_t sums(dr_frame_t* frame, const dr_view_t* view, const view_t* one
             one->first,
             one->count,
             one->slices,
-            DP_GRID_ACROSS(view->grid),
-            dr_number(frame, DP_N_SLICE_TILES)
+            one->slices_across
         )) {
         return DP_BAD_NUMBERS;
     }
@@ -236,7 +250,7 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     }
     frame->times[DP_T_COUNT] += dr_ticks(&mark);
     if (code == 0) {
-        code = sums(frame, view, &one);
+        code = sums(frame, &one);
     }
     frame->times[DP_T_SUMS] += dr_ticks(&mark);
     if (code == 0) {

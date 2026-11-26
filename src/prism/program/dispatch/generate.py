@@ -8,6 +8,7 @@ from pathlib import Path
 
 from prism.core.resources import function_prefix, macro_prefix
 from prism.program.director import generate as director
+from prism.program.jobs.frame import OWNER as JOBS
 
 NAME = "dp"  # the dispatcher's owner name in the thread's layout
 PREFIX = "dispatch_"  # its numbers', columns', regions', times' and results' names
@@ -51,7 +52,8 @@ def aliases(layout):
 def header_text(layout, program_header, program_prefix, builders, calls, words):
     """The director's pipeline.h, the dispatcher's names, DP_BUILD_WORK and
     DP_BUILD_SUMS (`calls`: {"work", "sums": the C builder}), DP_STEP_WORDS and each
-    step's word place (`words`: {define: word})."""
+    step's word place (`words`: {define: word}); DP_JOBS when the job thread's unit is
+    in the layout (the view's first rank is then its)."""
     text = director.header_text(layout, program_header, program_prefix, builders)
     lines = [
         "",
@@ -63,6 +65,8 @@ def header_text(layout, program_header, program_prefix, builders, calls, words):
         f"#define DP_STEP_WORDS {len(words)}u",
         *(f"#define {define} {word}u" for define, word in words.items()),
     ]
+    if any(owner == JOBS for owner, _, _ in layout.units):
+        lines.append("#define DP_JOBS 1u")
     return text + "\n".join(lines) + "\n"
 
 

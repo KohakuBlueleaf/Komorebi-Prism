@@ -16,11 +16,10 @@ uint32_t dp_choose_reset(
     uint32_t first,
     uint32_t count,
     uint32_t slices,
-    uint32_t across,
-    uint32_t slice_tiles
+    uint32_t across
 ) {
     if (policy >= DP_POLICIES || count == 0 || first + count > KMX_PORTS_CORES ||
-        slices > DP_SLICES_MOST || across == 0 || slice_tiles == 0) {
+        slices > DP_SLICES_MOST || across == 0) {
         return 1u;
     }
     state->policy = policy;
@@ -36,11 +35,10 @@ uint32_t dp_choose_reset(
         state->core[core].tells = 0;
     }
     for (uint32_t slice = 0; slice < slices; slice++) {
-        const uint32_t tile = slice * slice_tiles;
         dp_slice_t* one = &state->slice[slice];
         one->records = one->next = one->weight = 0;
-        one->row = tile / across;
-        one->column = tile % across / slice_tiles;
+        one->row = slice / across;
+        one->column = slice % across;
     }
     return 0;
 }

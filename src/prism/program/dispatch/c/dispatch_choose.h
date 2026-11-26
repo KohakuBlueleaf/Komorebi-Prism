@@ -55,9 +55,9 @@ typedef struct {
      (DP_CHOOSE_HEAD_WORDS + DP_CORE_WORDS * KMX_PORTS_CORES + \
       DP_SLICE_WORDS * DP_SLICES_MOST))
 
-/* The state set for a view: the policy, the near distance, the group, the slices of
- * `slice_tiles` tiles on a grid `across` tiles wide; every slice empty, every core
- * without a last slice. 0, or 1 for a policy, a group or slices out of range. */
+/* The state set for a view: the policy, the near distance, the group, the slices,
+ * `across` a row of the slice grid; every slice empty, every core without a last
+ * slice. 0, or 1 for a policy, a group or slices out of range. */
 uint32_t dp_choose_reset(
     dp_choose_t* state,
     uint32_t policy,
@@ -65,8 +65,7 @@ uint32_t dp_choose_reset(
     uint32_t first,
     uint32_t count,
     uint32_t slices,
-    uint32_t across,
-    uint32_t slice_tiles
+    uint32_t across
 );
 
 /* Slice `slice`'s records and weight, as its sum wrote them. */

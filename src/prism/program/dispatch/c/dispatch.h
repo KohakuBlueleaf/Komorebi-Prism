@@ -13,17 +13,16 @@
 #error "DP_RANGES_MOST: the count ranges a view holds at most, the capacity's"
 #endif
 
-/* A DEPTH view's target: its first page and its pages a row of tiles (frame.h's free
- * words between TF_RANGE_BLOCKS and TF_LAYER_AT) */
-#ifndef TF_TARGET_FIRST
-#define TF_TARGET_FIRST 12u
+#ifndef DP_SLICE_TILES
+#error "DP_SLICE_TILES: the tiles a slice holds, the capacity's"
 #endif
-#ifndef TF_TARGET_ACROSS
-#define TF_TARGET_ACROSS 13u
+
+#ifdef DP_JOBS
+#include "jobs_unit.h"
 #endif
 
 /* The view's codes: a region under its need; a group without cores (the update holds
- * them all); a number out of range (range blocks, slice tiles, policy); more layers
+ * them all); a number out of range (range blocks, policy, a grid); more layers
  * than a record holds; more ranges or slices than the capacity; a slice with more
  * records than TR_SLICE_RECORDS; fewer list slots than a layer's entries; a command's
  * block refused; a pull refused or its log full; each pull late, by its place */
@@ -46,8 +45,10 @@
 #define DP_WHERE_PLACE 0xD3u
 #define DP_WHERE_TILE 0xD4u
 
-/* The tiles across of a grid word (grid.h: bits 4 to 17, 0 there 32) */
+/* The tiles across and down of a grid word (grid.h: bits 4 to 17 and 18 to 31, 0
+ * there 32) */
 #define DP_GRID_ACROSS(word) (((word) >> 4 & 0x3FFFu) ? ((word) >> 4 & 0x3FFFu) : 32u)
+#define DP_GRID_DOWN(word) (((word) >> 18) ? ((word) >> 18) : 32u)
 
 /* Once: the regions checked against their need. 0, or DP_SMALL_REGION. */
 uint32_t dp_setup(dr_frame_t* frame);

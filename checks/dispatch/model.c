@@ -47,8 +47,7 @@ static dp_choose_t* state_of(
             setting[2],
             setting[3],
             setting[4],
-            setting[5],
-            setting[6]
+            setting[5]
         )) {
         free(state);
         return 0;
@@ -92,7 +91,7 @@ typedef struct {
     uint64_t ask;
 } model_core_t;
 
-/* setting: policy, near, first, count, slices, across, slice tiles, depth (1 to 8).
+/* setting: policy, near, first, count, slices, slices a row, depth (1 to 8).
  * Runs the pull; stats: 0 twice, 1 refused while a record was left, 2 a record of
  * another rank's slice (any policy), 3 near, 4 handed, 5 steps, 6 out of range, 7
  * the model's time at the end. */
@@ -108,7 +107,7 @@ uint32_t dpm_run(
     if (state == 0) {
         return 1u;
     }
-    const uint32_t first = setting[2], count = setting[3], depth = setting[7];
+    const uint32_t first = setting[2], count = setting[3], depth = setting[6];
     uint32_t total = 0;
     for (uint32_t slice = 0; slice < setting[4]; slice++) {
         total += records[slice];

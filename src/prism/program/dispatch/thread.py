@@ -11,6 +11,8 @@ from prism.core.headers import INCLUDE, defined
 from prism.core.unit import Region, Unit
 from prism.program.director import thread as director
 from prism.program.dispatch import generate
+from prism.program.jobs import frame as jobs
+from prism.stages.raster.threads import layout as geometry
 from prism_common.paths import build_root
 
 RUNTIME = Path(__file__).resolve().parent / "c"
@@ -20,7 +22,9 @@ FRAME = defined(INCLUDE / "thread" / "frame.h")
 RECORD = defined(INCLUDE / "thread" / "record.h")
 CHOOSE = defined(RUNTIME / "dispatch_choose.h")
 PORTS_CORES = km_thread.layout()["KMX_PORTS_CORES"]
-STEP_AT = FRAME["TF_LAYER_AT"] + RECORD["TR_LAYERS"] * FRAME["TF_LAYER_WORDS"]
+STEP_AT = (
+    FRAME["TF_LAYER_AT"] + RECORD["TR_LAYERS"] * FRAME["TF_LAYER_WORDS"]
+)  # TF_STEP_AT
 POLICIES = {
     name.removeprefix("DP_POLICY_").lower(): value
     for name, value in CHOOSE.items()
@@ -32,12 +36,10 @@ NUMBERS = tuple(
     for name in (
         "policy",
         "near",
-        "slice_tiles",
         "heavy",
         "range_blocks",
         "records",
         "display",
-        "update_cores",
     )
 )
 COLUMNS = tuple(
@@ -62,11 +64,19 @@ RESULTS = tuple(P + name for name in ("ranges", "tile_threads", "near_given"))
 @dataclass(frozen=True)
 class Capacity:
     """What the dispatcher's regions hold: the count ranges of a view, the slices of a
-    view, the records a slice holds."""
+    view, the records a slice holds, the tiles a slice holds (the geometry's layout's).
+    """
 
     ranges: int
     slices: int
-    slice_records: int
+    slice_records: int = geometry.SLICE_RECORDS
+    slice_tiles: int = geometry.SLICE_TILES
+
+
+def capacity_of(ranges, across, down):
+    """The capacity of `ranges` count ranges on a grid of `across` x `down` tiles at
+    most: its slices by the geometry's layout."""
+    return Capacity(ranges, geometry.slices_of(across, down))
 
 
 def page_bytes(capacity):
@@ -92,11 +102,12 @@ def state_bytes(capacity):
 
 
 def defines(capacity):
-    """The dispatcher's build numbers for `capacity`."""
-    return {
+    """The dispatcher's build numbers for `capacity`: the geometry's (RASTER_SLICES,
+    TR_SLICE_RECORDS), the ranges, the slices and the tiles a slice."""
+    return geometry.defines(capacity.slices, capacity.slice_records) | {
         "DP_RANGES_MOST": f"{capacity.ranges}u",
         "DP_SLICES_MOST": f"{capacity.slices}u",
-        "TR_SLICE_RECORDS": f"{capacity.slice_records}u",
+        "DP_SLICE_TILES": f"{capacity.slice_tiles}u",
     }
 
 
@@ -117,33 +128,21 @@ UNIT = Unit(
 
 def entry(capacity):
     """The dispatcher as the layout takes a unit: (name, Unit, host)."""
-    if min(capacity.ranges, capacity.slices, capacity.slice_records) <= 0:
+    sizes = (capacity.ranges, capacity.slices, capacity.slice_records)
+    if min(*sizes, capacity.slice_tiles) <= 0:
         raise ValueError(f"dispatch: an empty capacity ({capacity})")
     return generate.NAME, UNIT, capacity
 
 
-def numbers(policy, near, slice_tiles, heavy, range_blocks, records, display, update):
+def numbers(policy, near, heavy, range_blocks, records, display):
     """{number: value} of the loaded run's numbers: the policy by name, the near
-    distance in slices, the tiles a slice, the weight above which a tile is cut, the
-    blocks a count range, the records' and the display's addresses, the update's cores.
-    """
+    distance in slices, the weight above which a tile is cut, the blocks a count range,
+    the records' and the display's addresses."""
     if policy not in POLICIES:
         raise ValueError(f"dispatch: policy {policy!r}, not one of {sorted(POLICIES)}")
-    if slice_tiles <= 0 or range_blocks <= 0 or near < 0 or update < 0:
-        raise ValueError(
-            f"dispatch: {slice_tiles} tiles a slice, {range_blocks} blocks a range, "
-            f"near {near}, {update} cores for the update"
-        )
-    values = (
-        POLICIES[policy],
-        near,
-        slice_tiles,
-        heavy,
-        range_blocks,
-        records,
-        display,
-        update,
-    )
+    if range_blocks <= 0 or near < 0:
+        raise ValueError(f"dispatch: {range_blocks} blocks a range, near {near}")
+    values = (POLICIES[policy], near, heavy, range_blocks, records, display)
     return dict(zip(NUMBERS, (int(value) for value in values), strict=True))
 
 
@@ -153,22 +152,6 @@ def columns(mesh, blocks, shade, lists, list_slots, counts, rows, positions):
     counts', row histograms' and positions' addresses."""
     values = (mesh, blocks, shade, lists, list_slots, counts, rows, positions)
     return dict(zip(COLUMNS, (int(value) for value in values), strict=True))
-
-
-def step_words(tile_thread):
-    """{PRISM_TF_<STEP>_<WORD>: its word of the frame's page}, the steps' words in the
-    steps' order from TF_STEP_AT; ValueError past the page."""
-    out, word = {}, STEP_AT
-    for step in tile_thread.steps:
-        for name in step.words:
-            out[f"PRISM_TF_{step.name.upper()}_{name.upper()}"] = word
-            word += 1
-    if word > FRAME["TF_WORDS"]:
-        raise ValueError(
-            f"dispatch: the steps' words end at word {word}, past the page's "
-            f"{FRAME['TF_WORDS']}"
-        )
-    return out
 
 
 def frame_words(tile_thread):
@@ -195,9 +178,9 @@ def builder(builders, owner, handler):
 
 
 def declare(assembled, layout, tile_thread, work_owner, sums_owner):
-    """program.thread(...) of the assembled program for `layout` (holding the entry)
-    with the dispatcher: its C, the units' C, the steps' frame words of `tile_thread`,
-    the builders of `work` (class of `work_owner`) and `sums` (`sums_owner`)."""
+    """program.thread(...) for `layout` (holding the entry): the dispatcher's C, the
+    units' C (the job thread's frame unit's too), `tile_thread`'s frame words, the
+    builders of `work` (class of `work_owner`) and `sums` (of `sums_owner`)."""
     program = assembled.program
     owners = {owner for owner, _, _ in layout.units}
     with_unit = [i for i in assembled.pipeline.implementations if i.name in owners]
@@ -206,6 +189,9 @@ def declare(assembled, layout, tile_thread, work_owner, sums_owner):
         unit_sources, unit_includes = director.unit_files(implementation)
         sources += unit_sources
         includes += unit_includes
+    if jobs.OWNER in owners:
+        sources += [jobs.FOLDER / source for source in jobs.FRAME_UNIT.sources]
+        includes += [jobs.FOLDER / include for include in jobs.FRAME_UNIT.includes]
     words = frame_words(tile_thread)
     for path, _, _ in words:
         if path not in sources:
@@ -227,7 +213,7 @@ def declare(assembled, layout, tile_thread, work_owner, sums_owner):
         name.upper(),
         builders,
         built,
-        step_words(tile_thread),
+        tile_thread.words(STEP_AT, FRAME["TF_WORDS"]),
         tuple((function, depth) for _, function, depth in words),
         build_root() / "thread" / name,
     )
