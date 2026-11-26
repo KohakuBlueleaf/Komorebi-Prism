@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 
+#include "account.hpp"
 #include "context.hpp"
 
 namespace prism_frame {
@@ -116,6 +117,7 @@ namespace prism_frame {
         if (!landed) {
             return -1;
         }
+        account_add(ctx, FX_BYTES_ASKED, count * ask[FA_PAGE_BYTES]);
         cb_pop_front(kAsks, 1);
         cb_reserve_back(kDones, 1);
         cb_push_back(kDones, 1);
@@ -153,6 +155,7 @@ namespace prism_frame {
             if (!left) {
                 return -1;
             }
+            account_add(ctx, FX_BYTES_OUT, bytes);
         }
         cb_pop_front(half, 1);
         state.written++;
@@ -166,6 +169,7 @@ namespace prism_frame {
 
     // One pass of the service: asks, output blocks, ended threads. -1: gave up.
     inline int serve(MoverContext& ctx, MoverState& state) {
+        const uint32_t since = account_now();
         const int asked = serve_ask(ctx, state);
         if (asked < 0) {
             return -1;
@@ -175,6 +179,9 @@ namespace prism_frame {
             return -1;
         }
         advance(ctx, state);
+        if (asked + drained > 0) {
+            account_since(ctx, FX_SERVE, since);
+        }
         return asked + drained > 0 ? 1 : 0;
     }
 

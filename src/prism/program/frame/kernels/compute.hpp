@@ -6,6 +6,7 @@
 #include <new>
 #include <stdint.h>
 
+#include "account.hpp"
 #include "pack.hpp"
 
 namespace prism_frame {
@@ -169,12 +170,14 @@ namespace prism_frame {
             if (d[FD_KIND] == FD_END) {
                 break;
             }
+            const uint32_t since = account_now();
             if (d[FD_KIND] == TP_TILE) {
                 void* tile_at = reinterpret_cast<void*>(part + kPartTileAt);
                 const Tile& tile = *new (tile_at) Tile(tile_of(d));
                 if (!tile_compute(ctx, tile)) {
                     return;
                 }
+                account_thread(ctx, kComputeCpu, since);
 #if defined(TRISC_PACK)
                 if (!thread_end(ctx)) {
                     return;
@@ -182,13 +185,18 @@ namespace prism_frame {
 #endif
                 continue;
             }
-            if (!kind_compute(ctx, d[FD_KIND], range_of(d))) {
+            const Range range = range_of(d);
+            if (!account_step(ctx, kComputeCpu, 0, range.sequence, [&] {
+                    return kind_compute(ctx, d[FD_KIND], range);
+                })) {
                 return;
             }
+            account_thread(ctx, kComputeCpu, since);
         }
         if (!kind_end_compute(ctx, ctx.word(TF_PULL))) {
             return;
         }
+        account_done(ctx, 1 + kComputeCpu);
 #if defined(TRISC_UNPACK)
         if (from_both(mail)) {
             cb_pop_front(kFieldFramePage, 1);

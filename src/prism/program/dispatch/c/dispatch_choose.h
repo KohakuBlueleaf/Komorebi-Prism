@@ -31,11 +31,13 @@ typedef struct {
 } dp_slice_t;
 
 /* A core: its last slice, and its newest tell: the codes it holds, the cost of the
- * thread that ended, the number of tells taken */
-#define DP_CORE_WORDS 4u
+ * thread that ended, the number of tells taken; with DP_ACCOUNT its answers with a
+ * thread, its answers "none left" and the X280 timer's ticks of its choices */
+#define DP_CORE_WORDS 8u
 
 typedef struct {
     uint32_t last, codes, cost, tells;
+    uint32_t answers, nones, ticks, spare;
 } dp_core_t;
 
 /* The choice's state: the policy, the "near" distance in slices, the slices, the

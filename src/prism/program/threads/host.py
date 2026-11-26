@@ -14,6 +14,7 @@ from prism.core.implementation import Host
 from prism.program.assemble import MissingSlot
 from prism.program.director.thread import RUNTIME
 from prism.program.dispatch import thread as dispatch
+from prism.program.frame.generate import FRAME
 from prism.stages.material.texture.host import with_table
 from prism.stages.raster.model.counts import kept_counts
 from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS
@@ -73,7 +74,8 @@ class ThreadsHost(Host):
     """What the threads' frame needs on the host for `scene` on `session`. Options:
     size, cores, capacity (at least it), materials, lights (the layers' blocks as the
     raster stage makes them), range_blocks, policy, near, heavy, list_slots_least
-    (a number or a dict by layer name)."""
+    (a number or a dict by layer name), account (the records a core's page of the
+    account holds; 0: no account, the build without it)."""
 
     threads = True  # the frame's host of the threads' form
 
@@ -91,6 +93,8 @@ class ThreadsHost(Host):
         self.near = int(options.get("near", NEAR))
         self.heavy = int(options.get("heavy", HEAVY))
         self.least = options.get("list_slots_least") or 0
+        self.account = int(options.get("account") or 0)
+        self.account_pages = None
         self.layers = {}  # by name: its tensors and numbers
         self.depth_views = ()  # another host's DEPTH views
         self.loaded = None  # the run whose numbers and rows are written
@@ -177,7 +181,7 @@ class ThreadsHost(Host):
             -(-one["blocks"] // self.range_blocks) for one in self.layers.values()
         )
         slices = max(layout.slices_of(*frame_grid(size)) for size in sizes)
-        return dispatch.Capacity(ranges, slices)
+        return dispatch.Capacity(ranges, slices, account=bool(self.account))
 
     def made_tensors(self):
         """The records (a 64-byte page each), each layer's counts, row histograms and
@@ -187,6 +191,11 @@ class ThreadsHost(Host):
         self.records = self.tensor(
             np.zeros((cap.slices * cap.slice_records, words), dtype=np.uint32)
         )
+        if self.account:
+            page = FRAME["FX_RECORDS_AT"] + FRAME["FX_RECORD_WORDS"] * self.account
+            self.account_pages = self.tensor(
+                np.zeros((self.session.ranks, page), dtype=np.uint32)
+            )
         pages = layout.layer_pages(tiles, cap.slices, cap.slice_records)
         for one in self.layers.values():
             for name, bytes_ in pages.items():
@@ -213,6 +222,8 @@ class ThreadsHost(Host):
             self.range_blocks,
             self.records.address,
             self.display.address,
+            0 if self.account_pages is None else self.account_pages.address,
+            self.account,
         )
 
     def columns(self, name):

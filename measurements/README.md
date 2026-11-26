@@ -14,6 +14,7 @@ under `docs/performance/` quote from here.
 | [apply](apply/README.md) | the preset `apply`: the transport's apply alone |
 | [account](account/README.md) | the account of a frame: each command's cores, waits, standing still, bytes and closure, the L1, the code, the per-item constants |
 | [account_tile](account_tile/README.md) | the account with LIGHT shown (`lit_tile`, `gi_tile`): the tile frame against the stage-wise frame, the L1 |
+| [threads_account](threads_account/README.md) | the account of the threads' frame: four ways of handing out, bytes by path, a core's time, the CPUs by step, the X280's choice, a record a thread |
 | [lookup_model](lookup_model/README.md) | the pages a frame's lookups read, modelled on the host and checked against the account: today's passes, an item's pages, the pages a core would keep |
 | [update_beside](update_beside/README.md) | the field's update on the cluster beside the frames' (`gi_tile`): the frames drawn during it, the swap, against `gi`'s blocking update |
 | [viewer](viewer/README.md) | the viewer's field of view at its ends |

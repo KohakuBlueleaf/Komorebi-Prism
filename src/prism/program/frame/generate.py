@@ -58,7 +58,8 @@ class Composition:
     {(owner, name): (byte, bytes)}, each step's passes (layer indices), each view's list
     stream, the outputs (step, Output), the rings {field: (pages, page bytes, pusher)}
     (the stream halves first), the stream halves' fields, the lists' geometry (records
-    a page, a page's bytes, pages a block), the handler's memory bytes."""
+    a page, a page's bytes, pages a block), the handler's memory bytes, the account's
+    bytes in it (0: none)."""
 
     thread: object
     kinds: tuple
@@ -74,6 +75,7 @@ class Composition:
     geometry: tuple
     planes_at: int
     memory_bytes: int
+    account_bytes: int = 0
 
     def held_codes(self):
         """The codes the program holds, a bit a code: the resident one and every
@@ -239,10 +241,11 @@ def stream_fields(thread, kinds):
     return tuple(out)
 
 
-def compose(thread, kinds, layers, held=None):
+def compose(thread, kinds, layers, held=None, account=False):
     """The Composition of the tile thread `thread` (module.py TileThread) and `kinds`
-    (module.py Kind) for the frame's `layers` (names, in order) at the capacity `held`;
-    refused with the names for a thread, kind, word, plane or ring that does not fit."""
+    (module.py Kind) for the frame's `layers` (names, in order) at the capacity `held`,
+    with the account's part of the memory when `account`; refused with the names for a
+    thread, kind, word, plane or ring that does not fit."""
     thread.check()
     kinds = tuple(kinds)
     pulls = [kind.pull for kind in kinds]
@@ -269,7 +272,12 @@ def compose(thread, kinds, layers, held=None):
         TF["TV_DEPTH"]: sum((sum(passes[s.name], ()) for s in thread.depth()), ()),
     }
     geometry = lists_geometry(thread.steps)
-    memory = aligned(FRAME["FM_SHARED_BYTES"] + largest)
+    if max(len(thread.colour()), len(thread.depth())) > FRAME["FX_STEPS"] - 1:
+        raise ValueError(
+            f"frame program: more steps than the account's {FRAME['FX_STEPS'] - 1}"
+        )
+    shared = FRAME["FM_SHARED_BYTES"] + (FRAME["FX_L1_BYTES"] if account else 0)
+    memory = aligned(shared + largest)
     rings = rings_of(thread, kinds, outputs, geometry)
     streamed = stream_fields(thread, kinds)
     rings = {name: rings[name] for name in streamed} | rings
@@ -287,14 +295,15 @@ def compose(thread, kinds, layers, held=None):
         rings,
         streamed,
         geometry,
-        aligned(FRAME["FM_SHARED_BYTES"] + steps_bytes),
+        aligned(shared + steps_bytes),
         memory,
+        shared - FRAME["FM_SHARED_BYTES"],
     )
 
 
 def kept_at(composition):
-    """The kept state's first byte in the handler's memory."""
-    return FRAME["FM_SHARED_BYTES"]
+    """The kept state's first byte in the handler's memory (after the account's)."""
+    return FRAME["FM_SHARED_BYTES"] + composition.account_bytes
 
 
 def planes_at(composition):
@@ -329,6 +338,7 @@ def constants_text(composition):
         f"constexpr uint32_t kFrameSlotsPerPage = {page_records};",
         f"constexpr uint32_t kFrameListPageBytes = {page_bytes};",
         f"constexpr uint32_t kFrameBlockPages = {block_pages};",
+        f"constexpr uint32_t kFrameAccountAt = {FRAME['FM_SHARED_BYTES']};",
         f"constexpr uint32_t kFrameKeptAt = {kept_at(composition)};",
         f"constexpr uint32_t kFramePlanesAt = {planes_at(composition)};",
         f"constexpr uint32_t kFrameMemoryBytes = {composition.memory_bytes};",
@@ -361,27 +371,28 @@ def constants_text(composition):
 
 
 def step_calls(steps, indent):
-    """Each step's compute call, by the tile pull's code its variant's; false ends the
-    tile thread."""
+    """Each step's compute call (timed by the account as its step), by the tile pull's
+    code its variant's; false ends the tile thread."""
     pad = " " * indent
     lines = []
-    for step in steps:
-        call = "(ctx, tile, planes)"
+    for index, step in enumerate(steps):
+        on = f"account_step(ctx, kComputeCpu, {index}, tile.sequence, [&] {{ return "
+        call = "(ctx, tile, planes); })"
         if not step.codes:
-            lines += [f"{pad}if (!{step.name}_compute{call}) {{"]
+            lines += [f"{pad}if (!{on}{step.name}_compute{call}) {{"]
             lines += [f"{pad}    return false;", f"{pad}}}"]
             continue
         lines.append(f"{pad}switch (TA_CODE(tile.word)) {{")
         for code, function in sorted(step.codes.items()):
             lines += [
                 f"{pad}    case {code}:",
-                f"{pad}        if (!{function}{call}) {{",
+                f"{pad}        if (!{on}{function}{call}) {{",
             ]
             lines += [f"{pad}            return false;", f"{pad}        }}"]
             lines.append(f"{pad}        break;")
         lines += [
             f"{pad}    default:",
-            f"{pad}        if (!{step.name}_compute{call}) {{",
+            f"{pad}        if (!{on}{step.name}_compute{call}) {{",
         ]
         lines += [f"{pad}            return false;", f"{pad}        }}"]
         lines += [f"{pad}        break;", f"{pad}}}"]

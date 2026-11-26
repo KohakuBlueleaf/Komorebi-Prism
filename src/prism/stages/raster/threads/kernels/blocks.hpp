@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "komorebi/device/km_worker.hpp"
+#include "../../../../program/frame/kernels/account.hpp"
 #include "../../../../program/frame/kernels/context.hpp"
 #include "komorebi/device/movement/km_movement.hpp"
 #include "frame.hpp"
@@ -75,6 +76,7 @@ namespace geometry_k {
         if (!landed(movement, kWhereCameraRead)) {
             return false;
         }
+        prism_frame::account_add(ctx, FX_BYTES_OTHER, kCameraBytes);
         cb_push_back(half, 1);
         const InterleavedAddrGen<true> blocks = {
             .bank_base_address = layer_word(page, range.layer, TF_L_MESH),
@@ -106,11 +108,22 @@ namespace geometry_k {
                     shade_pair<Ctx>(),
                     kBlockPattern
                 );
-                return movement.move(mesh_stream, shade_stream);
+                km::Moved moved = {0, 0};
+                const bool ok = movement.move(moved, mesh_stream, shade_stream);
+                prism_frame::account_add(
+                    ctx, FX_BYTES_MESH, moved.tiles / 2 * setup_k::kMeshBytes
+                );
+                prism_frame::account_add(
+                    ctx, FX_BYTES_SHADE, moved.tiles / 2 * setup_k::kShadeBlockBytes
+                );
+                return ok;
             }
         }
         static_cast<void>(with_shade);
-        return movement.move(mesh_stream);
+        km::Moved moved = {0, 0};
+        const bool ok = movement.move(moved, mesh_stream);
+        prism_frame::account_add(ctx, FX_BYTES_MESH, moved.tiles * setup_k::kMeshBytes);
+        return ok;
     }
 
 #else

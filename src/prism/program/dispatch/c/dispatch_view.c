@@ -132,6 +132,8 @@ static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t
     page[TF_PAGE_FIRST] = depth ? view->target_first : 0u;
     page[TF_PAGE_ACROSS] = depth ? view->target_across : across;
     page[TF_RANGE_BLOCKS] = range_blocks;
+    page[TF_ACCOUNT] = dr_number(frame, DP_N_ACCOUNT);
+    page[TF_ACCOUNT_RECORDS] = dr_number(frame, DP_N_ACCOUNT_RECORDS);
     const uint32_t row = DR_LAYER_WORDS * view->index * DR_LAYERS;
     dr_invalidate(DR_REGION_LAYERS, 4u * row, 4u * DR_LAYER_WORDS * frame->layers);
     const volatile uint32_t* rows = (const volatile uint32_t*)DR_REGION(

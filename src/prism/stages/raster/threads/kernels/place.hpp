@@ -53,6 +53,8 @@ namespace geometry_k {
         if (!landed(movement, kWherePositions)) {
             return false;
         }
+        prism_frame::account_add(ctx, FX_BYTES_PAGES, tile_bytes + band_bytes);
+        prism_frame::account_add(ctx, FX_BYTES_RECORDS, kSliceBytes * slices.count);
         invalidate_l1_cache();
         volatile tt_l1_ptr uint32_t* words = km::l1(at);
         volatile tt_l1_ptr uint32_t* slice_words = km::l1(places);
@@ -92,9 +94,11 @@ namespace geometry_k {
             .page_size = setup_k::kListPageBytes
         };
         for (;;) {
+            const uint32_t since = prism_frame::account_now();
             if (!front(movement, out, 1, kWhereOut)) {
                 return false;
             }
+            prism_frame::account_word_since(ctx, FX_PLACE_WAIT, since);
             invalidate_l1_cache();
             const uint32_t records = get_read_ptr(out);
             volatile tt_l1_ptr uint32_t* words = km::l1(records);
@@ -138,6 +142,7 @@ namespace geometry_k {
                                 ),
                                 128
                             );
+                            prism_frame::account_add(ctx, FX_BYTES_LISTS, 128);
                             continue;
                         }
                         const uint32_t first = word & kPosEntryMask;
@@ -161,6 +166,7 @@ namespace geometry_k {
                                 ),
                                 128
                             );
+                            prism_frame::account_add(ctx, FX_BYTES_LISTS, 128);
                         }
                     }
                 }
@@ -198,9 +204,11 @@ bool place_movers(Ctx& ctx, const prism_frame::Range& range) {
             if (held.layer != kNoLayer && range.layer < held.layer) {
                 return ctx.gave_up(km::kGaveBadItem, kWhereRange);
             }
+            const uint32_t since = prism_frame::account_now();
             if (!place_load(ctx, range.layer)) {
                 return false;
             }
+            prism_frame::account_word_since(ctx, FX_PLACE_LOAD, since);
             held.layer = range.layer;
         }
         return place_pages(ctx, range.layer);

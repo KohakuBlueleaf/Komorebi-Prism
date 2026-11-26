@@ -20,6 +20,8 @@
 #define TF_RANGE_BLOCKS 11u /* the triangle blocks a count range holds */
 #define TF_PAGE_FIRST 12u  /* a tile's page in the target: TF_PAGE_FIRST + (tile / across) */
 #define TF_PAGE_ACROSS 13u /*   * TF_PAGE_ACROSS + tile % across (the display: 0, across) */
+#define TF_ACCOUNT 14u     /* the account's pages (a page a core; 0: none) */
+#define TF_ACCOUNT_RECORDS 15u /* the records a core's page holds */
 
 /* A view's kind */
 #define TV_COLOUR 0u

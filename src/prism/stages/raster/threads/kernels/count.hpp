@@ -76,6 +76,9 @@ namespace geometry_k {
             dram(0, rows, ctx.rank, kHistBytes),
             kHistTileBytes * tiles
         );
+        prism_frame::account_add(
+            ctx, FX_BYTES_PAGES, (kCountTileBytes + kHistTileBytes) * tiles
+        );
         return sent(ctx.movement, kWhereCountsSent);
     }
 

@@ -77,6 +77,70 @@
 #define FM_SLICE_AT 128u
 #define FM_ALIGN 64u
 
+/* The account (built with PRISM_FRAME_ACCOUNT 1, else none): FX_L1_BYTES of the
+ * handler's memory after the shared line, set at each command's start on mover A
+ * before it hands anything on: the command's block (FX_BLOCK_WORDS), mover A's ask and
+ * answer times by a thread's place (FX_TAKEN_AT, FM_RING), pack's step ends by a
+ * thread's place (FX_STEPS_AT, FX_STEPS a thread), FM_RING records being written
+ * (FX_STAGE_AT), the head (FX_HEAD_AT: the records written since the load). A core's
+ * page of the account tensor (frame page TF_ACCOUNT): the head's FX_HEAD_WORDS, a block
+ * a (view, pull) from FX_PAGE_BLOCKS (FX_VIEWS views, FX_ACCOUNT_PULLS pulls each), a
+ * record a thread from FX_RECORDS_AT (TF_ACCOUNT_RECORDS a ring); written by mover A at
+ * the command's end and a thread's end. Times in wall clock cycles. */
+#define FX_L1_BYTES 1024u
+#define FX_BLOCK_WORDS 64u
+#define FX_TAKEN_AT 64u
+#define FX_STEPS_AT 72u
+#define FX_STEPS 8u
+#define FX_STAGE_AT 104u
+#define FX_HEAD_AT 168u
+#define FX_HEAD_WORDS 16u
+#define FX_DONE_AT 184u /* mover B's, then each compute CPU's: the command it ended */
+#define FX_PAGE_BLOCKS 16u
+#define FX_VIEWS 8u
+#define FX_ACCOUNT_PULLS 3u
+#define FX_RECORD_WORDS 16u
+#define FX_RECORDS_AT 1600u
+/* A block: a mover's words from FX_MOVER_A or FX_MOVER_B, then each compute CPU's
+ * FX_CPU_WORDS from FX_CPU_AT (unpack, math, pack): its threads' cycles, a step's
+ * cycles from FX_CPU_STEP (a kind: step 0), its threads. */
+#define FX_MOVER_A 0u
+#define FX_MOVER_B 16u
+#define FX_THREADS 0u /* threads run (mover A: taken) */
+#define FX_ASK 1u     /* A: asked and answered a thread; B: waiting for a descriptor */
+#define FX_NONE 2u    /* A: asked and answered none left */
+#define FX_AHEAD 3u   /* A: waiting for the thread before the one taken ahead */
+#define FX_DRAIN 4u   /* waiting for the threads taken to end */
+#define FX_SPAN 5u    /* the command, start to end */
+#define FX_RUN 6u     /* running a thread's share (its movement) */
+#define FX_SERVE 7u   /* serving asks and output blocks */
+#define FX_BYTES_MESH 8u
+#define FX_BYTES_SHADE 9u
+#define FX_BYTES_LISTS 10u   /* lists read (tile pull), list slots written (place) */
+#define FX_BYTES_RECORDS 11u /* records and slices' words read */
+#define FX_BYTES_ASKED 12u   /* pages read for the compute side's asks */
+#define FX_BYTES_OUT 13u     /* output blocks written */
+#define FX_BYTES_PAGES 14u   /* counts, rows and positions pages read or written */
+#define FX_BYTES_OTHER 15u   /* the camera */
+#define FX_CPU_AT 32u
+#define FX_CPU_WORDS 10u
+#define FX_CPU_STEP 1u
+#define FX_CPU_THREADS 9u
+#define FX_PLACE_LOAD 62u /* the place pull's positions and slices read, cycles */
+#define FX_PLACE_WAIT 63u /* the place pull's waits for the compute side's pages */
+/* A record: view | kind << 8 | pull << 16, the number, the count, asked, answered,
+ * started, ended on mover A, on mover B, the cost told, pack's step ends from word 9 */
+#define FX_R_VIEW 0u
+#define FX_R_NUMBER 1u
+#define FX_R_COUNT 2u
+#define FX_R_ASKED 3u
+#define FX_R_TAKEN 4u
+#define FX_R_START 5u
+#define FX_R_END_A 6u
+#define FX_R_END_B 7u
+#define FX_R_COST 8u
+#define FX_R_STEPS 9u
+
 /* The places of the loop's waits and give-ups (the gave-up word's where). */
 #define FW_PAGE 112u            /* mover A: room for the frame's page */
 #define FW_DESCRIPTOR_ROOM 113u /* mover A: room in a descriptor ring */

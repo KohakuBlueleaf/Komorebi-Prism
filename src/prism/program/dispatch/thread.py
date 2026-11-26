@@ -40,6 +40,8 @@ NUMBERS = tuple(
         "range_blocks",
         "records",
         "display",
+        "account",
+        "account_records",
     )
 )
 COLUMNS = tuple(
@@ -67,13 +69,14 @@ RESULTS = tuple(P + name for name in ("ranges", "tile_threads", "near_given", "w
 @dataclass(frozen=True)
 class Capacity:
     """What the dispatcher's regions hold: the count ranges of a view, the slices of a
-    view, the records a slice holds, the tiles a slice holds (the geometry's layout's).
-    """
+    view, the records a slice holds, the tiles a slice holds (the geometry's layout's);
+    whether the choice keeps its account."""
 
     ranges: int
     slices: int
     slice_records: int = geometry.SLICE_RECORDS
     slice_tiles: int = geometry.SLICE_TILES
+    account: bool = False
 
 
 def capacity_of(ranges, across, down):
@@ -106,12 +109,17 @@ def state_bytes(capacity):
 
 def defines(capacity):
     """The dispatcher's build numbers for `capacity`: the geometry's (RASTER_SLICES,
-    TR_SLICE_RECORDS), the ranges, the slices and the tiles a slice."""
-    return geometry.defines(capacity.slices, capacity.slice_records) | {
-        "DP_RANGES_MOST": f"{capacity.ranges}u",
-        "DP_SLICES_MOST": f"{capacity.slices}u",
-        "DP_SLICE_TILES": f"{capacity.slice_tiles}u",
-    }
+    TR_SLICE_RECORDS), the ranges, the slices and the tiles a slice; DP_ACCOUNT."""
+    account = {"DP_ACCOUNT": "1"} if capacity.account else {}
+    return (
+        geometry.defines(capacity.slices, capacity.slice_records)
+        | account
+        | {
+            "DP_RANGES_MOST": f"{capacity.ranges}u",
+            "DP_SLICES_MOST": f"{capacity.slices}u",
+            "DP_SLICE_TILES": f"{capacity.slice_tiles}u",
+        }
+    )
 
 
 UNIT = Unit(
@@ -137,15 +145,21 @@ def entry(capacity):
     return generate.NAME, UNIT, capacity
 
 
-def numbers(policy, near, heavy, range_blocks, records, display):
+def numbers(
+    policy, near, heavy, range_blocks, records, display, account=0, account_records=0
+):
     """{number: value} of the loaded run's numbers: the policy by name, the near
     distance in slices, the weight above which a tile is cut, the blocks a count range,
-    the records' and the display's addresses."""
+    the records' and the display's addresses, the account's pages' address and the
+    records a page holds (0: no account)."""
     if policy not in POLICIES:
         raise ValueError(f"dispatch: policy {policy!r}, not one of {sorted(POLICIES)}")
     if range_blocks <= 0 or near < 0:
         raise ValueError(f"dispatch: {range_blocks} blocks a range, near {near}")
-    values = (POLICIES[policy], near, heavy, range_blocks, records, display)
+    values = (
+        POLICIES[policy], near, heavy, range_blocks, records, display, account,
+        account_records,
+    )  # fmt: skip
     return dict(zip(NUMBERS, (int(value) for value in values), strict=True))
 
 

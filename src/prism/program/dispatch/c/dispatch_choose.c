@@ -33,6 +33,8 @@ uint32_t dp_choose_reset(
         state->core[core].last = DP_NO_SLICE;
         state->core[core].codes = state->core[core].cost = 0;
         state->core[core].tells = 0;
+        state->core[core].answers = state->core[core].nones = 0;
+        state->core[core].ticks = 0;
     }
     for (uint32_t slice = 0; slice < slices; slice++) {
         dp_slice_t* one = &state->slice[slice];
@@ -154,12 +156,7 @@ static uint32_t kept(
     return DP_NO_SLICE;
 }
 
-uint64_t dp_choose(int core, uint32_t index, uint64_t arg) {
-    (void)index;
-    dp_choose_t* state = (dp_choose_t*)(uintptr_t)arg;
-    if (core < 0 || (uint32_t)core >= KMX_PORTS_CORES) {
-        return KMX_PULL_WORD(KMX_PULL_NONE, 0);
-    }
+static uint64_t choose_one(dp_choose_t* state, int core) {
     dp_core_t* asker = &state->core[core];
     kmx_message told;
     if (kmx_port_told(core, &told) == KMX_OK) {
@@ -192,4 +189,26 @@ uint64_t dp_choose(int core, uint32_t index, uint64_t arg) {
     return KMX_PULL_WORD(
         TR_NUMBER(slice, place), TA_WORD(0u, near ? TA_HINT_NEAR : 0u)
     );
+}
+
+uint64_t dp_choose(int core, uint32_t index, uint64_t arg) {
+    (void)index;
+    dp_choose_t* state = (dp_choose_t*)(uintptr_t)arg;
+    if (core < 0 || (uint32_t)core >= KMX_PORTS_CORES) {
+        return KMX_PULL_WORD(KMX_PULL_NONE, 0);
+    }
+#ifdef DP_ACCOUNT
+    const uint64_t since = kmx_time();
+    const uint64_t word = choose_one(state, core);
+    dp_core_t* asker = &state->core[core];
+    asker->ticks += (uint32_t)(kmx_time() - since);
+    if ((uint32_t)word == KMX_PULL_NONE) {
+        asker->nones++;
+    } else {
+        asker->answers++;
+    }
+    return word;
+#else
+    return choose_one(state, core);
+#endif
 }

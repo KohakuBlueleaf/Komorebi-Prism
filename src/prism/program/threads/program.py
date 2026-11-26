@@ -27,13 +27,17 @@ def composed(host, tile_thread):
     count, place = kinds.kinds(
         tiles=host.held.tiles, slices=cap.slices, slice_records=cap.slice_records
     )
-    return generate.compose(tile_thread, (count, place), tuple(host.layers), host.held)
+    layers, account = tuple(host.layers), bool(getattr(host, "account", 0))
+    return generate.compose(tile_thread, (count, place), layers, host.held, account)
 
 
 def defines(host):
     """The work class's build defines beside the steps' words: the dispatcher's
-    capacity's, the raster capacity's, then each of the option frame_defines's."""
+    capacity's, the raster capacity's, the account's, then each of the option
+    frame_defines's."""
     out = dispatch.defines(host.capacity) | capacity.capacity_defines(host.held)
+    if getattr(host, "account", 0):
+        out |= {"PRISM_FRAME_ACCOUNT": "1"}
     for path in host.options.get(frame_host.DEFINES, ()):
         out |= located(path)(host.held)
     return out

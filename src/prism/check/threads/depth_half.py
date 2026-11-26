@@ -12,6 +12,7 @@ from prism.check.threads.model import PORTS_CORES, laid_out
 from prism.check.threads.standing import standing
 from prism.check.threads.sun import cleared, judged, map_of, shadow_host
 from prism.core.implementation import hosted
+from prism.program.dispatch.thread import CHOOSE
 from prism.stages.direct.shadow_pcf.model.region import (
     QUADRANT,
     across_of,
@@ -107,8 +108,11 @@ def handed(loop):
     """The tile pull's choice as it stood (read after the stop): the records handed
     and held, each asking core's tells: {handed, records, tells}."""
     raw = np.frombuffer(loop.loaded.region(names.STATE), dtype=np.uint32)
-    head, cores = raw[:8], raw[8 : 8 + 4 * PORTS_CORES].reshape(-1, 4)
-    slices = raw[8 + 4 * PORTS_CORES :].reshape(-1, 8)[: head[2]]
+    head_words, core_words = CHOOSE["DP_CHOOSE_HEAD_WORDS"], CHOOSE["DP_CORE_WORDS"]
+    head = raw[:head_words]
+    end = head_words + core_words * PORTS_CORES
+    cores = raw[head_words:end].reshape(-1, core_words)
+    slices = raw[end:].reshape(-1, CHOOSE["DP_SLICE_WORDS"])[: head[2]]
     next_ = np.minimum(slices[:, 1], slices[:, 0])
     return {
         "handed": int(next_.sum()),
