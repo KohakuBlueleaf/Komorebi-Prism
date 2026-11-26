@@ -173,8 +173,9 @@ namespace setup_k {
         }
 
         // Per lane: kept and crossing flags, box as integers and float16 columns; with
-        // `records` the thresholds, number (first + lane), words 29 to 31 as 0.
-        inline void finish_lanes(bool records, uint32_t first_bits) {
+        // `records` the thresholds, triangle word (first_word + lane), words 29 to 31
+        // as 0.
+        inline void finish_lanes(bool records, uint32_t first_word) {
             // beyond the near distance, per corner (float order, near > 0)
             load(L7, kSlotCamera + 15);
             load(L0, kSlotRecords + kRawZ);
@@ -258,11 +259,11 @@ namespace setup_k {
                 TT_SFPAND(0, L7, L0, 0);
                 store(L0, kSlotRecords + 9 + corner);
             }
-            // triangle number, then words 29 to 31
+            // triangle word (first_word + lane, as integers), then words 29 to 31
             load(L0, kSlotLaneNumber);
-            immediate(L1, first_bits);
-            add(L0, L1, L0);
-            store(L0, kSlotRecords + 28);
+            immediate(L1, first_word);
+            TT_SFPIADD(0, L0, L1, kCcNone);
+            store(L1, kSlotRecords + 28);
             TT_SFPMOV(0, ZERO, L0, 0);
             store(L0, kSlotRecords + 29);
             store(L0, kSlotRecords + 30);

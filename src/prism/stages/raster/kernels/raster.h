@@ -74,11 +74,15 @@ constexpr uint32_t kRecX1 = 25;     // last pixel column + 1, as float16 (both f
                                     // in a wide build, grid.h)
 constexpr uint32_t kRecY0 = 26;     // first pixel row of the box (int)
 constexpr uint32_t kRecY1 = 27;     // last pixel row of the box (int)
-constexpr uint32_t kRecTri = 28;    // triangle number, as a float
+constexpr uint32_t kRecTri = 28;    // triangle n: the bits kTriBase + n
 constexpr uint32_t kRecIndex = 29;  // record number (int)
+// The bits of the float 1.0: a triangle's word is kTriBase + n, a positive normal
+// float.
+constexpr uint32_t kTriBase = 0x3F800000;
 
 // Output planes of a tile, one 4096-byte page each, in the order of the Dst window:
-// depth (1/z, 0 where empty), red, green, blue, triangle number (-1 where empty).
+// depth (1/z, 0 where empty), red, green, blue, triangle word (kRecTri's; -1 where
+// empty).
 constexpr uint32_t kPlanes = 5;
 constexpr uint32_t kPlaneWords = 1024;
 

@@ -17,6 +17,7 @@ from prism.stages.raster.device import Raster
 from prism.stages.raster.host import RasterHost, camera_area, heavy_page
 from prism.stages.raster.model import bands, middle, numbers
 from prism.stages.raster.model.frame import decoded
+from prism.stages.raster.model.records import triangle_words
 from prism_reference.raster.frames import rasterize
 from prism_reference.scene.frame import frame_grid
 
@@ -35,7 +36,8 @@ def model_middle(entries, rows, cores, heavy, starts, ends):
 def reference_planes(scene):
     """The reference's padded frame as the five planes (depth, colour, triangle)."""
     frame = rasterize(scene)
-    planes = [frame["depth"], *np.moveaxis(frame["colour"], 2, 0), frame["tri"]]
+    tri = triangle_words(frame["tri"]).view(np.float32)
+    planes = [frame["depth"], *np.moveaxis(frame["colour"], 2, 0), tri]
     return np.stack(planes).astype(np.float32)
 
 

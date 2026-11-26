@@ -29,7 +29,23 @@ their float32 bit patterns.
 - **The box.** Its first column and its last column plus one are float16 bit patterns
   (exact for integers below 2,048), which the fill pushes as one-load immediates; the
   first and last rows are integers. A wide build holds the columns as float32.
-- **The triangle number** is a float, as the fifth plane of the frame stores it.
+- **The triangle number.** Triangle `n` is the word `kTriBase + n` (`raster.h`;
+  `0x3F800000`, the bits of 1.0), as the fifth plane of the frame stores it: a positive
+  normal float whose bit pattern counts the triangles one by one, exact for every
+  number the word holds (the float32 of `n` is exact only below 16,777,216; past it
+  neighbours share a float). SETUP adds each lane's number to its block's first word as integers
+  on the vector unit (`SFPIADD`), a clipped triangle's piece takes the same word on the
+  scalar side, and FILL moves the word without arithmetic. Its readers compare words as
+  bits (the lit material step's winners) or by a float subtraction that is zero only
+  for equal words (two distinct floats from 1.0 up differ by a normal float). An empty
+  pixel's word is the float -1, and the later stages' marks in the plane have bit 31
+  set, so neither meets a triangle's word. The host reads `n = word - kTriBase`
+  (`records.triangle_numbers`; `triangle_words` the other way). The words stay finite
+  floats for `0x7F800000 - kTriBase` = 1,073,741,824 triangles a layer
+  (`records.TRIANGLE_BOUND`); `records.mesh_blocks`, where every layer's blocks are made,
+  refuses a larger layer with its count and the bound. A scene's memory is reached long
+  before: that many triangles are 77 GB of mesh blocks alone (576 words a block of 32)
+  and 137 GB of records.
 
 ## The mesh as blocks
 
@@ -136,7 +152,7 @@ The C does the same in parts the thread spreads over its four cores: `rm_costs`
 ## The frame's pages
 
 The fill writes, per tile, five 4,096-byte planes: depth (`1/z`, 0 where empty), red,
-green, blue, and the triangle number (-1 where empty). A plane is in the order the
+green, blue, and the triangle's word (`kTriBase + n`, the float -1 where empty). A plane is in the order the
 destination register's window is read out: pixel (row, column) is word
 `64 (row / 2) + 16 (column / 8) + 2 (column mod 8) + row mod 2` (`frame.window_index`), so
 two rows of a plane are 256 contiguous bytes, which lets a band write only its rows.
