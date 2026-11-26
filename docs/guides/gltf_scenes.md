@@ -170,6 +170,13 @@ colour, `double_sided`, `unlit`, every carried material extension but transmissi
 camera's roll, the camera's lens shift (`camera shift`), a spot light's cone (drawn as a
 point light) and area lights.
 
+That is what the conversion drops of a glTF file. What a file exported from Blender
+lacks of its `.blend` is lost before it, in the exporter: `scripts/blender/exportable.py`
+reads per material how Blender's glTF exporter writes it, weighted by triangles, area
+and picture share, and the scenes the plain export keeps coherent are in
+[the glTF truth](../performance/gltf_truth.md)
+([artists' scenes](artist_scenes.md#the-same-gltf-as-the-truth)).
+
 ## The view
 
 One view, named `camera` (so the view is `<name>_camera`): the node `--camera` names,

@@ -137,7 +137,34 @@ shadow term off. Crytek Sponza, (c) 2010 Frank Meinl, Crytek, CC BY 3.0; Amazon
 Lumberyard Bistro, (c) 2017 Amazon Lumberyard, CC BY 4.0 (Open Research Content
 Archive); both from Morgan McGuire's Computer Graphics Archive.*
 
-**The threads' frame against the stage-wise frame.** One Blackhole P150A, 120 cores,
+**The renderer's frame.** `gi_threads` against its stage-wise form `gi`: one Blackhole
+P150A, 120 cores, AICLK 1,350 MHz, Komorebi 0.6.0, 2026-11-27, 1,920 x 1,080, 64 frames at
+the view's camera, the median over frames 2 to 64, then over three runs, in ms; every
+`gi_threads` picture equal to `gi`'s byte for byte. `gi` pushes its picture into the
+host's memory inside its frame (4.440 ms) and `gi_threads` does not, so the like frame is
+`gi` less its push; the ratio is `gi_threads` over it
+([gi_threads](docs/performance/gi_threads.md)).
+
+| scene (view) | `gi` less push | `gi_threads` | ratio |
+|---|---:|---:|---:|
+| sponza (overview) | 22.447 | 18.610 | 0.83 |
+| bistro_interior (overview) | 33.282 | 24.182 | 0.73 |
+| breakfast_room (overview) | 18.422 | 15.303 | 0.83 |
+| salle_de_bain (overview) | 21.842 | 19.189 | 0.88 |
+| modern_hall (overview) | 23.966 | 18.639 | 0.78 |
+| modern_living_room (overview) | 25.647 | 18.196 | 0.71 |
+| classroom_a1c62e93f7 (camera) | 21.394 | 19.170 | 0.90 |
+| lynxsdesign_411c9daef8 (camera) | 53.802 | 49.474 | 0.92 |
+| italian_flat_97f97a20ba (camera) | 48.023 | 42.224 | 0.88 |
+| lynxsdesign_a01894bbb8 (camera) | 94.159 | 102.094 | 1.08 |
+
+The threads' form is behind only on the largest scene, lynxsdesign_a01894bbb8: its count
+and place pulls take 67.4 ms, against 69.9 ms for all the stage-wise raster's passes
+with fill included, and the tile pull adds 34.4 ms on top. After a sun move `gi` stops
+for 161.6 to 471.6 ms; `gi_threads` draws 2 to 7 frames during its update, each 1.25 to
+1.36 times the steady frame.
+
+**The threads' frame against the stage-wise frame, by preset.** One Blackhole P150A, 120 cores,
 AICLK 1,350 MHz, 2026-11-27, 1,920 x 1,080, 16 frames at the scene's camera: the median
 over frames 2 to 16, then over three runs, in ms. Every frame's picture equal to the
 stage-wise frame's (0 pixels different). The threads' frame with the tile pull's
@@ -182,7 +209,6 @@ Every number with its check is in [frames](docs/performance/frames.md); the upda
 the frames in [measurements/update_beside](measurements/update_beside/README.md); a glTF
 file's load, cold and warm, in [load](docs/performance/load.md); the card's picture
 against Cycles reading the same glTF file in [glTF truth](docs/performance/gltf_truth.md).
-`gi_threads` has not been measured.
 
 ## The scenes
 
@@ -264,7 +290,7 @@ measurements/              every recorded run, a README a folder
 | [the command line](docs/guides/cli.md), [the viewer](docs/guides/viewer.md) | `run`, `open`, the preset runner; the server and the page |
 | [glTF scenes](docs/guides/gltf_scenes.md), [artists' scenes](docs/guides/artist_scenes.md) | opening a glTF file; Blender scenes and the truth by Cycles |
 | [dispatch](docs/internals/program/dispatch.md), [work](docs/internals/program/work.md), [steps](docs/internals/program/steps.md) | how the frame's thread and the handler `work` run a view |
-| [frames](docs/performance/frames.md), [account](docs/performance/account.md), [transport build](docs/performance/transport_build.md) | the frame's time by preset, scene and size; where a threads' frame's time goes; the transport set's two builds on the host |
+| [gi_threads](docs/performance/gi_threads.md), [frames](docs/performance/frames.md), [account](docs/performance/account.md), [transport build](docs/performance/transport_build.md) | the renderer's frame and its update on ten scenes; the frame's time by preset, scene and size; where a threads' frame's time goes; the transport set's two builds on the host |
 | [checks](docs/guides/checks.md), [scripts](scripts/README.md), [measurements](measurements/README.md) | what each check covers; every script; the records |
 
 ## Licence and credits

@@ -149,7 +149,8 @@ to start 0.82 (count, place) and 1.36 (tile), a thread 33 (count), 72 (place), 6
 
 ## What is not measured
 
-- A sun's DEPTH views (the runs send no `sun` command), and `gi_threads`.
+- A sun's DEPTH views (the runs send no `sun` command), and `gi_threads` with the account:
+  its frame without the account, by phase, is in [gi_threads](gi_threads.md).
 - Scenes other than Sponza, hidden alley, lynxsdesign and classroom.
 - The X280's time an answer in the count and place pulls (Komorebi's pull keeps no such
   count); what a core sees of it is above.

@@ -292,6 +292,26 @@ file, not against Cycles rendering the `.blend`.
 glTF exporter decides what each material becomes, nothing is baked or rewritten, and the
 sidecar's `materials` is empty. Without `--plain` the export is as above.
 
+What the plain export can carry of a scene is read from the `.blend` itself, before any
+export, by `scripts/blender/exportable.py` (run inside Blender on the artist's file):
+
+```
+blender --background <file.blend> --python scripts/blender/exportable.py -- OUT.json [--rays W H]
+```
+
+For each material the camera's rays or the drawn triangles reach, it records how the
+exporter writes the Principled BSDF's base colour, roughness and metallic (`constant`,
+`image`, `image_altered`: other nodes between the input and its image, dropped;
+`attribute`; `lost`, written as white) and its normal (`normal_map`, `bump_as_normal`,
+`lost`), whether the surface is a Principled at all (`mix_principled`, `other_bsdf`,
+`emission`), its alpha, transmission and emission strength, and whether displacement or a
+volume is linked; each material is weighted by its drawn triangles, its world area and
+its share of the camera's picture (one ray a cell of a W x H grid, 160 x 90 by default).
+The record also names the world as the sidecar sees it, the lights by type, what Cycles
+draws and the export does not carry, missing images and libraries, and whether the
+camera is animated. It is the per-material reason behind a scene's loss in
+[the glTF truth](../performance/gltf_truth.md); no measurement page quotes its records.
+
 `gltf_truth` runs `from_gltf.py`, then `render.py` on the `.blend` it saved, with the
 engines, size and samples of `render`. `from_gltf.py` starts from an empty file and:
 

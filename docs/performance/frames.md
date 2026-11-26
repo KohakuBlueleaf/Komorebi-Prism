@@ -33,7 +33,6 @@ the account, which costs about 1 % ([the account](account.md)). ms.
 Each command: `scripts/run/threads_account.py --pipeline P --scene S --view V --size
 1920 1080 --frames 16 --way W --want PICTURE --card C [--account 512]`. `lit` here draws
 one view a frame: these runs send no `sun` command, so no sun's DEPTH view is in them.
-`gi_threads` was not measured in this set.
 
 With the threads' option `heavy` set from the frame's data (0.33 x the frame's entries
 over every layer / 120 cores, a measurement, not a preset change), `prefer`: Sponza
@@ -42,6 +41,27 @@ over every layer / 120 cores, a measurement, not a preset change), `prefer`: Spo
 thread ended the tile pull the cut gains; where none did, its work in the sums costs more
 than it gives. The phases, the bytes and the cores' waits behind these numbers are
 [the account of the threads' frame](account.md).
+
+## The renderer: `gi_threads` against `gi`
+
+The renderer's frame was measured on its own ([gi_threads](gi_threads.md), from
+[measurements/gi_threads](../../measurements/gi_threads/README.md)): 1,920 x 1,080, the
+view's camera, 64 frames a load, the median over frames 2 to 64 then of three runs, card
+120 cores, 2026-11-27 (UTC+8), Komorebi 0.6.0, every `gi_threads` picture equal to `gi`'s.
+`gi` holds its push (4.440 ms); `gi_threads` has none. ms.
+
+| scene (view) | `gi` | `gi` less push | `gi_threads` |
+|---|---:|---:|---:|
+| sponza (overview) | 26.887 | 22.447 | 18.610 |
+| bistro_interior (overview) | 37.722 | 33.282 | 24.182 |
+| breakfast_room (overview) | 22.862 | 18.422 | 15.303 |
+| salle_de_bain (overview) | 26.282 | 21.842 | 19.189 |
+| modern_hall (overview) | 28.406 | 23.966 | 18.639 |
+| modern_living_room (overview) | 30.087 | 25.647 | 18.196 |
+| classroom_a1c62e93f7 (camera) | 25.834 | 21.394 | 19.170 |
+| lynxsdesign_411c9daef8 (camera) | 58.242 | 53.802 | 49.474 |
+| italian_flat_97f97a20ba (camera) | 52.464 | 48.023 | 42.224 |
+| lynxsdesign_a01894bbb8 (camera) | 98.599 | 94.159 | 102.094 |
 
 ## The stage-wise presets
 

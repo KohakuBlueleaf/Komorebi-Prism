@@ -13,7 +13,7 @@ parts are and where each runs.
 
 | part | what it is | made |
 |---|---|---|
-| elements | points sampled over the surfaces by area (the lighting entry's count, 50,000 by default, then those that see only the void or are buried dropped; 36,832 kept for Sponza), each with a position, a normal, an albedo or an emission and a sky transfer row; padded to whole units of 32 and ordered by a cluster tree | once, on the host, by `public_scenes.py indirect <scene>` (the far field: until it is made, `gi` and its forms draw the scene without the indirect light, [presets](../guides/cli.md#the-presets)) |
+| elements | points sampled over the surfaces by area (the lighting entry's count, 50,000 by default, then those that see only the void or are buried dropped; 36,832 kept for Sponza), each with a position, a normal, an albedo or an emission and a sky transfer row (25 spherical harmonics' coefficients over the 1,024 stratified cosine rays from the element that escape: one in each cell of a 32 x 32 grid); padded to whole units of 32 and ordered by a cluster tree | once, on the host, by `public_scenes.py indirect <scene>` (the far field: until it is made, `gi` and its forms draw the scene without the indirect light, [presets](../guides/cli.md#the-presets)) |
 | the transport matrix `M = pi F` | what each element receives from every other: `F` the form factors with one visibility ray each, stored as a hierarchical matrix; built dense then compressed, or block by block without the dense matrix (`--transport sketch`) | once, with the elements |
 | the sources `L0` | each element's outgoing light for the current lights: emission, and albedo / pi times the sun (through the shadow map), the lamps and the sky | at every update |
 | the bounce passes | `E1 = M L0`, `E_k = M (albedo / pi E_(k-1))`, `E = E1 + ... + E_b`, `b` the control `bounces` (2 by default) | at every update, each one apply |
@@ -118,5 +118,13 @@ On Sponza at 1,024 x 1,024 the first `sun` pass of a run takes 19.18 ms
 frames (`gi_tile`) the update takes 130.50 to 197.84 ms on the card while 7 to 14 frames
 are drawn, the longest gap between two frames 2.4 to 3.7 ms over the steady one, and the
 first frame after the swap is byte for byte `gi`'s
-([update_beside](../../measurements/update_beside/README.md)). The update of
-`gi_threads` has not been measured.
+([update_beside](../../measurements/update_beside/README.md)).
+
+After one sun move at 1,920 x 1,080 on ten scenes, the stage-wise form stops: `gi` waits
+161.6 to 471.6 ms (Sponza 174.5) from the control set to the end of its first frame at the
+new sun, the update 104.5 to 181.4 ms of it on the card. The threads' form draws frames
+during its update: `gi_threads` draws 2 to 7 frames with the old field, each 1.25 to 1.36
+times the steady frame (the applies hold the lowest ranks), and its first frame with the
+new field ends 130.7 to 780.6 ms after the control was set (Sponza 138.5); the longest gap
+is the first frame at the new sun, which holds the sun's pass
+([gi_threads](../performance/gi_threads.md)).

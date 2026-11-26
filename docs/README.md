@@ -57,6 +57,7 @@ standard library; its docstring names the code and the records each figure is ta
 
 | page | what it says |
 |---|---|
+| [performance/gi_threads.md](performance/gi_threads.md) | the renderer's frame, `gi_threads` against `gi`, on ten scenes by phase; the field's update after a sun move in both forms |
 | [performance/frames.md](performance/frames.md) | the frame's time on the card by preset, scene and size, in both forms |
 | [performance/account.md](performance/account.md) | where a threads' frame's time and bytes go: the ways of handing out, a core's waits, the CPUs by step, the X280's choice |
 | [performance/load.md](performance/load.md) | opening a glTF file: a load part by part, cold and warm |
