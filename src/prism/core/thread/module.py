@@ -33,7 +33,9 @@ class ListPass:
 class Output:
     """A stream of blocks a step pushes for the data-movement CPUs to write: its name,
     a block's bytes, the blocks each half holds, and the function a data-movement CPU
-    runs on a block before writing it (None: written as it is)."""
+    runs on a block before writing it (None: written as it is):
+    `uint32_t f(ctx, block, tile, page, bytes, offset)` gives the address to write
+    `bytes` from, to byte `offset` of page `page` (the record's, unless it sets it)."""
 
     name: str
     block_bytes: int
@@ -51,7 +53,10 @@ class Step:
     `buffers`: rings of its own ({name: (pages, page bytes, the CPU that pushes)});
     `words`: its words of the frame's page, filled by `<name>_frame_words` of `thread`
     (a C file from src/prism/); `codes`: its variants by code (0 the resident one);
-    `depth`: whether a DEPTH view's tile thread runs it."""
+    `depth`: whether a DEPTH view's tile thread runs it; `begin`: whether the header
+    gives `<name>_begin(ctx)`, run once a command on the data-movement CPU that takes
+    the command first, before its first thread. A keep's bytes: an int or a function of
+    the capacity held."""
 
     name: str
     header: str
@@ -66,6 +71,7 @@ class Step:
     thread: str | None = None
     codes: dict = field(default_factory=dict)
     depth: bool = False
+    begin: bool = False
 
 
 @dataclass(frozen=True)
