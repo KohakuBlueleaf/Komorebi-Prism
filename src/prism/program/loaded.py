@@ -179,8 +179,10 @@ class Loaded:
 
 
 def load(assembled, session):
-    """`assembled`'s program loaded on `session`, each host bound to it in order."""
-    loaded = Loaded(assembled, session, session.load(assembled.program))
+    """`assembled`'s program loaded on `session` (the option `trace`: Komorebi's trace
+    of that many commands a core, 0 none), each host bound to it in order."""
+    trace = int(assembled.options.get("trace") or 0)
+    loaded = Loaded(assembled, session, session.load(assembled.program, trace=trace))
     for host in assembled.hosts.values():
         hosted(host, "bind")(loaded)
     return loaded
