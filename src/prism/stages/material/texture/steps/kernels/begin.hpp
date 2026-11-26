@@ -28,7 +28,7 @@ namespace material_step {
             .bank_base_address = table, .page_size = kShadeTableBytes
         };
         noc_async_read(
-            get_noc_addr(0, tensor), get_write_ptr(kFieldFrameTable), kShadeTableBytes
+            tensor.get_noc_addr(0), get_write_ptr(kFieldFrameTable), kShadeTableBytes
         );
         if (camera_to != 0) {
             const uint64_t camera = get_noc_addr_from_bank_id<true>(
@@ -37,7 +37,7 @@ namespace material_step {
             noc_async_read(camera, camera_to, 4 * kCamWordsShade);
         }
         if (!texel_pages::reads_arrived(ctx.movement)) {
-            return ctx.gave_up(km::kGaveWait, kWhereShadeReader);
+            return ctx.gave_up(km::kGaveLimit, kWhereShadeReader);
         }
         return true;
     }
