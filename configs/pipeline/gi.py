@@ -33,6 +33,9 @@ OPTIONS = {
 # the options a runner takes from the scene's files: its materials, its name (also the
 # field's scene and its transport set), its lights
 SCENE_INPUTS = ("materials", "name", "lights")
+# the scene's files it reads beside the mesh (scene.public.files): the lights' and
+# the field's, and the transport set
+SCENE_FILES = ("materials", "lighting", "indirect", "transport")
 # the picture a frame's is compared with (the lit frame with the field) and the judge of
 # a frame's picture, each of (loop, scene)
 REFERENCE = reference

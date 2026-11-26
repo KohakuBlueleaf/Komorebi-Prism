@@ -28,6 +28,7 @@ const SHOWN = 5
 const KINDS = {
   reload: { label: "load", icon: "i-carbon-renew text-sapphire dark:text-sapphire-light" },
   applied: { label: "applied", icon: "i-carbon-checkmark-outline text-sage" },
+  switch: { label: "switched", icon: "i-carbon-arrows-horizontal text-iolite dark:text-iolite-light" },
   refusal: { label: "refused", icon: "i-carbon-warning-alt text-coral" },
   error: { label: "failure", icon: "i-carbon-error text-coral" },
 }

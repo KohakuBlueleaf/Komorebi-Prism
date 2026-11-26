@@ -8,6 +8,7 @@ import numpy as np
 
 from prism_reference.scene.artist.entry import entry_of
 from prism_reference.scene.artist.materials import Textures, image_of, map_material
+from prism_reference.scene.artist.source import source_of
 from prism_reference.scene.description.flatten import draws, flatten
 from prism_reference.scene.description.report import coverage
 from prism_reference.scene.description.types import Note
@@ -220,6 +221,7 @@ def convert(
         scene, vp, len(idx), camera, licence, attribution
     )
     entry["title"] = name
+    entry["source"] = source_of(path, scene)
     notes = count_notes(mapping, second) + view_notes
     report = {
         "coverage": coverage(scene),

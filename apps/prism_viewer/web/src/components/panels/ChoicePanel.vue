@@ -6,8 +6,13 @@
           <span class="field-label">Pipeline</span>
           <StatusMark v-if="!changed" :status="viewer.reloading ? 'loading' : viewer.status" :label="viewer.status === 'running' ? 'loaded' : ''" />
         </span>
-        <el-select v-model="pipeline" :teleported="false" @change="pickScene">
-          <el-option v-for="one in viewer.catalog.pipelines" :key="one.name" :label="one.name" :value="one.name" />
+        <el-select v-model="pipeline" :teleported="false">
+          <el-option v-for="one in viewer.catalog.pipelines" :key="one.name" :label="one.name" :value="one.name" :disabled="!!refusal(one.name)" :title="refusal(one.name) ?? ''">
+            <span class="flex items-center justify-between gap-2 min-w-0">
+              <span>{{ one.name }}</span>
+              <span v-if="refusal(one.name)" class="kt-text-micro text-ink-faint truncate">{{ refusal(one.name) }}</span>
+            </span>
+          </el-option>
         </el-select>
       </label>
       <button v-if="described" class="flex items-center gap-1 self-start kt-text-caption text-ink-muted hover:text-ink transition-colors" :aria-expanded="aboutOpen" @click="settings.toggleOpen('about')">
@@ -20,20 +25,16 @@
           <span class="font-mono text-iolite dark:text-iolite-light">{{ written.slot }}</span>&nbsp;<span class="text-ink-muted">{{ written.what }}</span>
         </p>
       </div>
-      <div class="grid grid-cols-2 gap-2">
-        <label class="flex flex-col gap-1 min-w-0">
-          <span class="field-label">Scene</span>
-          <el-select v-model="scene" :teleported="false" @change="pickView">
-            <el-option v-for="one in scenes" :key="one.name" :label="one.name" :value="one.name" />
-          </el-select>
-        </label>
-        <label class="flex flex-col gap-1 min-w-0">
-          <span class="field-label">View</span>
-          <el-select v-model="view" :teleported="false" :disabled="!views.length" :placeholder="views.length ? 'view' : 'its own'">
-            <el-option v-for="one in views" :key="one" :label="one" :value="one" />
-          </el-select>
-        </label>
+      <div class="flex flex-col gap-1 min-w-0">
+        <span class="field-label">Scene</span>
+        <ScenePicker :model-value="scene" :scenes="viewer.catalog.scenes" :pipelines="viewer.catalog.pipelines" :pipeline="pipeline" @pick="pickScene" />
       </div>
+      <label class="flex flex-col gap-1 min-w-0">
+        <span class="field-label">View</span>
+        <el-select v-model="view" :teleported="false" :disabled="!views.length" :placeholder="views.length ? 'view' : 'its own'">
+          <el-option v-for="one in views" :key="one" :label="one" :value="one" />
+        </el-select>
+      </label>
       <button v-if="changed" class="btn-primary" :disabled="viewer.reloading" @click="load">
         <span class="i-carbon-play-outline" />
         Load
@@ -61,7 +62,9 @@
 import { computed, ref, watch } from "vue"
 
 import PanelCard from "@/components/panels/PanelCard.vue"
+import ScenePicker from "@/components/panels/ScenePicker.vue"
 import StatusMark from "@/components/shell/StatusMark.vue"
+import { bestPreset } from "@/composables/sceneFacts"
 import { useSettingsStore } from "@/stores/settings"
 import { useViewerStore } from "@/stores/viewer"
 
@@ -100,16 +103,24 @@ watch(
 )
 
 const described = computed(() => viewer.catalog.pipelines.find((one) => one.name === pipeline.value))
-// a preset that takes inputs from a scene's view (materials, lights) is offered the scenes with views
-const scenes = computed(() => viewer.catalog.scenes.filter((one) => !described.value?.inputs?.length || one.views.length))
-const views = computed(() => viewer.catalog.scenes.find((one) => one.name === scene.value)?.views ?? [])
+const chosenScene = computed(() => viewer.catalog.scenes.find((one) => one.name === scene.value) ?? null)
+const views = computed(() => chosenScene.value?.views ?? [])
 const changed = computed(() => [pipeline.value, scene.value, view.value].join() !== choice.value.join())
 const sized = computed(() => width.value > 0 && height.value > 0 && size.value && (width.value !== size.value[0] || height.value !== size.value[1]))
 
-function pickScene() {
-  if (scenes.value.some((one) => one.name === scene.value)) return
-  scene.value = scenes.value[0]?.name ?? null
+// why a preset cannot run on the chosen scene (the catalog's), null when it can
+function refusal(name) {
+  return chosenScene.value?.refusals?.[name] ?? null
+}
+// a scene the chosen preset cannot run on switches to the best preset that can, and says so
+function pickScene(name) {
+  scene.value = name
   pickView()
+  const reason = refusal(pipeline.value)
+  if (reason === null) return
+  const best = bestPreset(chosenScene.value, viewer.catalog.pipelines, pipeline.value)
+  viewer.noted("switch", `${pipeline.value} cannot run on ${name} (${reason}): ${best ? `switched to ${best}` : "no preset can"}`)
+  if (best) pipeline.value = best
 }
 function pickView() {
   view.value = views.value[0] ?? null

@@ -72,6 +72,14 @@ description's coverage alone (`scene.description.report.text`).
   description's UV origin is the image's top left, the reference's v runs up. A triangle
   of a primitive without `uv0` gets 0.
 
+- The entry's `source` (`scene/artist/source.py`): the file it was made from (its
+  resolved path), its format (`glb`, `gltf`) and bytes, and what the description reads
+  in it: `objects` (the nodes that draw a mesh), `instances` (the copies they draw: one,
+  or each of their instances), `meshes` (the distinct meshes drawn), `stored_triangles`
+  (those meshes' triangles, each once) and `drawn_triangles` (what `flatten` draws). The
+  viewer's scene menu shows them ([the viewer](viewer.md)); an entry written before it
+  has none, and the menu shows those numbers as unknown.
+
 ## The mapping
 
 The renderer's material model has six kinds with Blinn-Phong numbers; a glTF material is

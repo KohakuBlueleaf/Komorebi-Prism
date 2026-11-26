@@ -11,7 +11,11 @@ Nothing in either half names a stage. The pipelines offered are the presets of
 [scene to threads](scene_to_threads.md)),
 opened as the command line opens them (`prism_cli.preset.opened`, `docs/guides/cli.md`):
 a preset that takes inputs from a scene's view (`SCENE_INPUTS`: materials, lights) is
-offered only the scenes with views, and refused on a generated scene. The controls are the
+refused on a generated scene, and a preset that reads a scene's files beside its mesh
+(`SCENE_FILES`, the kinds of `prism_reference.scene.public.files`: `materials`,
+`lighting`, `indirect`, `transport`) is refused on a scene that lacks one, with the reason
+("no lighting file", "no indirect data"). The catalog says so for every scene and
+preset, so the page never offers a choice the server would refuse. The controls are the
 loop's (`Loop.controls()`: the hosts', named `<implementation>.<name>`); the card's times
 are the loaded thread's columns by name, a layer unit's by layer (`part`, `part.<i>`).
 
@@ -112,9 +116,32 @@ the right's. Every panel folds; the browser keeps what is folded.
   the frame to steer". A load shows over the frame while it runs; a failure shows its
   message there.
 - **Pipeline and scene**: the preset (its line and the slots it writes, behind a
-  disclosure that is closed at first and remembered), the scene and its view; a sage "loaded" mark while the choice is the loaded one, Load when it differs; the
+  disclosure that is closed at first and remembered; a preset that cannot run on the
+  chosen scene is disabled with its reason), the scene (the scene menu, below) and its
+  view; a sage "loaded" mark while the choice is the loaded one, Load when it differs; the
   frame's size with four common sizes, Apply when the typed size differs, and the capacity
   held (tiles, wide).
+- **The scene menu**: a button with the chosen scene's name and format (under it its
+  triangles, textures and source file) opens a table of every scene the catalog lists,
+  as wide as the window allows, with a filter box (name, format, source file, layer) and
+  a column sorted by a click (again: the other way; an unknown number sorts last):
+
+  | column | what | from |
+  | --- | --- | --- |
+  | Scene | the name, under it the source file (its folder and name) and its size | the table entry's `source` (`gltf_scenes.md`), else the public table's mesh file |
+  | Format | `glTF opened`, `glTF converted`, the test scenes' own (`OBJ`, `Tungsten`), `generated` | the entry: `opened`, `source`, `meshes` |
+  | Drawn, Stored | triangles drawn (the mesh file) and stored once in the source file | the mesh file's `counts`; `source.stored_triangles` |
+  | Objects, Instances | the source file's nodes that draw a mesh, and the copies they draw | `source.objects`, `source.instances` |
+  | Materials, Textures | materials, textures and the MiB of their texels | the materials file's `counts` |
+  | Layers | opaque, masked, glass: the layers its triangles make | `counts.triangles_by_kind` |
+  | Lighting | the lighting file's sky visibility: `baked`, `open` (1 everywhere), `none` | the lighting file's `counts` |
+  | Views | the scene's views | the entry |
+  | Presets | each family (`raster`, `textured`, `lit`, `gi`; its forms on hover); one that cannot run struck, its reason on hover | the catalog's `refusals` |
+
+  A number a scene's files do not record is shown as "unknown", never 0. Choosing a scene
+  the chosen preset cannot run on switches to the preset that can and reads the most of
+  the scene (of the same form, `_threads` or `_tile`, when one can), and a notice says so;
+  the arrow keys and Enter choose from the keyboard, Escape closes it.
 - **Camera**: the keys (below), then the pose's field of view in degrees with a "reset" to
   the view's own (dimmed while the pose has it), the range offered and the view's own.
 - **Numbers**: pictures served a second, the frame command's ms, the picture's age; a

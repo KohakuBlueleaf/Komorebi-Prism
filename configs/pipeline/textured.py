@@ -15,6 +15,8 @@ PIPELINE = Pipeline(
 OPTIONS = {"frames": 16, "balance": True, "recount": False, "push": True}
 # the options a runner takes from the scene's files: its materials
 SCENE_INPUTS = ("materials",)
+# the scene's files it reads beside the mesh (scene.public.files)
+SCENE_FILES = ("materials",)
 
 
 def reference(loop, scene):
