@@ -23,10 +23,13 @@ class Plane:
 class ListPass:
     """One pass of a step over the tile's lists: the layers in the order it walks them
     (a function of the frame's layers giving their indices), streamed to the compute
-    CPUs after the passes of the steps before."""
+    CPUs after the passes of the steps before; a list's record bytes and the records a
+    list page holds (the loop takes the lists' geometry from here, not from a stage)."""
 
     layers: object
     block_records: int = 16
+    record_bytes: int = 128
+    page_records: int = 16
 
 
 @dataclass(frozen=True)
@@ -56,7 +59,7 @@ class Step:
     `depth`: whether a DEPTH view's tile thread runs it; `begin`: whether the header
     gives `<name>_begin(ctx)`, run once a command on the data-movement CPU that takes
     the command first, before its first thread. A keep's bytes: an int or a function of
-    the capacity held."""
+    the capacity held. `fields`: the common fields (prism.core.fields) its code uses."""
 
     name: str
     header: str
@@ -72,6 +75,7 @@ class Step:
     codes: dict = field(default_factory=dict)
     depth: bool = False
     begin: bool = False
+    fields: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -87,6 +91,7 @@ class Kind:
     header: str
     keeps: dict = field(default_factory=dict)
     buffers: dict = field(default_factory=dict)
+    fields: tuple = ()
 
 
 @dataclass(frozen=True)
