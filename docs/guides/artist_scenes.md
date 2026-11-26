@@ -31,10 +31,12 @@ line. Scripts stored inside a `.blend` are never run (`--disable-autoexec`).
 python scripts/data/artist_scenes.py list                  # the table with attribution
 python scripts/data/artist_scenes.py fetch [KEY ...]       # download, check, unpack
 python scripts/data/artist_scenes.py measure [KEY ...]     # stats.json
-python scripts/data/artist_scenes.py export [KEY ...] [--frame N]
+python scripts/data/artist_scenes.py export [KEY ...] [--frame N] [--plain]
 python scripts/data/artist_scenes.py render [KEY ...] [--size W H] [--samples N]
         [--engines CYCLES EEVEE] [--frame N] [--timeout SECONDS]
 python scripts/data/artist_scenes.py planes [KEY ...]     # surface/cycles.npz from truth.exr
+python scripts/data/artist_scenes.py gltf_truth [KEY ...] [--size W H] [--samples N]
+        [--engines CYCLES EEVEE] [--timeout SECONDS]
 python scripts/data/artist_scenes.py selftest             # the material rewrite's check
 python -m checks.artist_export $PRISM_DATA/artist/<KEY>
 ```
@@ -43,14 +45,17 @@ python -m checks.artist_export $PRISM_DATA/artist/<KEY>
 row's bytes and SHA-256, waits 20 s between two downloads and unpacks an archive into a
 folder named after it. The other commands write into `$PRISM_DATA/artist/<key>/`:
 `stats.json`, `scene.glb` with `scene.prism.json` and `scene.instances.npz`,
-`truth.exr` and `truth.png` (Cycles), `eevee.png` (EEVEE), `surface/cycles.npz` (`planes`).
+`truth.exr` and `truth.png` (Cycles), `eevee.png` (EEVEE), `surface/cycles.npz` (`planes`),
+and with `gltf_truth` `scene_gltf.blend`, `truth_gltf.exr` and `truth_gltf.png` (Cycles),
+`eevee_gltf.png` (EEVEE) ([the same glTF as the truth](#the-same-gltf-as-the-truth)).
 
 The scripts run on their own too:
 `blender --background <file.blend> --python scripts/blender/<name>.py -- <arguments>`,
-with `measure.py <out.json>`, `export.py <out_stem> [--frame N]` and
+with `measure.py <out.json>`, `export.py <out_stem> [--frame N] [--plain]` and
 `render.py <out_stem> --engine CYCLES|EEVEE --size W H [--samples N] [--frame N]`;
-`planes.py` runs without a `.blend`:
-`blender --background --python scripts/blender/planes.py -- <truth.exr> <out.npz>`.
+`planes.py` and `from_gltf.py` run without a `.blend`:
+`blender --background --python scripts/blender/planes.py -- <truth.exr> <out.npz>`,
+`blender --background --python scripts/blender/from_gltf.py -- <stem> <out.blend>`.
 
 Cycles writes, besides Combined, the passes the surface's comparison reads: Z, Normal,
 Position, UV, Diffuse Color, Glossy Color, Emission and Object Index. Before the render,
@@ -277,6 +282,44 @@ colour ramp over one (the baked image against 1 - the image and the ramp of it, 
 image alone, as Cycles' decoding of an 8-bit sRGB image differs from the standard
 transfer by up to about one step), a Bump over an image (the normal map at four texels
 against the formula above) and a Noise texture on object coordinates (`lost`).
+
+## The same glTF as the truth
+
+The renderer's input is the glTF file and its sidecar; what the file does not carry, the
+renderer cannot draw. Its picture is therefore judged against Cycles reading the same
+file, not against Cycles rendering the `.blend`.
+
+`export --plain` writes the export's files with the materials as they are: Blender's own
+glTF exporter decides what each material becomes, nothing is baked or rewritten, and the
+sidecar's `materials` is empty. Without `--plain` the export is as above.
+
+`gltf_truth` runs `from_gltf.py`, then `render.py` on the `.blend` it saved, with the
+engines, size and samples of `render`. `from_gltf.py` starts from an empty file and:
+
+- reads `<stem>.glb` with Blender's glTF importer at its defaults;
+- places each node of the instance table at its matrices (glTF's axes turned back to
+  Blender's): a node with one copy gets that matrix, a node with more is hidden from the
+  render and drawn by a geometry-nodes object of its own whose points carry the matrices
+  (Instance on Points, then Set Instance Transform from a 4 x 4 point attribute);
+- makes the sidecar's render camera the scene's camera, with the sidecar's sensor fit and
+  lens shift, and its field of view recovered from the file's `yfov` at the sidecar's
+  size: the vertical field for a vertical fit, the horizontal one for a horizontal fit,
+  the larger of the two for `AUTO`;
+- makes the world a Background of the sidecar's colour and strength, its environment map
+  through a Mapping of the sidecar's rotation when there is one;
+- adds the sidecar's area lights (shape, size, colour, power, matrix);
+- sets the render size, the view transform, look, exposure and gamma of the sidecar, and
+  OpenEXR's interleaved layout (one part holding every pass, as `planes.py` reads it).
+
+Everything else is Blender's default in an empty file: Cycles' bounces, clamps and light
+settings, EEVEE's settings, no compositor nodes, no depth of field (glTF has none). The punctual
+lights go through the exporter's and the importer's unit conversions. `planes.py` reads
+`truth_gltf.exr` as it reads `truth.exr`, and `light_passes.py` runs on
+`scene_gltf.blend` as on the artist's file, so the surface's and the light's comparisons
+can be pointed at the same glTF by a data root holding the plain export and these files.
+
+Which scenes pass, what the plain export loses against the `.blend` and how the
+reference compares: [the glTF truth](../../measurements/gltf_truth/README.md).
 
 ## Not carried yet
 
