@@ -20,7 +20,7 @@ CHOICE = ("answers", "nones", "ticks")  # dp_core_t words 4, 5, 6
 
 def pages(loop):
     """The account's pages [cores, words] as they stand; None without the account."""
-    tensor = getattr(loop.threaded.frame, "account_pages", None)
+    tensor = getattr(loop.assembled.frame, "account_pages", None)
     if tensor is None:
         return None
     return read_words(loop.session, tensor)

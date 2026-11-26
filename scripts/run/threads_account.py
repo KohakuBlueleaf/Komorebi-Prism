@@ -15,7 +15,6 @@ from pathlib import Path
 
 import komorebi as km
 import numpy as np
-from checks.threads_frame.threaded import ThreadedLoop
 from prism_cli.preset import opened
 
 from prism.check.threads import account, names
@@ -75,8 +74,7 @@ def run(args, session, preset, camera, mhz):
             np.save(args.want, want)
         return out
     want = np.load(args.want)
-    loop = ThreadedLoop(preset, session)
-    loop.sends = True
+    loop = preset.open(session)  # the real loop (prism.loop.Loop), its threads' form
     return account.threads(loop, camera, args.frames, args.way, want, mhz)
 
 
