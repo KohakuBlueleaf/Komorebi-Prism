@@ -18,7 +18,6 @@ from prism.program.frame.generate import FRAME
 from prism.stages.material.texture.host import with_table
 from prism.stages.raster.model.counts import kept_counts
 from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS
-from prism.stages.raster.model.threads import M, R
 from prism.stages.raster.threads import layout
 from prism_reference.scene.frame import frame_grid, frame_size
 
@@ -32,7 +31,6 @@ RANGE_BLOCKS = 4  # the triangle blocks a count range holds, unless given
 POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
-SLICES = dispatch.P + "slices"  # the slices' words, R["TS_WORDS"] a slice
 LEAST = "list_slots_least"  # the option: a layer's least list slots
 UNIT_CODE = re.compile(r"#define\s+(DP_\w+)\s+\(DR_UNIT_CODES \+ (\d+)u\)")
 # the dispatcher's codes (dispatch.h) as a view returns them
@@ -63,6 +61,11 @@ def slots_needed(scenes, size, heavy):
         name: int((np.asarray(one, np.int64) * bands).sum())
         for name, one in counts.items()
     }
+
+
+def margined(slots):
+    """`slots` and LIST_MARGIN of them, rounded up."""
+    return math.ceil(int(slots) * raster_host.LIST_MARGIN)
 
 
 def whole_pages(slots):
@@ -99,6 +102,8 @@ class ThreadsHost(Host):
         self.depth_views = ()  # another host's DEPTH views
         self.loaded = None  # the run whose numbers and rows are written
         self.written = None  # the size whose grid is written
+        self.depth_size = None  # the DEPTH views' frame size, when a host gives them
+        self.grown = {}  # what the last recover grew live (Loop's record)
 
     def tensor(self, rows):
         """A row-major uint32 array as a DRAM tensor, a page a row."""
@@ -120,10 +125,10 @@ class ThreadsHost(Host):
             self.lists_for(name, eye[name])
 
     def lists_for(self, name, slots):
-        """The layer `name`'s lists holding at least `slots` (and its least), made
-        again only when they grow."""
+        """The layer `name`'s lists holding at least `slots` and LIST_MARGIN more (and
+        its least), made again only when they grow."""
         least = raster_host.by_layer(self.least, name, 0)
-        slots = whole_pages(max(int(slots), int(least)))
+        slots = whole_pages(max(margined(slots), int(least)))
         one = self.layers[name]
         if slots <= one["slots"]:
             return
@@ -158,7 +163,7 @@ class ThreadsHost(Host):
             views = None
         if views:
             self.depth_views = tuple(views["views"])
-            size = tuple(views["size"])
+            size = self.depth_size = tuple(views["size"])
             sizes.append(size)
             for camera in views["cameras"]:
                 scenes = {
@@ -262,25 +267,56 @@ class ThreadsHost(Host):
             loaded.numbers({"grid": grid, "tiles": across * down})
             self.written = self.size
 
+    def entries(self, loaded):
+        """{layer: list slots} the last view placed: each layer's counts (a page a
+        core, a word a tile; read while the run is loaded) summed over the cores, the
+        tiles of the eye's grid or the DEPTH views' (the larger), cut tiles' bands."""
+        sizes = [self.size] + ([self.depth_size] if self.depth_size else [])
+        tiles = max(math.prod(frame_grid(size)) for size in sizes)
+        totals = {}
+        for name, one in self.layers.items():
+            pages = loaded.session.read(one["counts"])[0].view(np.uint32)
+            totals[name] = pages[:, :tiles].astype(np.int64).sum(axis=0)
+        bands = band_count(sum(totals.values()), self.heavy)
+        return {name: int((one * bands).sum()) for name, one in totals.items()}
+
     def recover(self, loaded, code):
-        """A view's slices or ranges past the capacity: a reload; a layer's lists too
-        small: at least its entries in the slices' words (read after the stop) and a
-        quarter, in the option LEAST, a reload (None when none is past its slots)."""
+        """A view's slices or ranges past the capacity: a reload. A layer's lists too
+        small: each layer past its slots given lists of its entries and LIST_MARGIN
+        more, made while the run stays loaded, its row written again (the slots also
+        kept in the option LEAST for a later load), a retry; None when none is past."""
+        self.grown = {}
         if code == CODES["DP_TOO_MANY"]:
             return "reload"
         if code != CODES["DP_LISTS_SMALL"]:
             return None
-        loaded.stop()
-        words = np.frombuffer(loaded.region(SLICES), np.uint32)
-        words = words.reshape(-1, R["TS_WORDS"]).astype(np.int64)
+        needed = self.entries(loaded)
         least = loaded.options.get(LEAST) or {}
         if not isinstance(least, dict):
             least = {name: least for name in self.layers}
-        grown = False
+        grown = []
         for index, (name, one) in enumerate(self.layers.items()):
-            entries = int(words[:, M["TS_ENTRIES"](index)].sum())
-            if entries > one["slots"]:
-                least[name] = math.ceil(entries * raster_host.LIST_MARGIN)
-                grown = True
+            if needed[name] <= one["slots"]:
+                continue
+            before = one["slots"]
+            self.lists_for(name, needed[name])
+            loaded.layer(index, **self.columns(name))
+            least[name] = one["slots"]
+            grown.append(
+                {
+                    "layer": name,
+                    "entries": needed[name],
+                    "slots": [before, one["slots"]],
+                }
+            )
+        if not grown:
+            return None
         loaded.options[LEAST] = least
-        return "reload" if grown else None
+        self.least = least
+        self.grown = {"name": "DP_LISTS_SMALL", "grown": grown}
+        return "retry"
+
+    def recovered(self):
+        """What the last recover changed in the live run: the code's name, each layer
+        grown (its entries, its slots before and after); {} none."""
+        return dict(self.grown)

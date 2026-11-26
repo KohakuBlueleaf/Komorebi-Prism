@@ -40,6 +40,7 @@ class Loop:
         self.rows = []  # the times rows of the loads before this one
         self.beside = []  # (host, Command, handle) submitted beside the frames
         self.reloads, self.retries, self.sizes = [], 0, [self.size]
+        self.recoveries = []  # each retry's record: the code, what changed, ms
         self.load()
         self.held = capacity.held_of(capacity.needs(self.hosts(), self.size))
 
@@ -140,12 +141,13 @@ class Loop:
         return self.loaded.frame()
 
     def recovery(self, code):
-        """The first answer of the hosts' recover in order, or None."""
+        """The first answer of the hosts' recover in order and its host, or (None,
+        None)."""
         for host in self.hosts():
             answer = hosted(host, "recover")(self.loaded, code)
             if answer is not None:
-                return answer
-        return None
+                return answer, host
+        return None, None
 
     def frame(self, camera, picture=False):
         """A frame of `camera` (16,) float32 at the size: on a code the hosts'
@@ -153,9 +155,13 @@ class Loop:
         camera = np.asarray(camera, dtype=np.float32)
         code, retries, reloads = self.attempt(camera), 0, 0
         while code:
-            answer = self.recovery(code)
+            began = time.perf_counter()
+            answer, host = self.recovery(code)
             if answer == "retry" and not retries:
                 retries, self.retries = 1, self.retries + 1
+                ms = round((time.perf_counter() - began) * 1e3, 3)
+                record = {"code": code, "ms": ms}
+                self.recoveries.append(record | hosted(host, "recovered")())
             elif answer == "reload" and not reloads:
                 asked = capacity.needs(self.hosts(), self.size)
                 reloads = 1
