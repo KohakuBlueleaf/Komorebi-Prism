@@ -162,10 +162,23 @@ def scenes(known_pipelines):
     return out
 
 
-def catalog():
-    """What the page may choose: pipelines and scenes."""
+def catalog(offer=None):
+    """What the page may choose: pipelines and scenes; with `offer` (preset names) only
+    those presets and the scenes one of them can run on. ValueError naming a preset of
+    `offer` that does not render a view."""
     known = pipelines()
-    return {"pipelines": list(known.values()), "scenes": list(scenes(known).values())}
+    if offer:
+        unknown = [name for name in offer if name not in known]
+        if unknown:
+            raise ValueError(
+                f"no preset {', '.join(unknown)} that renders a view; "
+                f"the presets: {', '.join(known)}"
+            )
+        known = {name: known[name] for name in dict.fromkeys(offer)}
+    found = scenes(known).values()
+    if offer:
+        found = [one for one in found if None in one["refusals"].values()]
+    return {"pipelines": list(known.values()), "scenes": list(found)}
 
 
 def checked(choice, known):

@@ -38,6 +38,12 @@ python -m prism_viewer.server --host 127.0.0.1 --port 8790 --token TOKEN \
     --pipeline lit --scene sponza --view overview [--size W H] [--card 0]
 ```
 
+`--offer NAME [NAME ...]` limits what the page is offered: only those presets, and only
+the scenes at least one of them can run on (the catalog's reasons decide it); `--pipeline`
+must be one of them, and the server refuses any other choice as it refuses an unknown
+preset or scene. Without it every preset and scene is offered. With one family offered
+(`--offer gi gi_threads`) the scene menu drops its Presets column, which would say nothing.
+
 Open `http://127.0.0.1:8790/?token=TOKEN`. Every route under `/api` answers 403 without
 the token (`?token=` on a GET, the header `X-Token` on a POST); the page keeps the token of
 its address. `?theme=light` or `?theme=dark` picks the theme for that visit. SIGINT or

@@ -19,7 +19,7 @@
             <table class="picker-table w-full border-collapse">
               <thead>
                 <tr>
-                  <th v-for="column in COLUMNS" :key="column.key" scope="col" class="sticky top-0 z-[1] bg-surface-alt px-2 py-1.5 border-b border-solid border-line kt-text-micro font-medium uppercase tracking-wider text-ink-muted whitespace-nowrap select-none" :class="[column.numeric ? 'text-right' : 'text-left', column.key === 'name' ? 'name-cell left-0 z-[2]' : '', column.sort ? 'cursor-pointer hover:text-ink' : '']" :title="column.help" :aria-sort="sortKey === column.key ? (descending ? 'descending' : 'ascending') : 'none'" @click="sortBy(column)">
+                  <th v-for="column in columns" :key="column.key" scope="col" class="sticky top-0 z-[1] bg-surface-alt px-2 py-1.5 border-b border-solid border-line kt-text-micro font-medium uppercase tracking-wider text-ink-muted whitespace-nowrap select-none" :class="[column.numeric ? 'text-right' : 'text-left', column.key === 'name' ? 'name-cell left-0 z-[2]' : '', column.sort ? 'cursor-pointer hover:text-ink' : '']" :title="column.help" :aria-sort="sortKey === column.key ? (descending ? 'descending' : 'ascending') : 'none'" @click="sortBy(column)">
                     {{ column.label }}
                     <span v-if="sortKey === column.key" class="i-carbon-arrow-down !inline-block align-[-2px] text-iolite dark:text-iolite-light transition-transform" :class="descending ? '' : 'rotate-180'" />
                   </th>
@@ -58,19 +58,19 @@
                   </td>
                   <td class="px-2 py-1.5 align-middle whitespace-nowrap kt-text-caption" :class="scene.lighting ? 'text-ink' : 'text-ink-faint'" :title="LIGHTING[scene.lighting ?? 'none']">{{ scene.generated ? "-" : (scene.lighting ?? "none") }}</td>
                   <td class="px-2 py-1.5 align-middle kt-text-caption text-ink whitespace-nowrap">{{ scene.views.length ? scene.views.join(", ") : "its own" }}</td>
-                  <td class="px-2 py-1.5 align-middle">
+                  <td v-if="presetsSay" class="px-2 py-1.5 align-middle">
                     <div class="flex gap-1">
                       <span v-for="group in presetGroups(scene, pipelines)" :key="`${group.name}-${group.runs}`" class="chip-warm kt-text-micro !h-5 !px-1.5 whitespace-nowrap" :class="group.runs ? (group.members.includes(pipeline) ? '!border-iolite/40 !text-iolite dark:!text-iolite-light' : '!text-ink') : 'line-through opacity-60'" :title="group.runs ? `runs: ${group.members.join(', ')}` : `unavailable (${group.members.join(', ')}): ${group.reason}`">{{ group.name }}</span>
                     </div>
                   </td>
                 </tr>
                 <tr v-if="!rows.length">
-                  <td :colspan="COLUMNS.length" class="px-3 py-4 kt-text-body text-ink-faint">No scene matches "{{ filter }}".</td>
+                  <td :colspan="columns.length" class="px-3 py-4 kt-text-body text-ink-faint">No scene matches "{{ filter }}".</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <div class="px-3 py-1.5 border-t border-solid border-line kt-text-micro text-ink-faint">Click a column to sort, a row to choose; a struck preset cannot run on the scene (its reason on hover). Unknown: the scene's files do not record it.</div>
+          <div class="px-3 py-1.5 border-t border-solid border-line kt-text-micro text-ink-faint">Click a column to sort, a row to choose<template v-if="presetsSay">; a struck preset cannot run on the scene (its reason on hover)</template>. Unknown: the scene's files do not record it.</div>
         </div>
       </div>
     </Teleport>
@@ -142,6 +142,15 @@ function formatRank(scene) {
   return at < 0 ? FORMAT_ORDER.indexOf("") : at
 }
 
+// the Presets column says something when some scene has a preset that cannot run or several families
+const presetsSay = computed(() =>
+  props.scenes.some((scene) => {
+    const groups = presetGroups(scene, props.pipelines)
+    return groups.length > 1 || !groups[0]?.runs
+  }),
+)
+const columns = computed(() => (presetsSay.value ? COLUMNS : COLUMNS.filter((one) => one.key !== "presets")))
+
 function runs(scene) {
   return props.pipelines.filter((one) => (scene.refusals?.[one.name] ?? null) === null).length
 }
@@ -153,7 +162,7 @@ const rows = computed(() => {
     const text = [one.name, one.format, one.source?.file ?? "", ...(one.layers ?? [])].join(" ").toLowerCase()
     return words.split(/\s+/).every((word) => text.includes(word))
   })
-  const column = COLUMNS.find((one) => one.key === sortKey.value)
+  const column = columns.value.find((one) => one.key === sortKey.value)
   if (!column) return [...kept].sort((a, b) => formatRank(a) - formatRank(b))
   const sign = descending.value ? -1 : 1
   return [...kept].sort((a, b) => {
