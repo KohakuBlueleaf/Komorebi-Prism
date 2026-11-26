@@ -1,10 +1,51 @@
 # The frame's time on the card
 
-This repository's presets (`configs/pipeline/`), each on one Blackhole P150A at AICLK
-1,350 MHz: card 1 with its link to the host at 16 GT/s, 2026-11-26 (UTC+8), Komorebi at b5589ff78.
-Every number is copied from the records of the folder named under its table,
-where the folder's README gives every part of the frame; a number taken from a record's
-JSON is rounded as the folder's README rounds its own.
+Both forms of the frame, each on one Blackhole P150A at AICLK 1,350 MHz. The threads'
+form (the presets `*_threads`: the frame as pulls the cores take,
+[the dispatcher](../internals/program/dispatch.md)) is measured in
+[measurements/threads_account](../../measurements/threads_account/README.md) beside the
+stage-wise form on the same frames; the stage-wise presets' own tables follow it. Every
+number is copied from the records of the folder named under its table, where the
+folder's README gives every part of the frame; a number taken from a record's JSON is
+rounded as the folder's README rounds its own.
+
+## The threads' form against the stage-wise form
+
+1,920 x 1,080, the scene's camera (Sponza: `overview`), 16 frames a load; a number is the
+median over frames 2 to 16 of a run, then the median of three runs (the runs' range in
+brackets). Card: 120 cores, 2026-11-27 (UTC+8), Komorebi 0.5.3. Every frame code 0 and
+every threads picture equal to the stage-wise picture (0 pixels different). `prefer`
+is the threads' host's default way of handing out tile threads, `order` the next slice
+not yet empty ([the choice](../internals/program/dispatch.md#the-tile-pulls-choice));
+no tile is cut in the threads' rows (`heavy` 0, the default). "(account)": a build with
+the account, which costs about 1 % ([the account](account.md)). ms.
+
+| scene | preset | stage-wise | threads, `order` | threads, `prefer` |
+|---|---|---:|---:|---:|
+| Sponza | textured | 16.428 (16.425 to 16.432) | 13.901 (13.858 to 13.923) | 13.134 (13.072 to 13.188) |
+| Sponza | lit | 18.838 (18.838 to 18.964) | 15.326 (15.167 to 15.338) | 14.584 (14.552 to 14.662) (account) |
+| hidden alley | textured | 53.544 (53.541 to 53.554) | 75.836 (75.637 to 77.047) | 61.899 (61.873 to 61.989) (account) |
+| hidden alley | lit | 57.700 (57.681 to 57.707) | 59.962 (59.559 to 60.329) | 49.396 (49.279 to 49.404) (account) |
+| lynxsdesign | textured | 42.843 (42.842 to 42.844) | 50.506 (49.899 to 50.590) | 45.050 (44.890 to 45.269) (account) |
+| lynxsdesign | lit | 48.640 (48.639 to 48.643) | 46.941 (46.812 to 46.949) | 44.571 (44.564 to 44.587) (account) |
+| classroom (three layers) | textured | 23.216 (23.208 to 23.217) | 26.812 (26.596 to 26.880) | 23.469 (23.411 to 23.500) (account) |
+
+Each command: `scripts/run/threads_account.py --pipeline P --scene S --view V --size
+1920 1080 --frames 16 --way W --want PICTURE --card C [--account 512]`. `lit` here draws
+one view a frame: these runs send no `sun` command, so no sun's DEPTH view is in them.
+`gi_threads` was not measured in this set.
+
+With the threads' option `heavy` set from the frame's data (0.33 x the frame's entries
+over every layer / 120 cores, a measurement, not a preset change), `prefer`: Sponza
+`textured` 14.016, hidden alley `textured` 53.663 and `lit` 52.119, lynxsdesign
+`textured` 44.608 and `lit` 46.667, classroom `textured` 18.687 ms. Where one heavy tile
+thread ended the tile pull the cut gains; where none did, its work in the sums costs more
+than it gives. The phases, the bytes and the cores' waits behind these numbers are
+[the account of the threads' frame](account.md).
+
+## The stage-wise presets
+
+Card 1 with its link to the host at 16 GT/s, 2026-11-26 (UTC+8), Komorebi at b5589ff78.
 
 How to read a row: the scene and size; the row's picture check (each side's numbers
 against `prism_reference`, as the folder says); the card frame, the median of the
@@ -12,7 +53,7 @@ frame's times rows in ms (the director's whole FRAME command, with the display a
 push where the preset has them); the host's frame and fps where a run recorded them,
 with the host's load average over one minute at its start.
 
-## raster: vertex colours
+### raster: vertex colours
 
 | scene | size | pixels differ (frames 1 / 100 / 200) | card frame | host frame | fps | load |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -31,7 +72,7 @@ with the host's load average over one minute at its start.
 --pipeline raster --scene S --view overview --size W H --frames 200 --path forward
 --check 0 99 199 --pictures --card 1`.
 
-## textured: SHADE
+### textured: SHADE
 
 | scene | size | pixels differ / largest error | card frame |
 | --- | --- | --- | --- |
@@ -44,7 +85,7 @@ frames, `python scripts/run/preset.py --pipeline textured --scene S --view overv
 1024 1024 --card 1`; the layers' parts in
 [measurements/textured_frame/README.md](../../measurements/textured_frame/README.md).
 
-## lit: direct light
+### lit: direct light
 
 Check: the shares of pixels over 2 / 4 / 8 of 255 apart and the largest error.
 
@@ -65,7 +106,7 @@ Check: the shares of pixels over 2 / 4 / 8 of 255 apart and the largest error.
 prism.stages.direct.light.check.thread_frame.check --scene S --view overview --size W H
 --card 1`.
 
-## gi: the field
+### gi: the field
 
 Check: as the lit rows.
 
@@ -85,7 +126,7 @@ Check: as the lit rows.
 static frames, 16 frames, `python scripts/run/preset.py --pipeline gi --scene S --view
 overview --size W H --card 1`.
 
-## sun: a moved sun (120, 40)
+### sun: a moved sun (120, 40)
 
 Check: the sun's map against the reference's, texels apart / one side empty; the picture
 as the lit rows. The sun pass is the `sun` command that made the map before the first
@@ -100,7 +141,7 @@ frame, in ms.
 [measurements/lit_frame/README.md](../../measurements/lit_frame/README.md): the preset `lit`
 with `--option "sun=(120.0, 40.0)"` added to its command.
 
-## gi-update: the field's update on the card
+### gi-update: the field's update on the card
 
 Check: the picture as the lit rows; the field against the reference's for the card's
 map (share of texels equal, largest code difference). The update ms is the first
@@ -121,7 +162,7 @@ command, and for bounces 0 `--option bounces=0`. The update alone, in the preset
 `field`, with its parts and its second update:
 [measurements/field_update/README.md](../../measurements/field_update/README.md).
 
-## apply: the transport apply alone
+### apply: the transport apply alone
 
 | set | check against the host's emulation: median / p99 / most | y sha256 | command us, median (least) |
 | --- | --- | --- | --- |

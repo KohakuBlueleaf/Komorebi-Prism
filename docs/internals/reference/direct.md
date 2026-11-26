@@ -246,8 +246,8 @@ none on a visible surface) and in Sponza (bit for bit, both functions); in the e
 7,942 pixels of the overview change because the sun now passes through the window
 panes (1,803 texels of its shadow map). Not represented: refraction, glass behind
 glass, coloured shadows (transparent triangles cast none). The C++ version
-(`native/raster/shade.hpp`) has no kind 5 yet: on the Bistro scenes a comparison with it
-needs that first. The card's texture stage has it (its glass form).
+(`native/raster/shade.hpp`) has no kind 5: it fills transparent triangles into its first layer as
+an opaque surface ([raster](raster.md)). The card's texture stage has it (its glass form).
 
 The sun camera's axes (right = y x forward, `direct.shadow.sun_camera`) stay as the shadow
 maps were first made with them, not the view cameras' forward x y.

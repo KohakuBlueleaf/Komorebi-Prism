@@ -129,6 +129,20 @@ emissive bases by the lights' emissive scale.
   (`kShadeGlass`); lit, its SHADE writes the glass surface's own planes, which LIGHT's
   glass command reads.
 
+## In a tile thread
+
+The threads' form shades with the same table, pages and keys as the material step
+(`steps/step.py`, [steps, kinds and the tile thread](../program/steps.md)): after the
+visibility step it walks the tile's lists again in SHADE's order (opaque, masked, glass)
+as they stream, on the planes the visibility step left in the core's memory, and writes
+the colour (unlit) or the frame's words and the surfaces into the plane `frame.surface`
+(lit). Its begin reads the table (the common field `frame_table`) and, lit, the camera
+once a command. It asks its texture pages through the loop's request rings, a pass of
+rows at a time, into a page cache of 128 slots and the white page kept on the core
+(`kept` state `cache`); each pass asks its own pages into the cache from slot 0. Its
+words of the frame's page (`material_frame_words.c`, from the texture unit's layer rows)
+are the layers' bits (shaded, merging, mode), the textures' and the table's addresses.
+
 ## The check
 
 `expect.check` compares the card's 8-bit picture with the reference's shaded picture of the
