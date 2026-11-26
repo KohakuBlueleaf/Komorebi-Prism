@@ -10,17 +10,16 @@ from prism.check.threads import names, tile_half, whole
 from prism.check.threads.card import closed, set_frame
 from prism.check.threads.model import PORTS_CORES, laid_out
 from prism.check.threads.standing import standing
+from prism.check.threads.sun import cleared, judged, map_of, shadow_host
 from prism.core.implementation import hosted
 from prism.stages.direct.shadow_pcf.model.region import (
     QUADRANT,
     across_of,
-    map_pages,
     quadrant_cameras,
 )
 from prism.stages.raster.host import DEPTH_LAYERS
 from prism_reference.scene.frame import frame_grid
 
-SHADOW = "direct.shadow_pcf"  # the sun's pass's implementation
 SUN = "sun"  # its command
 
 
@@ -30,27 +29,6 @@ def lights_of(lights, side):
     if lights is None or side is None:
         return lights
     return {**lights, "shadow_side": np.int32(side)}
-
-
-def shadow_host(loop):
-    """The loaded run's host of the sun's pass."""
-    return loop.loaded.hosts[SHADOW]
-
-
-def map_of(loop):
-    """The shadow map's pages read back: (pages, page bytes) uint8."""
-    host = shadow_host(loop)
-    session = loop.loaded.session
-    got = session.read(host.target, pages=map_pages(host.lights))
-    return np.array(got[0] if isinstance(got, list) else got, dtype=np.uint8)
-
-
-def cleared(loop):
-    """The shadow map's pages written with zeros (nothing left of another run)."""
-    host = shadow_host(loop)
-    pages = map_pages(host.lights)
-    zeros = np.zeros((pages, host.target.page_bytes), dtype=np.uint8)
-    loop.loaded.session.write(host.target, zeros, 0)
 
 
 def stagewise_map(open_loop, name, scene, options):
@@ -136,19 +114,6 @@ def handed(loop):
         "handed": int(next_.sum()),
         "records": int(slices[:, 0].sum()),
         "tells": {c: int(cores[c, 3]) for c in range(PORTS_CORES) if cores[c, 3]},
-    }
-
-
-def judged(got, want):
-    """Two maps byte for byte: the pages and bytes that differ, the first page."""
-    differ = got != want
-    pages = np.nonzero(differ.any(axis=1))[0]
-    return {
-        "equal": not differ.any(),
-        "bytes_differ": int(differ.sum()),
-        "pages_differ": len(pages),
-        "first_page": int(pages[0]) if len(pages) else None,
-        "nonzero_pages": int(got.any(axis=1).sum()),
     }
 
 

@@ -2,7 +2,8 @@
 `tile` the tile pull alone on the model's data, `depth` the sun's DEPTH view alone
 (a map of one quadrant: --shadow-side) against the stage-wise map, `geometry` count,
 sums and place against the model, `whole` the threads' preset's frame, each against
-the stage-wise preset `--pipeline`; at each of `--cores` and `--policy`. One JSON line;
+the stage-wise preset `--pipeline` (with lights: the sun set, its command sent, its map
+compared too); at each of `--cores` and `--policy`. One JSON line;
 the record to <out>/<part>_<scene>[_<view>]_<W>_<H>.json (out: measurements/threads_frame). Exit 1
 on a difference. Example: python -m checks.threads_frame tile --pipeline textured
 --scene <scene> --view <view> --card 1"""
@@ -20,6 +21,7 @@ from checks.threads_frame import model_only
 from checks.threads_frame.threaded import ThreadedLoop
 from prism.check.threads import depth_half, geometry_half, names, tile_half, whole
 from prism.check.threads.card import recorded
+from prism_reference.direct.lights import sun_angles
 from prism_reference.scene.camera import with_size
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,10 +54,14 @@ def parse():
         "--deadline", type=float, default=None, help="seconds a command may take"
     )
     parser.add_argument(
-        "--sun", type=float, nargs=2, default=None, help="azimuth elevation (depth)"
+        "--sun",
+        type=float,
+        nargs=2,
+        default=None,
+        help="azimuth elevation (depth, whole)",
     )
     parser.add_argument(
-        "--shadow-side", type=int, default=None, help="the map's side (depth)"
+        "--shadow-side", type=int, default=None, help="the map's side (depth, whole)"
     )
     parser.add_argument(
         "--no-recover", action="store_true", help="a core that gives up stays as it is"
@@ -76,6 +82,19 @@ def opener(args, session):
         return preset.open(session)
 
     return open_loop
+
+
+def sun_of(args):
+    """The whole part's sun options: the sun set (--sun, else the lights' own) when
+    the scene has lights, so both loops send its command; {} without lights."""
+    if args.lights is None:
+        return {}
+    sun = tuple(args.sun) if args.sun else sun_angles(args.lights["sun_direction"])
+    given = {"sun": tuple(float(angle) for angle in sun)}
+    if args.shadow_side is not None:
+        given |= {"shadow_side": args.shadow_side}
+        given |= {"lights": depth_half.lights_of(args.lights, args.shadow_side)}
+    return given
 
 
 def on_card(args, scene):
@@ -124,6 +143,7 @@ def on_card(args, scene):
                     args.cores,
                     policies,
                     options,
+                    sun_of(args),
                 )
 
 
