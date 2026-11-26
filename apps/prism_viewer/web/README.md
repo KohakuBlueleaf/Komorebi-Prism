@@ -18,8 +18,10 @@ npm run format
 `src/`: `main.js`, `App.vue`; `api/client.js` (the routes, the token from the address);
 `stores/` (`viewer.js` the server's state and its polling, `settings.js` the theme and the
 folded panels kept in the browser); `composables/` (`usePose.js` keys and drag to a pose,
-`useStream.js` the frames' stream); `components/stage/` (the frame and the camera's
-input), `components/panels/` (pipeline and scene, controls, numbers, keys),
+`useStream.js` the frames' stream, `sceneFacts.js` a scene's numbers as the scene menu
+shows them and the preset a scene falls back to); `components/stage/` (the frame and the
+camera's input), `components/panels/` (pipeline and scene with the scene menu
+`ScenePicker.vue`, controls, numbers, keys),
 `components/shell/` (header, theme switch, status, notices).
 
 How to start the whole viewer and what the page shows: `docs/guides/viewer.md`.

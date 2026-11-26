@@ -65,11 +65,15 @@ export const useViewerStore = defineStore("viewer", {
       this.clearedAt = Date.now() / 1000
     },
     refused(what, reason) {
+      this.noted("refusal", `${what}: ${reason}`)
+    },
+    // a notice of the page's own (kind as the server's, or "switch")
+    noted(kind, text) {
       this.localSerial += 1
       const notice = {
         serial: `local-${this.localSerial}`,
-        kind: "refusal",
-        text: `${what}: ${reason}`,
+        kind,
+        text,
         seconds: null,
         at: Date.now() / 1000,
       }

@@ -1,5 +1,6 @@
 """python -m prism_viewer.server --host 127.0.0.1 --port P --token T [--pipeline NAME]
-[--scene NAME [--view NAME]] [--size W H] [--card N]: the viewer's server; the render
+[--scene NAME [--view NAME]] [--size W H] [--card N] [--offer NAME ...]: the viewer's
+server (offering only the presets named, and the scenes they run on); the render
 loop on the main thread, the HTTP side on another; SIGINT or SIGTERM stops both."""
 
 import argparse
@@ -24,13 +25,16 @@ def parse():
     parser.add_argument("--view", default=None, help="a public scene's view")
     parser.add_argument("--size", type=int, nargs=2, default=None, metavar=("W", "H"))
     parser.add_argument("--card", type=int, default=0)
+    parser.add_argument(
+        "--offer", nargs="+", default=None, metavar="NAME", help="the presets offered"
+    )
     return parser, parser.parse_args()
 
 
 def main():
     parser, args = parse()
-    known = catalog.catalog()
     try:
+        known = catalog.catalog(args.offer)
         choice = catalog.checked((args.pipeline, args.scene, args.view), known)
     except ValueError as error:
         parser.error(str(error))

@@ -16,9 +16,11 @@ Each draws its stage-wise preset's picture. A threads' preset is a pipeline whos
 host is the threads' one (`prism.program.threads`); `prism.loop.Loop` chooses the
 assembly and the load once, from the pipeline (`prism.program.form`), and runs frames,
 sizes, recoveries and camera paths the same way for both forms. When a view needs more
-than the program was loaded with (more slices than its capacity after a size change, a
-layer's lists too small for the camera), the frame's code is recovered by one reload with
-what it needed ([the command line](cli.md), `reloads` in the record).
+than the program was loaded with, the frame's code is recovered: a layer's lists too
+small for the camera grow while the run stays loaded and the frame is tried again
+(`retries` in the record; [the raster model](../internals/raster/model.md#the-lists-slots-a-load-holds));
+more slices than the capacity after a size change take one reload with what it needed
+([the command line](cli.md), `reloads` in the record).
 
 ## 1. Open the scene
 
@@ -42,7 +44,8 @@ python -m prism_cli run --pipeline lit_threads --scene <name> --view camera \
 ```
 
 64 frames with the eye moving forward; exit 0 when every frame's code is 0. The record's
-`codes`, `reloads` and `frames_reloaded` say whether a frame needed a reload.
+`codes`, `reloads` and `frames_reloaded` say whether a frame needed a reload, `retries`
+whether one was recovered in the live run.
 `--resize W H AT` changes the size from frame AT on.
 
 ## 3. Choose it in the viewer

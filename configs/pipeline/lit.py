@@ -16,6 +16,8 @@ OPTIONS = {"frames": 16, "balance": True, "recount": False, "push": True}
 # the options a runner takes from the scene's files: its materials, its name, its lights
 # (the texture stage's lit surfaces, the sun's and LIGHT's)
 SCENE_INPUTS = ("materials", "name", "lights")
+# the scene's files it reads beside the mesh (scene.public.files)
+SCENE_FILES = ("materials", "lighting")
 
 # the picture a frame's is compared with, and the judge of a frame's picture (the
 # numbers of measurements/lit_frame), each of (loop, scene)

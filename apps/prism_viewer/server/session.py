@@ -46,6 +46,20 @@ def card_times(loop, why):
     return {"ms": ms, "frames": len(rows), "why": why}
 
 
+def recovery_text(record):
+    """A live recovery's notice: the code's name, each layer grown with its slots
+    before and after, its milliseconds."""
+    name = record.get("name", f"code {record['code']}")
+    grown = [
+        f"{one['layer']} {one['slots'][0]:,} -> {one['slots'][1]:,} slots"
+        for one in record.get("grown", [])
+    ]
+    took = f"{record['ms']:.1f} ms"
+    if not grown:
+        return f"frame recovered live ({name}) in {took}"
+    return f"lists grown live ({name}): {', '.join(grown)} in {took}"
+
+
 class Render:
     """The render loop over `state` on card `card`."""
 
@@ -214,7 +228,7 @@ class Render:
             own = pose == state.first_pose
             serials = (state.size_serial, state.control_serial)
         camera = self.scene["camera"] if own else camera_of(self.scene["camera"], pose)
-        began = time.perf_counter()
+        began, recovered = time.perf_counter(), len(loop.recoveries)
         frame = loop.frame(sized_camera(camera, loop.size))
         framed = time.perf_counter()
         self.done = (selection, pose_serial, *serials)
@@ -237,9 +251,13 @@ class Render:
         readings = self.readings()
         with state.lock:
             state.readings = readings
-        if frame.reloads:
-            with state.lock:
-                state.notice("reload", "frame recovered by a reload")
+        with state.lock:
+            for record in loop.recoveries[recovered:]:
+                state.notice("grown", recovery_text(record))
+            if frame.reloads:
+                record = loop.reloads[-1]
+                text = f"frame recovered by a reload ({record['why']})"
+                state.notice("reload", text, record["s"])
                 state.card = card_times(loop, "reload")
 
     def readings(self):

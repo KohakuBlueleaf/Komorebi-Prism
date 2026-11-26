@@ -182,6 +182,28 @@ in a `.json` beside it, compared on load (each written to a temporary name, then
 A frame that needs more slots stops
 with `RASTER_LISTS_SMALL` and the loop reloads with a quarter more.
 
+The threads' form (`prism.program.threads.host`) sizes each layer's lists from the same
+counts with a quarter more (`LIST_MARGIN`) at the load, so a small move of the camera
+fits. A frame that needs more stops with `DP_LISTS_SMALL` (the dispatcher's running sum
+of a layer's entries past its `list_slots`) and grows while the run stays loaded: the
+host reads each layer's counts tensor (a page a core, a word a tile, written by the count
+pull, whose commands are done when the frame returns; `session.read` reads DRAM while a
+run is loaded), sums them over the cores and the tiles of the larger of the eye's and the
+DEPTH views' grids, cuts heavy tiles into bands as the load does, makes a larger lists
+tensor (the entries and a quarter, in whole pages) for each layer past its slots, writes
+that layer's row again in every view (the texture host writes its row again when the
+lists it was given change), keeps the slots in `list_slots_least` for a later load, and
+the loop tries the frame again. The slices' words, the source the reload read, are a
+thread region, which Komorebi reads only after the stop. The sum is exact for the view
+that ran last; words a smaller view or a core outside the view's group left from an
+earlier frame can only make it larger. On Sponza's overview at 1,920 x 1,080 under
+`gi_threads`, a look down 40 degrees needs 36,901 masked entries against 32,864 slots:
+the growth took 7.4 to 7.8 ms where the reload took 6.5 to 7.3 s
+(`checks/camera_moves`). The stage-wise form keeps its reload: the slots it needs are in
+its times row, read after the stop. `DP_TOO_MANY` (slices or count ranges past the
+build's capacity) follows the frame's size and the mesh, not the camera, and stays a
+reload.
+
 A shaded frame's layers (opaque, masked, glass) and their mesh blocks come from the
 texture model's `blocks.layer_blocks`, the same call the texture host takes its shade
 blocks from: made once for a scene, its materials and the lit flag, kept in the process

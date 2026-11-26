@@ -31,5 +31,6 @@ OPTIONS = STAGE_WISE["OPTIONS"] | {
     "update_cores": 30,  # an update's applies: the ranks one frame X280 core answers
 }
 SCENE_INPUTS = STAGE_WISE["SCENE_INPUTS"]
+SCENE_FILES = STAGE_WISE["SCENE_FILES"]
 REFERENCE = STAGE_WISE["REFERENCE"]
 JUDGE = STAGE_WISE["JUDGE"]
