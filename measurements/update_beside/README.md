@@ -103,6 +103,19 @@ after the swap; `gi`'s over all its frames.
 | sponza 1920x1080 | (120, 40) | 4 | 0 | 0 |
 | sponza 1920x1080 | (200, 30) | 5 | 0 | 0 |
 
+## The time a frame waits for the wake
+
+The eight records above were made before the times row had the wait's columns. One more
+run of the final code (`sponza_overview_1024_1024_gi_tile_wake.json`, the same case and
+command, the same pictures after both swaps): the director's commands submitted again
+during an update, the time they waited for the dispatcher's wake in all, and the longest
+single wait, in ms.
+
+| sun | frames during | resubmits | waited in all | longest wait | resubmits after the swap |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| (120, 40) | 10 | 5 | 0.520 | 0.197 | 0 |
+| (200, 30) | 9 | 5 | 0.636 | 0.312 | 0 |
+
 ## Running
 
 ```bash
