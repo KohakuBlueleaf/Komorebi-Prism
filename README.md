@@ -442,7 +442,7 @@ the packages, file length, ASCII, imports inside functions), `black`, `ruff`,
 - **A size past the capacity a load holds** is a reload of the program; a load that is
   refused stays at the size before ([the viewer](docs/guides/viewer.md)).
 - **The viewer's field of view** is 0.5 to 179 degrees.
-- **Komorebi 0.5.3 or later.**
+- **Komorebi 0.6.0 or later.**
 
 ## Repository map
 
