@@ -147,5 +147,5 @@ elsewhere; the tile list sizes are equal on all six. To compare them:
 `run_cpu(view, threads, out, materials=True)` against `rasterize_shaded` of the view's
 scene and `scene.public.materials.load_materials` of its scene.
 
-`material.access` gives the numbers a shading pass on the cores is sized by
+`material.access` gives the texture pages lit SHADE reads
 ([material](material.md)).

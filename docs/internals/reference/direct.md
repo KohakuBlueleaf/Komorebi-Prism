@@ -4,7 +4,8 @@
 background), `shadow` (the sun camera, the shadow map, the lookup), `lamps` (point
 lights), `visibility` (the per-vertex sky visibility bake), `prepare` (writing a scene's
 lights file), `lights` (loading it, the sun's angles, `moved`), `frame` (the lit frame,
-`rasterize_lighted`) and `glass` (glass over the surface behind). The tone step and the
+`rasterize_lighted`), `glass` (glass over the surface behind) and `access` (the light
+pages a frame reads). The tone step and the
 8-bit conversion are `post.tone` and `post.display`.
 
 ## Lighting
@@ -250,3 +251,31 @@ needs that first. The card's texture stage has it (its glass form).
 
 The sun camera's axes (right = y x forward, `direct.shadow.sun_camera`) stay as the shadow
 maps were first made with them, not the view cameras' forward x y.
+
+## The light pages a frame reads
+
+`access` gives, per pixel of the padded frame, the pages LIGHT asks for, numbered as the
+card numbers its light pages: one page space of 32 x 32 texels, the shadow map's pages
+row by row, then the octahedral map's three channels, then the field's pages, from the
+first pages LIGHT's table holds (the caller gives them as a layout, since the reference
+does not read the card's headers).
+
+- `light_surface`: the surface LIGHT lights, the masked layer where it is nearer and not
+  a hole, else the opaque one, with each covered pixel's scene point and normal.
+- `tap_texels`, `tap_pages`: a covered pixel's four taps (texels of the map, then their
+  pages), the 2 x 2 filter of `shadow.sun_shadow` at the point moved one shadow texel
+  along the normal; a tap outside the map reads none.
+- `background_pages`: an empty pixel's (padding included) three channels of the
+  background's octahedral texel, `sky.environment_radiance`'s texel.
+- `field_cells`, `field_corner_voxels`, `field_corner_pages`: the lookup's cell and
+  the eight voxels around the field's lookup point (`P + n h / 2`,
+  as `indirect.field.values.lookup`), a page a block of voxels; a corner off the grid
+  reads none. The field's pages are dense: a corner's page is asked whether or not its
+  voxel holds data.
+- `light_pages`: the three above over a frame, "shadow" (four pages a pixel, the
+  background's in the first three) with "taps" (their texels), and "field" (eight)
+  with "voxels" (their voxels) and "cells" (the lookup's cell).
+
+`scripts/run/lookup_model.py` turns these, and `material.access`'s texture pages, into
+the card's page passes and checks them against what the card counted; its record and
+the check are in `measurements/lookup_model/`.

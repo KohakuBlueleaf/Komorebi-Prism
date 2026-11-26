@@ -21,9 +21,20 @@ No bilinear filtering and no level per pixel: one level a triangle, nearest texe
 
 ## Texture accesses
 
-`access` gives the numbers a shading pass on the cores is sized by: the texture pages
-(`PAGE` = 32 x 32 texels of one level) each layer's pixels read (`layer_accesses`,
-`frame_accesses`), how many distinct pages a 32 x 32 tile reads (`per_tile_distinct`,
-`histogram`) and the hit rate of a per-core page cache of 8, 16 and 32 pages (`CACHE_PAGES`) under least
-recently used replacement (`lru_hits`). It is a module of its own so that `texture` does
-not import the frames that call it.
+`access` gives the texture pages lit SHADE reads, numbered as the card numbers them:
+every level of every texture in pages of `PAGE` = 32 x 32 texels, blocks row by row, one
+texture's levels after the other's (`texture_firsts`; `page_groups` gives a page's
+texture, level, column and row).
+
+- `shade_pixels`: the pixels each layer's SHADE keys: the opaque and glass layers'
+  covered pixels, the masked layer's where its 1/z, as unsigned bits, is above the
+  opaque layer's.
+- `layer_pages`: per such pixel up to four pages, and each one's texel (its texture and
+  level, column and row): the albedo's where the material has an
+  albedo texture (any kind), the normal's where it has a normal texture and the
+  triangle's frame is valid (not glass), the specular's where it has a specular texture
+  and the specular term (lit or transparent with a specular colour), and, in the masked
+  layer, a masked material's mask at the albedo's level and texel. The level is the
+  triangle's (`shade_setup`), the texel the nearest (`texture.texel_xy`).
+
+It is a module of its own so that `texture` does not import the frames that call it.
