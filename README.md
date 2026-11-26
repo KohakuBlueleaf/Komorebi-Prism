@@ -37,20 +37,22 @@ and steer the camera in the viewer.
 
 ```sh
 export PRISM_DATA=$HOME/prism-data
-python -m prism_cli open scene.glb --pipeline lit_threads --size 1920 1080 --card 0 --out out
-python -m prism_cli run --pipeline lit_threads --scene NAME --view camera --size 1920 1080 \
+python -m prism_cli open scene.glb --pipeline gi_threads --size 1920 1080 --card 0 --out out
+python -m prism_cli run --pipeline gi_threads --scene NAME --view camera --size 1920 1080 \
     --frames 64 --path forward --card 0
 python -m prism_viewer.server --host 127.0.0.1 --port 8790 --token TOKEN \
-    --pipeline lit_threads --scene NAME --view camera --card 0
+    --pipeline gi_threads --scene NAME --view camera --card 0
 ```
 
 `open` converts the file once into the data root (a second `open` of the same file
 converts nothing), makes its lights when it has none, draws 16 frames from the file's
 camera and writes the last picture into `out/`; its one-line JSON record names the scene
 (`NAME`, the file's stem and ten hex digits). `run` draws 64 frames with the eye moving
-forward. The viewer, once its page is built (`cd apps/prism_viewer/web && npm install &&
-npm run build`), is at `http://127.0.0.1:8790/?token=TOKEN`. Every step, and the public
-scenes, are in [the quick start](docs/guides/quick_start.md).
+forward. A scene just opened is drawn by `gi_threads` without the far field until its
+transport exists; `python scripts/data/public_scenes.py indirect NAME` makes it once.
+The viewer, once its page is built
+(`cd apps/prism_viewer/web && npm install && npm run build`), is at
+`http://127.0.0.1:8790/?token=TOKEN`. Every step, and the public scenes, are in [the quick start](docs/guides/quick_start.md).
 
 ## Install
 
@@ -116,8 +118,8 @@ The parts, the slots between them and the presets are in
 [the frame as threads](docs/concepts/threads.md); the indirect light in
 [light transport](docs/concepts/light_transport.md).
 
-The presets in [configs/pipeline](configs/pipeline): `textured_threads`, `lit_threads`
-and `gi_threads` are the renderer; `textured`, `lit` and `gi` run the same parts
+The presets in [configs/pipeline](configs/pipeline): `gi_threads` is the renderer;
+`lit_threads` is it without the indirect light, `textured_threads` without any light; `textured`, `lit` and `gi` run the same parts
 stage-wise, as commands on every core one after another, and draw the pictures the
 threads' presets are judged by; `raster`, `lit_tile`, `gi_tile`, `field` and `apply` are
 parts and comparisons.

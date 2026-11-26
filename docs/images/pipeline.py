@@ -1,32 +1,23 @@
-"""Draws the README's figures as docs/images/<name>-{light,dark}.svg: teaser (what the
-host sends, what the card runs by itself, what comes back, and what a preset is), frame
-(a frame in time: the stages in order with the slots each reads and writes, the layers,
-and the sun's commands outside the frame), assembly (a preset becoming one program and
-one thread, and what the core assigns) and light (where a pixel's light comes from: the
-terms LIGHT adds and the indirect field the card updates).
+"""Draws the README's figures as docs/images/<name>-{light,dark}.svg: teaser (a frame
+drawn by the card alone: the host, the frame's thread and its four phases, a Tensix core
+running a tile thread's steps with its planes in L1, the job thread's field update) and
+frame (the eye's view on the cores in time, both forms; one tile thread on one core).
 
-usage: python docs/images/pipeline.py [output folder]    (needs Pillow, for the two
-thumbnails of the teaser, cut from the viewer guide's pictures)
+usage: python docs/images/pipeline.py [output folder]    (the standard library only)
 
-Every name is the code's: the presets of configs/pipeline, the implementations'
-declarations, the slots of src/prism_common/slots.py, the units' roles and served
-commands. The numbers are copied from committed pages: the frame's parts from
-measurements/lit_frame/README.md (the frame's table and the layers' table,
-bistro_interior at 1,024 x 1,024), the card frames from the records' READMEs
-(raster_show, textured_show, lit_frame, gi_frame), the element count from
-docs/concepts/scenes.md.
+Every name is the code's: the tile threads of src/prism/program/threads/tiles.py, the
+steps' declarations, the dispatcher's phases (src/prism/program/dispatch/c/), the
+field graph's commands (src/prism/stages/indirect/field_update/graph.py). The numbers
+are copied from measurements/threads_account/README.md: Sponza's overview at
+1,920 x 1,080, the frames of the tables "Four ways of handing out" and the pack CPU's
+times of "Each CPU by step inside a tile thread".
 """
 
-import base64
-import io
 import sys
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from PIL import Image
-
 REPO = Path(__file__).resolve().parents[2]
-VIEWER = REPO / "docs" / "guides" / "viewer"
 
 THEMES = {
     "light": {
@@ -72,7 +63,6 @@ THEMES = {
 SANS = "-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif"
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 MONO_WIDTH = 0.602  # of the font size: DejaVu Sans Mono and Menlo
-BOX_X, BOX_W = 16, 798  # a body figure's panels (830 wide)
 
 
 def width(text, size=12, bold=False, mono=False):
@@ -173,807 +163,444 @@ class Svg:
         return left + w
 
 
-def panel_frame(s, y, height, title, tag, colour, x=BOX_X, w=BOX_W):
+W = 1280  # the teaser's width
+
+
+def box(s, x, y, w, h, title, tag, colour, fill_key="box"):
     c = s.c
-    s.rect(x, y, w, height, c["box"], c["line"], layer=0)
-    s.text(x + 14, y + 22, title, 14, c[colour][0], True)
+    s.rect(x, y, w, h, c[fill_key], c[colour][0], rx=6, sw=1.4, layer=0)
+    s.text(x + 12, y + 20, title, 14, c[colour][0], True)
     if tag:
-        s.text(x + w - 14, y + 22, tag, 12, c["mute"], anchor="end")
+        s.text(x + 12, y + 37, tag, 11.5, c["mute"])
 
 
-def key_row(s, x, y, right, items, note=()):
-    """A key that wraps: (kind, text) pairs, then lines of note; returns its end."""
+def chip(s, x, y, w, h, label, colour, sub=None, mono=True, size=12):
     c = s.c
-    start = x
-    for kind, text in items:
-        need = 30 + width(text) + 22
-        if x + need - 22 > right:
-            x, y = start, y + 24
-        if kind.startswith("bar:"):
-            edge, fill, _ = c[kind[4:]]
-            s.rect(x, y, 22, 16, fill, edge, rx=3)
-        elif kind.startswith("pale:"):
-            edge, _, pale = c[kind[5:]]
-            s.rect(x, y, 22, 16, pale, edge, rx=3, sw=1.4, dash="4 3")
-        elif kind.startswith("slot:"):
-            edge, _, pale = c[kind[5:]]
-            s.rect(x, y + 1, 22, 14, pale, edge, rx=7)
-        else:
-            s.line(x, y + 8, x + 22, y + 8, kind)
-        s.text(x + 30, y + 13, text, 12)
-        x += need
-    for i, line in enumerate(note):
-        s.text(start, y + 38 + 18 * i, line, 12, c["mute"])
-    return y + 38 + 18 * len(note) - 8
-
-
-class Lanes:
-    """Rows in time: a name and a line each, bars on them and arrows between them."""
-
-    def __init__(self, s, y, names, x0, x1, pitch=30):
-        self.s, self.x0, self.x1 = s, x0, x1
-        self.top = {name: y + k * pitch for k, name in enumerate(names)}
-        self.bottom = y + len(names) * pitch - (pitch - 16)
-        for name in names:
-            cy = self.top[name] + 8
-            s.text(x0 - 12, cy + 4, name, 12, s.c["mute"], anchor="end")
-            s.add(
-                f'<line x1="{x0:.1f}" y1="{cy:.1f}" x2="{x1:.1f}" y2="{cy:.1f}" '
-                f'stroke="{s.c["line"]}" stroke-width="1"/>',
-                0,
-            )
-
-    def tx(self, t):
-        return self.x0 + (self.x1 - self.x0) * t / 100
-
-    def bar(self, name, begin, end, text, colour, style="fill"):
-        s, c = self.s, self.s.c
-        edge, fill, pale = c[colour]
-        x, yy, w = self.tx(begin), self.top[name], self.tx(end) - self.tx(begin)
-        if style == "pale":
-            s.rect(x, yy, w, 16, pale, edge, rx=3, sw=1.4, dash="4 3")
-        else:
-            s.rect(x, yy, w, 16, fill, edge, rx=3)
-        if text and width(text, 11.5) + 8 <= w:
-            s.text(x + w / 2, yy + 12, text, 11.5, c["fg"], anchor="middle")
-
-    def hop(self, start, end, t, colour, dash=None, sw=1.8):
-        """An arrow at time t from one row to another."""
-        down = self.top[end] > self.top[start]
-        y1 = self.top[start] + (17 if down else -1)
-        y2 = self.top[end] + (-2 if down else 18)
-        self.s.line(self.tx(t), y1, self.tx(t), y2, colour, sw, dash=dash)
-
-    def axis(self, label="time (schematic)"):
-        s = self.s
-        s.add(
-            f'<line x1="{self.x0:.1f}" y1="{self.bottom + 10:.1f}" '
-            f'x2="{self.x1:.1f}" y2="{self.bottom + 10:.1f}" '
-            f'stroke="{s.c["rule"]}" stroke-width="1.6" marker-end="url(#hg)"/>',
-            2,
+    edge, _, pale = c[colour]
+    s.rect(x, y, w, h, pale, edge, rx=5, sw=1.2)
+    if sub:
+        s.text(x + 8, y + 16, label, size, c["fg"], True, mono=mono)
+        s.text(x + 8, y + 31, sub, 11, c["mute"])
+    else:
+        s.text(
+            x + w / 2,
+            y + h / 2 + 4,
+            label,
+            size,
+            c["fg"],
+            True,
+            mono=mono,
+            anchor="middle",
         )
-        s.text(self.x1, self.bottom + 28, label, 12, s.c["mute"], anchor="end")
-        return self.bottom + 28
 
 
-# ---------------------------------------------------------------------------
-# What the figures name: the presets, the implementations, their slots.
-# ---------------------------------------------------------------------------
-
-# configs/pipeline/*.py: each preset's implementations, in order
-PRESETS = {
-    "apply": ["indirect.transport"],
-    "field": ["indirect.transport", "indirect.field_update"],
-    "raster": ["raster", "post.show"],
-    "textured": ["raster", "material.texture", "post.show"],
-    "lit": [
-        "raster",
-        "material.texture",
-        "direct.shadow_pcf",
-        "direct.light",
-        "post.show",
-    ],
-    "gi": [
-        "raster",
-        "material.texture",
-        "direct.shadow_pcf",
-        "indirect.transport",
-        "indirect.field_update",
-        "direct.light",
-        "post.show",
-    ],
-}
-# each implementation's declaration (__init__.py): the item it fills, its class (None:
-# a unit and a host alone), its unit's role or served commands
-DECLARED = {
-    "raster": ("raster", "Raster", "layer"),
-    "material.texture": ("material", "Shade", "layer"),
-    "direct.shadow_pcf": (None, None, "serves sun"),
-    "indirect.transport": ("indirect", "Apply", "serves apply; gives a pass"),
-    "indirect.field_update": (None, None, "serves update, field_scale"),
-    "direct.light": ("direct", "Light", "frame"),
-    "post.show": ("post", "Show", "frame"),
-}
-
-# the frame's parts, ms: bistro_interior, 1,024 x 1,024, the preset lit
-# (measurements/lit_frame/README.md, the layers' table and the frame's table)
-FRAME_MS = 18.136
-PARTS = [
-    ("raster", "opaque", 5.601),
-    ("raster", "masked", 1.207),
-    ("raster", "glass", 2.260),
-    ("SHADE", "opaque", 3.653),
-    ("SHADE", "masked", 0.299),
-    ("SHADE", "glass", 0.709),
-    ("LIGHT", "", 3.262),
-    ("SHOW", "", 0.863),
-    ("PUSH", "", 0.287),
-]
-# measurements/{raster_show,textured_show,lit_frame,gi_frame}/README.md,
-# sponza_overview at 1,024 x 1,024: the card frame in ms
-FRAMES = [
-    ("raster", "4.962"),
-    ("textured", "10.781"),
-    ("lit", "12.050"),
-    ("gi", "14.267"),
-]
-# the teaser's pictures: the viewer guide's, the frame cut out; the card frame of the
-# same preset, scene and size in lit_frame's and textured_show's README
-PICTURES = [
-    ("lit_sponza_default.png", (292, 85, 932, 725), "lit", "sponza", "12.050 ms"),
-    (
-        "textured_bistro_interior.png",
-        (292, 85, 932, 725),
-        "textured",
-        "bistro_interior",
-        "15.442 ms",
-    ),
-]
-
-
-def jpeg_uri(name, box, side):
-    image = Image.open(VIEWER / name).convert("RGB").crop(box)
-    image = image.resize((side, side), Image.LANCZOS)
-    data = io.BytesIO()
-    image.save(data, "JPEG", quality=84, optimize=True)
-    return "data:image/jpeg;base64," + base64.b64encode(data.getvalue()).decode()
-
-
-# ---------------------------------------------------------------------------
-# The teaser.
-# ---------------------------------------------------------------------------
-
-
-def teaser_host(s, x, y, w):
-    """What the host sends: the camera, one FRAME command; a preset beside it."""
+def teaser(theme):
+    s = Svg(theme, "Komorebi-Prism: a frame as threads", W)
     c = s.c
-    h = 176
-    s.rect(x, y, w, h, c["box"], c["line"])
-    s.text(x + 14, y + 24, "each frame", 13.5, bold=True)
-    s.text(x + 14, y + 46, "Loop.frame(camera)", 12.5, c["w"][0], mono=True)
-    lines = [
-        ("the hosts' views:", "the camera written"),
-        ("into the run;", ""),
-        ("then one thread command:", ""),
-    ]
-    for i, (a, b) in enumerate(lines):
-        s.text(x + 14, y + 70 + 18 * i, a + (" " + b if b else ""), 12, c["mute"])
-    s.slot(x + 14, y + 128, "view.camera")
-    s.text(x + 14 + width("view.camera", 11.5, mono=True) + 20, y + 128, "16 numbers")
-    s.rect(x + 14, y + 142, 70, 22, c["w"][1], c["w"][0], rx=3)
-    s.text(x + 49, y + 157, "FRAME", 12, c["fg"], True, anchor="middle")
-    s.text(x + 92, y + 157, "to the director", 12, c["mute"])
-    py = y + h + 14
-    rows = PRESETS["lit"]
-    ph = 52 + 20 * len(rows) + 46
-    s.rect(x, py, w, ph, c["box"], c["line"])
-    s.text(x + 14, py + 24, "a preset", 13.5, bold=True)
+    s.text(16, 26, "One frame, drawn by the card alone", 17, c["fg"], True)
     s.text(
-        x + w - 14, py + 24, "configs/pipeline/lit.py", 11.5, c["mute"], anchor="end"
-    )
-    s.text(x + 14, py + 44, "item", 11.5, c["mute"])
-    s.text(x + 96, py + 44, "its implementation", 11.5, c["mute"])
-    for i, name in enumerate(rows):
-        item = DECLARED[name][0] or "-"
-        ry = py + 64 + 20 * i
-        s.text(x + 14, ry, item, 12, c["fg"] if DECLARED[name][0] else c["mute"])
-        s.text(x + 96, ry, f'"{name}"', 12, c["a"][0], mono=True)
-    ny = py + 64 + 20 * len(rows) + 4
-    s.text(x + 14, ny, "One implementation an item; the", 12, c["mute"])
-    s.text(x + 14, ny + 18, "list is resolved once, at the build.", 12, c["mute"])
-    return py + ph
-
-
-def teaser_grid(s, x, y):
-    """The Tensix grid as 12 columns by 10 rows of cells (its two panels)."""
-    c = s.c
-    pitch, cell = 13, 11
-    for row in range(10):
-        for k in range(12):
-            px = x + k * pitch + (14 if k >= 6 else 0)
-            s.rect(px, y + row * pitch, cell, cell, c["a"][1], c["a"][0], rx=2, sw=0.6)
-    return x + 12 * pitch + 14, y + 10 * pitch
-
-
-def teaser_card(s, x, y, w, h):
-    """The card by itself: the director's sequence, the grid, the frame in time."""
-    c = s.c
-    s.rect(x, y, w, h, c["bg"], c["a"][0], rx=6, sw=1.8)
-    # the director, on X280 cluster 1
-    dx, dy, dw = x + 16, y + 16, 300
-    s.rect(dx, dy, dw, 146, c["box"], c["w"][0], rx=4, sw=1.6)
-    s.text(dx + 12, dy + 21, "the director", 13.5, c["w"][0], True)
-    s.text(dx + dw - 12, dy + 21, "X280 cluster 1", 12, c["mute"], anchor="end")
-    steps = [
-        ("raster", "each layer"),
-        ("material.texture", "each layer"),
-        ("direct.light", "the view"),
-        ("post.show", "the view, then PUSH"),
-    ]
-    for i, (name, what) in enumerate(steps):
-        ry = dy + 46 + 20 * i
-        s.text(dx + 12, ry, f"{i + 1}", 12, c["mute"])
-        s.text(dx + 30, ry, name, 12, c["fg"], mono=True)
-        s.text(dx + 168, ry, what, 12, c["mute"])
-    s.text(dx + 12, dy + 134, "dr_view: unit by unit, in the preset's order", 11.5)
-    # the grid
-    gx, gy = x + w - 16 - 182, y + 34
-    s.text(gx, y + 24, "120 Tensix cores", 13, bold=True)
-    _, bottom = teaser_grid(s, gx, gy)
-    s.text(gx, bottom + 18, "one program on every core", 12, c["mute"])
-    ay = dy + 56
-    s.line(dx + dw + 4, ay, gx - 6, ay, "a", 2.2)
-    s.text((dx + dw + gx) / 2, ay - 8, "commands", 12, c["a"][0], True, anchor="middle")
-    s.line(gx - 6, ay + 26, dx + dw + 4, ay + 26, "r", 2.0)
-    s.text((dx + dw + gx) / 2, ay + 44, "events", 12, c["r"][0], True, anchor="middle")
-    # the frame in time
-    ty = y + 204
-    s.rule(x + 16, ty - 10, x + w - 16, ty - 10)
-    s.text(
-        x + 16, ty + 14, "one lit frame: bistro_interior, 1,024 x 1,024", 14, None, True
-    )
-    s.text(x + w - 16, ty + 14, f"{FRAME_MS:.3f} ms", 14, c["a"][0], True, anchor="end")
-    lx0, lx1 = x + 128, x + w - 20
-    span = sum(ms for *_, ms in PARTS)
-    scale = (lx1 - lx0) / span
-    lanes = [("host", ty + 36), ("director", ty + 72), ("Tensix cores", ty + 108)]
-    for name, ly in lanes:
-        s.text(x + 16, ly + 15, name, 12.5, bold=True)
-        s.add(
-            f'<line x1="{lx0:.1f}" y1="{ly + 11:.1f}" x2="{lx1:.1f}" '
-            f'y2="{ly + 11:.1f}" stroke="{c["line"]}" stroke-width="1"/>',
-            0,
-        )
-    hy, dy2, cy = (ly for _, ly in lanes)
-    s.rect(lx0, hy, 46, 22, c["w"][1], c["w"][0], rx=3)
-    s.text(lx0 + 23, hy + 15, "FRAME", 11, c["fg"], True, anchor="middle")
-    s.line(lx0 + 23, hy + 24, lx0 + 23, dy2 - 2, "w", 1.8)
-    s.rect(lx0, dy2 + 6, lx1 - lx0, 10, c["w"][2], rx=2)
-    t = lx0
-    colours = {"raster": "a", "SHADE": "y", "LIGHT": "p", "SHOW": "b", "PUSH": "b"}
-    for name, layer, ms in PARTS:
-        pw = ms * scale
-        edge, fill, _ = c[colours[name]]
-        s.rect(t + 0.5, cy, max(pw - 1, 1.5), 22, fill, edge, rx=2)
-        if pw > 34:
-            s.text(t + pw / 2, cy + 15, f"{ms:.2f}", 11, c["fg"], anchor="middle")
-            s.text(t + pw / 2, cy + 38, name, 11.5, c["mute"], True, anchor="middle")
-            if layer:
-                s.text(t + pw / 2, cy + 54, layer, 11, c["mute"], anchor="middle")
-        elif layer:
-            s.text(t + pw / 2, cy + 54, layer[0], 11, c["mute"], anchor="middle")
-        s.line(t + 2, dy2 + 17, t + 2, cy - 2, "a", 1.2)
-        t += pw
-    push_end = t
-    show = PARTS[-2][2] * scale + PARTS[-1][2] * scale
-    s.text(push_end - show / 2, cy + 38, "SHOW", 11.5, c["mute"], True, anchor="middle")
-    s.text(push_end - show / 2, cy + 54, "PUSH", 11.5, c["mute"], True, anchor="middle")
-    s.line(push_end - 2, cy - 2, push_end - 2, hy + 24, "b", 1.8)
-    s.rect(push_end - 54, hy, 52, 22, c["b"][2], c["b"][0], rx=3)
-    s.text(push_end - 28, hy + 15, "picture", 11, c["fg"], True, anchor="middle")
-    s.text(
-        lx0 + 60,
-        hy + 15,
-        "nothing from the host between the stages",
-        12,
+        16,
+        46,
+        "the host sends FRAME; the frame's thread hands out threads by pulls; "
+        "the core that takes a tile's thread runs every step of that tile",
+        12.5,
         c["mute"],
     )
-    s.text(
-        x + 16,
-        cy + 76,
-        "The layers' raster passes (COUNT to FILL) and SHADE, then LIGHT with its glass "
-        "form, SHOW and the PUSH;",
-        11.5,
-        c["mute"],
-    )
-    s.text(
-        x + 16,
-        cy + 93,
-        "the parts' medians, ms, from measurements/lit_frame. m: masked, g: glass.",
-        11.5,
-        c["mute"],
-    )
-
-
-def teaser_out(s, x, y, w, theme):
-    """What comes back: pictures pushed by the card; the card frame by preset."""
-    c = s.c
-    side, gap = (w - 8) // 2, 8
-    for i, (name, box, preset, scene, ms) in enumerate(PICTURES):
-        px = x + i * (side + gap)
-        uri = jpeg_uri(name, box, 2 * side)
-        s.add(f'<image x="{px}" y="{y}" width="{side}" height="{side}" href="{uri}"/>')
-        s.rect(px, y, side, side, "none", c["line"], rx=0)
-        s.text(px, y + side + 16, preset, 12.5, c["a"][0], mono=True)
-        s.text(px, y + side + 32, scene, 11.5)
-        s.text(px, y + side + 48, ms + " a frame", 11.5, c["mute"])
-    ty = y + side + 62
-    s.rect(x, ty, w, 30 + 21 * len(FRAMES) + 8, c["box"], c["line"])
-    s.text(x + 10, ty + 18, "card frame, sponza 1,024 x 1,024", 12, bold=True)
-    for i, (preset, ms) in enumerate(FRAMES):
-        ry = ty + 40 + 21 * i
-        s.text(x + 10, ry, preset, 12.5, c["a"][0], mono=True)
-        s.text(x + w - 10, ry, ms + " ms", 12.5, c["r"][0], True, anchor="end")
-    return ty + 30 + 21 * len(FRAMES) + 8
-
-
-def figure_teaser(theme):
-    w, h = 1280, 500
-    s = Svg(
-        theme,
-        "Komorebi-Prism: the host sends a camera and one FRAME command, the card runs "
-        "the preset's stages by itself, the picture comes back",
-        w,
-    )
-    c = s.c
-    lx, lw = 16, 300
-    mx, mw = 336, 620
-    rx, rw = 976, 288
-    s.text(lx, 36, "the host sends", 22, bold=True)
-    s.text(mx, 36, "the card runs it by itself", 22, c["a"][0], True)
-    s.text(rx, 36, "what comes back", 22, bold=True)
-    top = 56
-    teaser_host(s, lx, top, lw)
-    teaser_card(s, mx, top, mw, h - top - 16)
-    teaser_out(s, rx, top, rw, theme)
-    s.line(lx + lw + 4, top + 140, mx - 4, top + 140, "w", 2.2)
-    s.line(mx + mw + 4, top + 140, rx - 4, top + 140, "b", 2.2)
-    s.text(rx, h - 44, "display.picture: the frame's pages,", 11.5, c["mute"])
-    s.text(rx, h - 28, "pushed by the card into the host's memory", 11.5, c["mute"])
-    s.text(
-        rx,
-        h - 12,
-        "Sponza CC BY 3.0; Bistro CC BY 4.0 (credits below)",
-        10.5,
-        c["mute"],
-    )
-    return s.finish(h)
-
-
-# ---------------------------------------------------------------------------
-# The frame: the stages in order with their slots; the sun's commands.
-# ---------------------------------------------------------------------------
-
-COLUMNS = [
-    (
-        "raster",
-        "layer unit: each layer",
-        ["COUNT SUM HIST HSUM", "middle (on the thread)", "PLACE SETUP FILL"],
-        ["scene.mesh", "view.camera"],
-        ["frame.visibility", "frame.lists"],
-    ),
-    (
-        "material.texture",
-        "layer unit: each layer",
-        ["SHADE", "opaque; masked merged;", "glass blended over"],
-        ["frame.visibility", "frame.lists"],
-        ["mesh.attributes", "frame.surface"],
-    ),
-    (
-        "direct.light",
-        "frame unit: the view",
-        ["LIGHT", "displayed, or linear", "then glass"],
-        ["frame.visibility", "mesh.attributes", "frame.surface", "light.shadow_map"],
-        ["frame.visibility"],
-    ),
-    (
-        "post.show",
-        "frame unit: the view",
-        ["SHOW: 8-bit pixels,", "a page a tile;", "then PUSH"],
-        ["frame.visibility"],
-        ["display.picture"],
-    ),
-]
-LAYERS = ("opaque", "masked", "glass")
-
-
-def frame_panel(s, y):
-    c = s.c
-    cw, gap = 180, 26
-    x0 = BOX_X + 14
-    sy = y + 38
-    ty = sy + 54
-    by = ty + 40
-    wy = by + 3 * 32 + 14
-    ry = wy + 62
-    wy2 = ry + 20 + 21 * 4 + 6
-    height = wy2 + 20 + 21 + 14 - y
-    panel_frame(
+    top = 64
+    # the host
+    hx, hw, hh = 16, 232, 300
+    box(s, hx, top, hw, hh, "the host", "prism.loop, prism_cli, the viewer", "g")
+    yy = top + 62
+    for line, mono in (
+        ("scene.glb", True),
+        ("prism_cli open: converted once", False),
+        ("", False),
+        ("each frame:", False),
+        ("Loop.frame(camera)", True),
+        ("camera -> view.camera", True),
+        ("FRAME, one thread command", False),
+        ("", False),
+        ("after the frame's event:", False),
+        ("display pages read back", False),
+    ):
+        if line:
+            s.text(hx + 14, yy, line, 12, c["fg"], mono=mono)
+        yy += 19
+    # the frame's thread
+    fx, fw = 300, 412
+    box(
         s,
-        y,
-        height,
-        "a FRAME command: the eye's view, COLOUR",
-        "prism/program/director: dr_view",
-        "a",
-    )
-    s.rect(BOX_X + 14, sy, BOX_W - 28, 26, c["bg"], c["w"][0], rx=3, sw=1.4)
-    s.text(BOX_X + 26, sy + 17, "director (X280 cluster 1)", 12, c["w"][0], True)
-    s.text(
-        BOX_X + BOX_W - 26,
-        sy + 17,
-        "each unit in the preset's order; a layer unit once a layer",
-        12,
-        c["mute"],
-        anchor="end",
-    )
-    for k, (name, role, work, reads, writes) in enumerate(COLUMNS):
-        cx = x0 + k * (cw + gap)
-        s.line(cx + cw / 2, sy + 28, cx + cw / 2, ty - 3, "w", 1.6)
-        s.text(cx, ty + 12, name, 12.5, c["fg"], True, mono=True)
-        s.text(cx, ty + 30, role, 11.5, c["mute"])
-        if "layer" in role:
-            label = "COUNT ... FILL" if k == 0 else "SHADE"
-            for i, layer in enumerate(LAYERS):
-                ly = by + 32 * i
-                s.rect(cx, ly, cw, 26, c["a"][1], c["a"][0], rx=3)
-                s.text(cx + 8, ly + 17, layer, 12, c["fg"], True)
-                s.text(cx + cw - 8, ly + 17, label, 11.5, anchor="end")
-            for i, line in enumerate(work):
-                s.text(cx, wy + 4 + 16 * i, line, 11.5, c["mute"])
-        else:
-            colour = "p" if k == 2 else "b"
-            s.rect(cx, by, cw, 90, c[colour][1], c[colour][0], rx=3)
-            for i, line in enumerate(work):
-                s.text(cx + 8, by + 22 + 20 * i, line, 12, c["fg"], i == 0)
-        s.text(cx, ry, "reads", 11.5, c["mute"], True)
-        for i, slot in enumerate(reads):
-            s.slot(cx, ry + 20 + 21 * i, slot)
-        s.text(cx, wy2, "writes", 11.5, c["mute"], True)
-        for i, slot in enumerate(writes):
-            s.slot(cx, wy2 + 20 + 21 * i, slot, "r")
-        if k < len(COLUMNS) - 1:
-            ay = by + 45
-            s.line(cx + cw + 3, ay, cx + cw + gap - 3, ay, "a", 2.0)
-    return height
-
-
-def sun_panel(s, y):
-    c = s.c
-    names = ["host", "director", "Tensix cores"]
-    lanes = Lanes(s, y + 76, names, BOX_X + 112, BOX_X + BOX_W - 20, pitch=34)
-    end = lanes.axis()
-    notes = [
-        (
-            "sun (direct.shadow_pcf): a DEPTH view a quadrant of the map, through the "
-            "same units: the opaque"
-        ),
-        (
-            "and masked layers' raster, SHADE's masked merge of 1/z, then COPY of 1/z "
-            "into light.shadow_map."
-        ),
-        (
-            "update (indirect.field_update, in gi): the sources from light.shadow_map, a "
-            "bounce pass an apply of"
-        ),
-        (
-            "indirect.transport (elements.radiance in, elements.irradiance out), the "
-            "field's pages into light.field;"
-        ),
-        (
-            "field_scale gives light.field_scale to the host, which writes LIGHT's table. "
-            "Then the next FRAME."
-        ),
-    ]
-    height = end + 18 + 18 * len(notes) + 6 - y
-    panel_frame(
-        s,
-        y,
-        height,
-        "when the sun moves: thread commands of their own, before the next FRAME",
-        "",
-        "m",
-    )
-    lead = "they write"
-    s.text(BOX_X + 14, y + 46, lead, 12, c["mute"])
-    right = s.slot(BOX_X + 14 + width(lead) + 6, y + 46, "light.shadow_map", "r")
-    s.text(right + 8, y + 46, "and", 12, c["mute"])
-    right = s.slot(right + 38, y + 46, "light.field", "r")
-    s.text(right + 8, y + 46, "which the next frames read", 12, c["mute"])
-    host, thread, cores = names
-    lanes.bar(host, 0, 5, "", "w")
-    s.text(lanes.tx(0), lanes.top[host] - 6, "control: sun", 12, c["w"][0], True)
-    for q in range(4):
-        t = 6 + 8.6 * q
-        lanes.bar(thread, t, t + 1.4, "", "m")
-        lanes.hop(thread, cores, t + 0.7, "a", sw=1.4)
-        lanes.bar(cores, t + 1.2, t + 8.4, f"view {q + 1}", "m")
-    lanes.hop(host, thread, 5.6, "w")
-    s.text(lanes.tx(7.4), lanes.top[thread] - 6, "sun", 12, c["m"][0], True)
-    lanes.hop(host, thread, 41.6, "w")
-    lanes.bar(thread, 42, 50.5, "sources", "p")
-    s.text(lanes.tx(43), lanes.top[thread] - 6, "update", 12, c["p"][0], True)
-    for k, a in enumerate((51, 61)):
-        lanes.hop(thread, cores, a + 0.3, "a", sw=1.4)
-        lanes.bar(cores, a + 0.6, a + 8.2, "apply", "y")
-        lanes.bar(thread, a + 8.4, a + 9.8, "", "p")
-    lanes.bar(thread, 71.2, 79, "finish", "p")
-    lanes.bar(thread, 79.6, 81, "", "g")
-    lanes.hop(thread, host, 80.3, "g", sw=1.4)
-    lanes.bar(host, 81.2, 88.4, "scale", "g")
-    s.text(lanes.tx(78), lanes.top[host] - 6, "field_scale", 12, c["mute"], True)
-    lanes.hop(host, thread, 89.2, "w")
-    lanes.bar(thread, 89.6, 99.8, "FRAME", "w")
-    lanes.bar(cores, 90.6, 99.8, "frame", "a")
-    for i, line in enumerate(notes):
-        s.text(BOX_X + 14, end + 20 + 18 * i, line, 12, c["mute"])
-    return height
-
-
-def figure_frame(theme):
-    s = Svg(theme, "A frame in time, and the sun's commands outside it", 830)
-    y = 10
-    y += frame_panel(s, y) + 10
-    y += sun_panel(s, y) + 10
-    items = [
-        ("bar:a", "a layer's work on the cores"),
-        ("bar:p", "LIGHT"),
-        ("bar:b", "SHOW and PUSH"),
-        ("slot:y", "a slot read"),
-        ("slot:r", "a slot written"),
-        ("w", "a command to the thread"),
-        ("a", "commands to the cores"),
-    ]
-    note = (
-        (
-            "Every core runs every stage's handlers: one program. A DEPTH view runs the "
-            "layers whose depth column is set,"
-        ),
-        (
-            "and LIGHT does nothing in it. The slots are those of each implementation's "
-            "declaration (src/prism/stages)."
-        ),
-    )
-    end = key_row(s, BOX_X + 4, y + 2, BOX_X + BOX_W - 4, items, note)
-    return s.finish(int(end + 8))
-
-
-# ---------------------------------------------------------------------------
-# Assembly: a preset into one program and one thread.
-# ---------------------------------------------------------------------------
-
-FOLDER = [
-    ("__init__.py", "fills, reads, writes"),
-    ("device.py", "Shade: its class"),
-    ("kernels/", "its C++"),
-    ("thread/", "its unit's C"),
-    ("unit.py", "what the unit asks for"),
-    ("host.py", "TextureHost"),
-    ("model/", "its data in numpy"),
-    ("check/", "against prism_reference"),
-    ("README.md", "its page"),
-]
-ASSIGNED = [
-    ("km.merge", "handler numbers over the classes; their buffers in one layout"),
-    (
-        "prism.core.fields",
-        "fields several classes share, each sized by its largest user;",
-    ),
-    ("", "command_space: each stage's parts over the same bytes"),
-    (
-        "prism.core.resources",
-        "the thread's regions, numbers, layer columns, times, results,",
-    ),
-    ("", "the commands' numbers (FRAME is 1); refused with the numbers"),
-    ("prism.core.capacity", "the tiles a load is sized for; a reload past them"),
-]
-
-
-def figure_assembly(theme):
-    s = Svg(theme, "How a pipeline is put together: one program, one thread", 830)
-    c = s.c
-    y = 10
-    top_h = 300
-    # the preset
-    px, pw = BOX_X, 206
-    panel_frame(s, y, top_h, "a preset", "", "a", px, pw)
-    s.text(px + 14, y + 42, "configs/pipeline/gi.py", 11.5, c["mute"])
-    for i, name in enumerate(PRESETS["gi"]):
-        ry = y + 66 + 26 * i
-        has_class = DECLARED[name][1] is not None
-        edge, fill, pale = c["a"]
-        s.rect(px + 14, ry - 13, 12, 12, edge if has_class else pale, edge, rx=2)
-        s.text(px + 34, ry - 2, name, 11.5, c["fg"], mono=True)
-    for i, (text, fill) in enumerate((("a class", 0), ("a unit and a host", 2))):
-        ly = y + top_h - 30 + 17 * i
-        s.rect(px + 14, ly - 10, 12, 12, c["a"][fill], c["a"][0], rx=2)
-        s.text(px + 34, ly, text, 11.5, c["mute"])
-    # one implementation's folder
-    fx, fw = px + pw + 22, 262
-    panel_frame(s, y, top_h, "an implementation", "", "y", fx, fw)
-    s.text(fx + 14, y + 42, "src/prism/stages/material/texture/", 11.5, c["mute"])
-    for i, (name, what) in enumerate(FOLDER):
-        ry = y + 66 + 25 * i
-        s.text(fx + 14, ry, name, 12, c["fg"], True, mono=True)
-        s.text(fx + 106, ry, what, 11.5, c["mute"])
-    s.line(px + pw + 3, y + 150, fx - 3, y + 150, "a", 2.0)
-    # the one program and the thread
-    ox = fx + fw + 22
-    ow = BOX_X + BOX_W - ox
-    panel_frame(s, y, top_h, "one program", "", "r", ox, ow)
-    s.line(fx + fw + 3, y + 150, ox - 3, y + 150, "a", 2.0)
-    s.text(ox + 14, y + 44, "km.merge(Raster, Shade,", 12, c["fg"], mono=True)
-    s.text(ox + 14, y + 62, "  Apply, Light, Show)", 12, c["fg"], mono=True)
-    s.rect(ox + 14, y + 74, ow - 28, 84, c["a"][2], c["a"][0], rx=3)
-    s.text(ox + 24, y + 94, "every Tensix core", 12.5, c["a"][0], True)
-    s.text(ox + 24, y + 113, "the classes' handlers, merged;", 12)
-    s.text(ox + 24, y + 131, "one compute set: HiFi4,", 12)
-    s.text(ox + 24, y + 147, "float32 in Dst", 12)
-    s.rect(ox + 14, y + 168, ow - 28, 118, c["w"][2], c["w"][0], rx=3)
-    s.text(ox + 24, y + 188, "the thread, X280 cluster 1", 12.5, c["w"][0], True)
-    thread = [
-        ("director.c", "the runtime"),
-        ("pipeline.c", "generated sequence"),
-        ("<unit>_unit.c", "each unit's C"),
-    ]
-    for i, (name, what) in enumerate(thread):
-        ry = y + 210 + 19 * i
-        s.text(ox + 24, ry, name, 11.5, c["fg"], mono=True)
-        s.text(ox + 124, ry, what, 11.5, c["mute"])
-    s.text(ox + 24, y + 274, "the sequence: dr_view, kmx_program", 11.5, c["mute"])
-    # what the core assigns
-    ay = y + top_h + 10
-    ah = 48 + 20 * len(ASSIGNED) + 26
-    panel_frame(
-        s,
-        ay,
-        ah,
-        "implementations ask; the core assigns",
-        "no number written by hand",
+        fx,
+        top,
+        fw,
+        hh,
+        "the frame's thread",
+        "X280 work cluster 1: four cores, " "each the port of 30 Tensix cores",
         "w",
     )
-    for i, (who, what) in enumerate(ASSIGNED):
-        ry = ay + 50 + 20 * i
-        if who:
-            s.text(BOX_X + 14, ry, who, 12, c["w"][0], mono=True)
-        s.text(BOX_X + 190, ry, what, 12)
-    s.text(
-        BOX_X + 14,
-        ay + ah - 12,
-        "A slot is passed by its name: a unit gives or takes it on the thread, a host "
-        "gives it (slots()) or connects to it.",
-        11.5,
-        c["mute"],
+    phases = (
+        ("a", "1  count pull", "ranges of 4 triangle blocks, to whichever core asks"),
+        ("b", "2  sums", "a command: each core the slices of its rank"),
+        ("g", "   running sum", "each layer's place a slice; lists checked"),
+        ("p", "3  place pull", "the count's log replayed: each core its ranges"),
+        ("g", "   steps' words", "each step's words of the frame's page"),
+        ("r", "4  tile pull", "the next tile thread for the core that asks (prefer)"),
     )
-    return s.finish(int(ay + ah + 10))
-
-
-# ---------------------------------------------------------------------------
-# Light: what a pixel adds, and the indirect field.
-# ---------------------------------------------------------------------------
-
-TERMS = [
-    ("sun", "x the shadow map's taps (PCF)", "light.shadow_map", "m"),
-    ("lamps", "the scene's point lights", None, "y"),
-    ("specular", "of the sun and the lamps", None, "y"),
-    ("sky", "x baked visibility", None, "b"),
-    ("ambient", "a constant", None, "g"),
-    ("emissive", "the material's own", None, "y"),
-    ("background", "the sky's map where no surface", None, "b"),
-]
-
-
-def figure_light(theme):
-    s = Svg(theme, "Where the light of a pixel comes from", 830)
-    c = s.c
-    y = 10
-    h = 480
-    lw = 396
-    panel_frame(s, y, h, "LIGHT: a pixel's terms", "direct.light", "p", BOX_X, lw)
-    for i, (name, what, slot, colour) in enumerate(TERMS):
-        ry = y + 46 + 40 * i
-        edge, fill, _ = c[colour]
-        s.rect(BOX_X + 14, ry, 92, 28, fill, edge, rx=3)
-        s.text(BOX_X + 60, ry + 19, name, 12, c["fg"], True, anchor="middle")
-        s.text(BOX_X + 116, ry + 13, what, 11.5, c["mute"])
-        if slot:
-            s.slot(BOX_X + 116, ry + 31, slot, "m")
-    # the field replaces sky x visibility and ambient
-    fy = y + 46 + 40 * 3 - 4
-    s.rect(BOX_X + 8, fy, lw - 16, 76, "none", c["p"][0], rx=4, sw=1.6, dash="5 3")
-    s.text(
-        BOX_X + lw - 18,
-        fy + 22,
-        "with the term indirect:",
-        11.5,
-        c["p"][0],
-        True,
-        anchor="end",
+    py = top + 52
+    for colour, name, sub in phases:
+        h = 36
+        chip(s, fx + 14, py, fw - 28, h, name, colour, sub)
+        py += h + 4
+    # a Tensix core
+    cx, cw = 768, W - 16 - 768
+    box(
+        s,
+        cx,
+        top,
+        cw,
+        hh,
+        "a Tensix core, one of 120",
+        "the handler work: mover A, " "mover B, unpack, math, pack",
+        "r",
     )
+    sy = top + 64
     s.text(
-        BOX_X + lw - 18,
-        fy + 39,
-        "the field I(P, n) instead",
-        11.5,
-        c["p"][0],
-        True,
-        anchor="end",
-    )
-    s.slot(BOX_X + lw - 18, fy + 62, "light.field", "p", anchor="end")
-    ty = y + 46 + 40 * len(TERMS) + 6
-    s.rect(BOX_X + 14, ty, lw - 28, 28, c["p"][1], c["p"][0], rx=3)
-    s.text(
-        BOX_X + 24,
-        ty + 19,
-        "the tone step: exposure, saturation, curve",
+        cx + 14,
+        sy,
+        "mover A asks its port; the tile thread's steps, in order:",
         12,
         c["fg"],
-        True,
     )
-    s.line(BOX_X + lw / 2, ty + 30, BOX_X + lw / 2, ty + 48, "p", 1.8)
-    s.slot(BOX_X + lw / 2, ty + 62, "frame.visibility", "r", anchor="middle")
-    # the field, updated on the card
-    rx_ = BOX_X + lw + 12
-    rw = BOX_X + BOX_W - rx_
-    panel_frame(s, y, h, "the indirect field", "indirect.field_update", "p", rx_, rw)
-    steps = [
-        ("elements", "points sampled by area; sponza 36,832", None),
-        ("L0", "each element's sun (shadow map), lamps, sky", "light.shadow_map"),
+    steps = ("visibility", "material_lit", "light", "post")
+    sx, gap = cx + 14, 8
+    stw = (cw - 28 - gap * 3) / 4
+    for i, name in enumerate(steps):
+        chip(s, sx + i * (stw + gap), sy + 12, stw, 34, name, "r", size=11.5)
+        if i:
+            s.line(
+                sx + i * (stw + gap) - gap + 1,
+                sy + 29,
+                sx + i * (stw + gap) - 1,
+                sy + 29,
+                "r",
+                1.4,
+            )
+    # planes in L1
+    ly = sy + 66
+    s.text(cx + 14, ly, "kept in the core's L1 between the steps:", 12, c["fg"])
+    edge, fill, _ = c["y"]
+    s.rect(sx, ly + 10, cw - 28, 22, fill, edge, rx=4)
+    s.text(
+        sx + 8, ly + 25, "frame.visibility   20 float32 tiles", 11.5, c["fg"], mono=True
+    )
+    s2 = sx + (stw + gap)
+    s.rect(s2, ly + 38, 2 * stw + gap, 22, fill, edge, rx=4)
+    s.text(s2 + 8, ly + 53, "frame.surface  20 tiles", 11.5, c["fg"], mono=True)
+    oy = ly + 84
+    s.text(cx + 14, oy, "pages asked into L1: lists, textures, light", 12, c["mute"])
+    s.text(
+        cx + 14,
+        oy + 18,
+        "written: the tile's display page, nothing else",
+        12,
+        c["mute"],
+    )
+    s.text(
+        cx + 14,
+        oy + 40,
+        "(display.picture, read back by the host)",
+        11.5,
+        c["mute"],
+        mono=True,
+    )
+    # arrows host -> frame thread, frame thread <-> core
+    s.line(hx + hw + 2, top + 160, fx - 3, top + 160, "w", 2.2)
+    s.text(
+        (hx + hw + fx) / 2, top + 152, "FRAME", 11.5, c["w"][0], True, anchor="middle"
+    )
+    s.line(fx - 3, top + 200, hx + hw + 2, top + 200, "g", 1.6, dash="5 3")
+    s.text(
+        (hx + hw + fx) / 2, top + 216, "pages", 11.5, c["mute"], True, anchor="middle"
+    )
+    s.line(fx + fw + 2, top + 128, cx - 3, top + 128, "r", 2.0)
+    s.text(
+        (fx + fw + cx) / 2, top + 120, "answer", 11.5, c["r"][0], True, anchor="middle"
+    )
+    s.line(cx - 3, top + 168, fx + fw + 2, top + 168, "r", 1.6, dash="5 3")
+    s.text((fx + fw + cx) / 2, top + 184, "ask", 11.5, c["r"][0], True, anchor="middle")
+    # the job thread
+    jy, jh = top + hh + 22, 128
+    jx, jw = 300, W - 16 - 300
+    box(
+        s,
+        jx,
+        jy,
+        jw,
+        jh,
+        "gi_threads: the job thread",
+        "X280 work clusters 2 and 3: "
+        "the field's update, a graph kept on the card while frames go on",
+        "m",
+    )
+    nodes = (
+        ("job_wants", "the cores it wants", "w"),
+        ("field_sources", "L0 of each element", "m"),
+        ("apply", "on the lowest ranks", "r"),
+        ("field_pass", "y added, next x", "m"),
+        ("field_finish", "the field's pages", "m"),
+        ("job_wants", "the half, the scale", "w"),
+    )
+    nx, ny = jx + 14, jy + 54
+    nw = (jw - 28 - 5 * 18) / 6
+    for i, (name, sub, colour) in enumerate(nodes):
+        x = nx + i * (nw + 18)
+        chip(s, x, ny, nw, 40, name, colour, sub, size=11.5)
+        if i:
+            s.line(x - 16, ny + 20, x - 2, ny + 20, "m", 1.4)
+    loop_l = nx + 2 * (nw + 18)
+    loop_r = nx + 3 * (nw + 18) + nw
+    s.poly(
+        [
+            (loop_r - 10, ny + 41),
+            (loop_r - 10, ny + 58),
+            (loop_l + 10, ny + 58),
+            (loop_l + 10, ny + 43),
+        ],
+        "m",
+        1.4,
+    )
+    s.text(
+        (loop_l + loop_r) / 2,
+        ny + 70,
+        "a round a bounce",
+        11,
+        c["mute"],
+        anchor="middle",
+    )
+    # job thread -> frame thread
+    s.line(fx + fw / 2, jy - 2, fx + fw / 2, top + hh + 2, "w", 1.6, dash="5 3")
+    s.text(
+        fx + fw / 2 + 8,
+        jy - 7,
+        "job_wants: the next frame reads the new half",
+        11,
+        c["mute"],
+    )
+    # left bottom: numbers
+    nyy = jy
+    s.rect(hx, nyy, hw, jh, c["box"], c["line"], rx=6, layer=0)
+    s.text(hx + 12, nyy + 20, "Sponza, 1,920 x 1,080", 13, c["fg"], True)
+    s.text(hx + 12, nyy + 37, "one P150A, ms a frame", 11.5, c["mute"])
+    rows = (
+        ("", "threads", "stage-wise"),
+        ("textured", "13.134", "16.428"),
+        ("lit", "14.584", "18.838"),
+    )
+    for i, (a, b, d) in enumerate(rows):
+        y = nyy + 62 + i * 20
+        bold = i == 0
+        s.text(hx + 12, y, a, 12, c["fg"], bold, mono=not bold)
+        s.text(hx + 140, y, b, 12, c["r"][0] if i else c["fg"], True, anchor="end")
+        s.text(hx + hw - 12, y, d, 12, c["fg"], bold, anchor="end")
+    s.text(
+        hx + 12,
+        nyy + jh - 10,
+        "pictures equal; lit built with the account",
+        11,
+        c["mute"],
+    )
+    return s.finish(jy + jh + 16)
+
+
+NUMS = (
+    "count 1.041, sums 0.272, running sum 0.050, place 1.919, tile pull 11.301",
+    (
+        "count 0.944, sums 0.329, middle pass 2.028, place 0.339, set-up 1.528, "
+        "fill to push 13.668"
+    ),
+)
+
+
+def frame(theme):
+    w = 830
+    s = Svg(theme, "A frame as threads: the view's phases, and one tile thread", w)
+    c = s.c
+    x0, x1 = 16, w - 16
+    # panel 1
+    p1 = 12
+    s.rect(x0, p1, x1 - x0, 214, c["box"], c["line"], layer=0)
+    s.text(
+        x0 + 14, p1 + 22, "The eye's view on the cores, in time", 14, c["w"][0], True
+    )
+    s.text(
+        x1 - 14,
+        p1 + 22,
+        "Sponza overview, lit, 1,920 x 1,080, one P150A, ms",
+        12,
+        c["mute"],
+        anchor="end",
+    )
+    left, right = x0 + 120, x1 - 20
+    scale = (right - left) / 18.838
+    rows = (
         (
-            "E1 = M L0",
-            "a bounce pass: indirect.transport's apply",
-            "elements.irradiance",
+            "threads",
+            "prefer, 14.584",
+            (
+                ("count", 1.041, "a"),
+                ("sums", 0.272, "b"),
+                ("", 0.050, "g"),
+                ("place", 1.919, "p"),
+                ("tile pull", 11.301, "r"),
+            ),
         ),
-        ("Ek = M (albedo/pi E(k-1))", "the next passes; bounces, default 2", None),
-        ("the field", "voxels x 6 directions: E + the sky", None),
-        ("texels, pages", "a has-data bit, three square-root codes", "light.field"),
-    ]
-    for i, (name, what, slot) in enumerate(steps):
-        ry = y + 46 + 66 * i
-        s.rect(rx_ + 14, ry, rw - 28, 50, c["box"] if i else c["cell"], c["p"][0], rx=3)
-        s.text(rx_ + 24, ry + 19, name, 12, c["fg"], True, mono=True)
-        s.text(rx_ + 24, ry + 38, what, 11.5, c["mute"])
-        if slot:
-            s.slot(rx_ + rw - 22, ry + 19, slot, "y" if i < 5 else "p", anchor="end")
-        if i < len(steps) - 1:
-            s.line(rx_ + rw / 2, ry + 52, rx_ + rw / 2, ry + 64, "p", 1.6)
+        (
+            "stage-wise",
+            "18.838",
+            (
+                ("count", 0.944, "a"),
+                ("sums", 0.329, "b"),
+                ("middle", 2.028, "g"),
+                ("", 0.339, "p"),
+                ("set-up", 1.528, "p"),
+                ("fill, shade, light, show, push", 13.668, "r"),
+            ),
+        ),
+    )
+    for r, (name, total, parts) in enumerate(rows):
+        y = p1 + 48 + r * 66
+        s.text(x0 + 14, y + 17, name, 12.5, c["fg"], True)
+        s.text(x0 + 14, y + 33, total, 11.5, c["mute"])
+        x = left
+        for label, ms, colour in parts:
+            pw = ms * scale
+            edge, fill, _ = c[colour]
+            s.rect(x, y, pw, 26, fill, edge, rx=2, sw=1)
+            if label and pw > width(label, 11) + 6:
+                s.text(x + pw / 2, y + 17, label, 11, c["fg"], anchor="middle")
+            x += pw
+        s.text(left, y + 44, NUMS[r], 11, c["mute"])
     s.text(
-        rx_ + 14,
-        y + h - 30,
-        "M: the transport matrix, hierarchical, applied as y = M x",
+        x0 + 14,
+        p1 + 196,
+        "Threads: the X280 between the pulls is the running sum "
+        "(0.050). Stage-wise: the X280's middle pass (2.028) cuts heavy tiles and "
+        "deals them.",
         11.5,
         c["mute"],
     )
+    # panel 2
+    p2 = p1 + 230
+    ph = 330
+    s.rect(x0, p2, x1 - x0, ph, c["box"], c["line"], layer=0)
+    s.text(x0 + 14, p2 + 22, "One tile thread on one core", 14, c["r"][0], True)
     s.text(
-        rx_ + 14,
-        y + h - 13,
-        "on every core (x: elements.radiance). Sent when the sun moves.",
+        x1 - 14,
+        p2 + 22,
+        "pack's ms a frame a core by step (lit, order, median)",
+        12,
+        c["mute"],
+        anchor="end",
+    )
+    lanes = (("mover A", "w"), ("mover B", "w"), ("compute", "r"), ("L1", "y"))
+    lx = x0 + 100
+    lw = x1 - 16 - lx
+    lane_y = {}
+    for i, (name, colour) in enumerate(lanes):
+        y = p2 + 44 + i * 62
+        lane_y[name] = y
+        s.text(x0 + 14, y + 22, name, 12.5, c[colour][0], True)
+        s.rule(lx, y + 52, x1 - 16, y + 52, dash="2 3")
+    steps = (
+        ("visibility", 2.77),
+        ("material_lit", 4.91),
+        ("light", 2.93),
+        ("post", 0.05),
+    )
+    ask_w = 70
+    total = sum(m for _, m in steps)
+    avail = lw - ask_w - 12
+    xs, x = [], lx + ask_w + 12
+    for name, ms in steps:
+        sw_ = max(ms / total * avail, 44)
+        xs.append((x, sw_))
+        x += sw_
+    # rescale to fit
+    over = (xs[-1][0] + xs[-1][1]) - (lx + lw)
+    if over > 0:
+        k = (avail - over) / avail
+        x = lx + ask_w + 12
+        new = []
+        for (ox, ow), (name, ms) in zip(xs, steps):
+            ow2 = max(ow * k, 44)
+            new.append((x, ow2))
+            x += ow2
+        xs = new
+    ya = lane_y["mover A"]
+    chip(s, lx, ya + 6, ask_w, 38, "ask", "w", "port: 0.3 us", size=11.5)
+    s.text(
+        lx + ask_w + 18,
+        ya + 22,
+        "the descriptor to the compute CPUs and mover B;",
+        11.5,
+        c["fg"],
+    )
+    s.text(
+        lx + ask_w + 18,
+        ya + 38,
+        "both movers serve the pages the steps ask for",
+        11.5,
+        c["fg"],
+    )
+    yb = lane_y["mover B"]
+    labels_b = ("lists streamed", "lists, texture pages", "light pages", "")
+    for (x, sw_), lab in zip(xs, labels_b):
+        if lab:
+            s.rect(x + 2, yb + 10, sw_ - 4, 28, c["cell"], c["line"], rx=3)
+            s.text(x + sw_ / 2, yb + 28, lab, 11, c["fg"], anchor="middle")
+    px, pw = xs[-1]
+    yc = lane_y["compute"]
+    for (x, sw_), (name, ms) in zip(xs, steps):
+        edge, fill, _ = c["r"]
+        s.rect(x + 1, yc + 6, sw_ - 2, 38, fill, edge, rx=3)
+        lab = name if sw_ > width(name, 11, mono=True) + 6 else name[:4]
+        s.text(x + sw_ / 2, yc + 22, lab, 11, c["fg"], True, mono=True, anchor="middle")
+        s.text(x + sw_ / 2, yc + 37, f"{ms:.2f}", 10.5, c["fg"], anchor="middle")
+    yl = lane_y["L1"]
+    edge, fill, _ = c["y"]
+    vx = xs[0][0]
+    s.rect(vx + 1, yl + 4, xs[-1][0] + xs[-1][1] - vx - 2, 20, fill, edge, rx=3)
+    s.text(vx + 8, yl + 18, "frame.visibility", 11, c["fg"], mono=True)
+    sx = xs[1][0]
+    s.rect(sx + 1, yl + 28, xs[2][0] + xs[2][1] - sx - 2, 20, fill, edge, rx=3)
+    s.text(sx + 8, yl + 42, "frame.surface", 11, c["fg"], mono=True)
+    # output block arrow from post to display page
+    ox = px + pw / 2
+    s.line(ox, yc + 4, ox, ya + 46, "r", 1.6)
+    s.text(
+        ox,
+        ya + 2,
+        "post's output block: converted by a mover,",
+        11,
+        c["fg"],
+        anchor="end",
+    )
+    s.text(ox, ya + 15, "written to the tile's display page", 11, c["fg"], anchor="end")
+    s.text(
+        x0 + 14,
+        p2 + ph - 14,
+        "A DEPTH view of the sun runs visibility, "
+        "material_lit and depth_out, which writes the tile's 1/z into the shadow map.",
         11.5,
         c["mute"],
     )
-    py = y + 46 + 66 * 5 + 25
-    s.poly([(rx_ + 12, py), (BOX_X + lw - 6, py), (BOX_X + lw - 6, fy + 78)], "p", 1.8)
-    return s.finish(y + h + 10)
+    return s.finish(p2 + ph + 12)
 
 
 def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "docs" / "images"
     out.mkdir(parents=True, exist_ok=True)
-    figures = {
-        "teaser": figure_teaser,
-        "frame": figure_frame,
-        "assembly": figure_assembly,
-        "light": figure_light,
-    }
+    figures = {"teaser": teaser, "frame": frame}
     for theme in THEMES:
         for name, draw in figures.items():
             (out / f"{name}-{theme}.svg").write_text(draw(theme) + "\n")
