@@ -7,13 +7,15 @@
 
 _Static_assert(TF_STEP_AT + DP_STEP_WORDS <= TF_WORDS, "the steps' words fit the page");
 _Static_assert(PAGE_BYTES <= 1024u, "a command's block holds the page");
+_Static_assert(DP_NEED_BYTES == 4u * DP_NEED_WORDS, "the need page's words");
+_Static_assert(DP_NEED_ENTRIES + DR_LAYERS <= DP_NEED_WORDS, "the need page's layers");
 
 /* A view's group and what its page does not hold: the group's first rank and cores,
- * the layers in the page, each one's list slots, the count ranges, the slices and the
- * slices a row of the grid */
+ * the layers in the page, each one's list slots, row index and entries placed, the
+ * count ranges, the slices and the slices a row of the grid */
 typedef struct {
     uint32_t first, count, layers, ranges, slices, slices_across;
-    uint32_t list_slots[TR_LAYERS];
+    uint32_t list_slots[TR_LAYERS], rows[TR_LAYERS], entries[TR_LAYERS];
 } view_t;
 
 static volatile uint32_t* page_of(void) {
@@ -28,7 +30,8 @@ uint32_t dp_setup(dr_frame_t* frame) {
     if (frame->bytes[DP_REGION_PAGE] < PAGE_BYTES ||
         frame->bytes[DP_REGION_STATE] < DP_CHOOSE_BYTES ||
         frame->bytes[DP_REGION_SLICES] < 4ull * TS_WORDS * DP_SLICES_MOST ||
-        frame->bytes[DP_REGION_LOG] < KMX_PULL_LOG_BYTES(DP_RANGES_MOST)) {
+        frame->bytes[DP_REGION_LOG] < KMX_PULL_LOG_BYTES(DP_RANGES_MOST) ||
+        frame->bytes[DP_REGION_NEED] < DP_NEED_BYTES) {
         return DP_SMALL_REGION;
     }
     /* lines an earlier image left dirty would be written over what the cores write */
@@ -158,6 +161,7 @@ static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t
         at[TF_L_COUNTS] = words[DP_L_COUNTS];
         at[TF_L_ROWS] = words[DP_L_ROWS];
         at[TF_L_POSITIONS] = words[DP_L_POSITIONS];
+        out->rows[out->layers] = layer;
         out->list_slots[out->layers++] = words[DP_L_LIST_SLOTS];
         out->ranges += (blocks + range_blocks - 1u) / range_blocks;
     }
@@ -189,8 +193,9 @@ static uint32_t sums(const view_t* one) {
 }
 
 /* From the slices' words (the sums', or the host's): each layer's place a slice (the
- * running sum of the slices' entries) and the choice's slices. 0, or the code. */
-static uint32_t running(dr_frame_t* frame, const view_t* one) {
+ * running sum of the slices' entries, its total kept in `one`) and the choice's
+ * slices. 0, or the code. */
+static uint32_t running(dr_frame_t* frame, view_t* one) {
     uint32_t code = 0;
     uint64_t mark = kmx_time();
     dp_choose_t* state = choose_of();
@@ -227,6 +232,7 @@ static uint32_t running(dr_frame_t* frame, const view_t* one) {
         records += at[TS_RECORDS];
     }
     for (uint32_t layer = 0; layer < one->layers; layer++) {
+        one->entries[layer] = place[layer];
         if (place[layer] > one->list_slots[layer]) {
             code = DP_LISTS_SMALL;
         }
@@ -235,6 +241,41 @@ static uint32_t running(dr_frame_t* frame, const view_t* one) {
     frame->times[DP_R_TILE_THREADS] += records;
     frame->times[DP_T_RUNNING] += dr_ticks(&mark);
     return code;
+}
+
+/* The view's entries a layer into the need page (DP_N_NEED; none: nothing), copied by
+ * the group's first core. DP_LISTS_SMALL, or DP_NEED_LATE. */
+static uint32_t need_out(
+    const dr_frame_t* frame, const dr_view_t* view, const view_t* one
+) {
+    const uint32_t to = dr_number(frame, DP_N_NEED);
+    if (to == 0) {
+        return DP_LISTS_SMALL;
+    }
+    volatile uint32_t* words = (volatile uint32_t*)DR_REGION(DP_REGION_NEED);
+    for (uint32_t word = 0; word < DP_NEED_WORDS; word++) {
+        words[word] = 0;
+    }
+    words[DP_NEED_VIEW] = view->index;
+    words[DP_NEED_KIND] = view->kind;
+    words[DP_NEED_CODE] = DP_LISTS_SMALL;
+    for (uint32_t layer = 0; layer < one->layers; layer++) {
+        words[DP_NEED_ENTRIES + one->rows[layer]] = one->entries[layer];
+    }
+    kmx_event event;
+    const kmx_dram page = {to, KM_COPY_INTERLEAVED, DP_NEED_BYTES, 0u};
+    const int status = kmx_store(
+        DP_REGION_NEED,
+        DP_REGION_NEED_AT,
+        &page,
+        DP_NEED_BYTES,
+        one->first,
+        1u,
+        kmx_time() + DR_WAIT_TICKS,
+        &event
+    );
+    return status == KMX_OK && event.kind == KM_EVENT_DONE ? DP_LISTS_SMALL
+                                                           : DP_NEED_LATE;
 }
 
 /* The phases of the view (DP_N_PHASES; 0: every phase). 0, or DP_BAD_NUMBERS. */
@@ -274,6 +315,9 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     }
     if (code == 0 && (phases & (DP_PHASE_SUMS | DP_PHASE_PLACE | DP_PHASE_TILE))) {
         code = running(frame, &one);
+    }
+    if (code == DP_LISTS_SMALL) {
+        code = need_out(frame, view, &one);
     }
     frame->times[DP_T_SUMS] += dr_ticks(&mark);
     if (code == 0 && (phases & DP_PHASE_PLACE)) {

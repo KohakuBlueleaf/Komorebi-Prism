@@ -26,7 +26,7 @@
  * blocks, policy, a grid); more layers than a record holds; more ranges or slices than
  * the capacity; a slice with more records than TR_SLICE_RECORDS; fewer list slots than
  * a layer's entries; a command's block refused; a pull refused or its log full; each
- * pull late, by its place */
+ * pull late, by its place; the need page's copy refused or late */
 #define DP_SMALL_REGION (DR_UNIT_CODES + 64u)
 #define DP_NO_CORES (DR_UNIT_CODES + 65u)
 #define DP_BAD_NUMBERS (DR_UNIT_CODES + 66u)
@@ -39,6 +39,18 @@
 #define DP_LATE_COUNT (DR_UNIT_CODES + 73u)
 #define DP_LATE_PLACE (DR_UNIT_CODES + 74u)
 #define DP_LATE_TILE (DR_UNIT_CODES + 75u)
+#define DP_NEED_LATE (DR_UNIT_CODES + 76u)
+
+/* The need page (the number DP_N_NEED: a tensor of one page of DP_NEED_BYTES; 0: none),
+ * copied from the region DP_REGION_NEED when a view stops with DP_LISTS_SMALL: the
+ * view's index and kind, the code, then each layer's entries placed by its row index
+ * (0 for a layer the view does not draw) */
+#define DP_NEED_VIEW 0u
+#define DP_NEED_KIND 1u
+#define DP_NEED_CODE 2u
+#define DP_NEED_ENTRIES 4u
+#define DP_NEED_WORDS 16u
+#define DP_NEED_BYTES 64u
 
 /* A view's phases, the bits of the number DP_N_PHASES (0: every phase). Without the
  * sums, a phase after them takes the slices' words the host left in their region. */

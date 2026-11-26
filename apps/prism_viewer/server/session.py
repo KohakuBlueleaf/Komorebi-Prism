@@ -47,9 +47,11 @@ def card_times(loop, why):
 
 
 def recovery_text(record):
-    """A live recovery's notice: the code's name, each layer grown with its slots
-    before and after, its milliseconds."""
+    """A live recovery's notice: the code's name, the view that stopped, each layer
+    grown with its slots before and after, its milliseconds."""
     name = record.get("name", f"code {record['code']}")
+    if "view" in record:
+        name += f", view {record['view']} {record['kind']}"
     grown = [
         f"{one['layer']} {one['slots'][0]:,} -> {one['slots'][1]:,} slots"
         for one in record.get("grown", [])

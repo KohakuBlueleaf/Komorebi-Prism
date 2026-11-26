@@ -21,6 +21,7 @@ SRC = Path(__file__).resolve().parents[3]  # src/: a step's `thread` is from src
 FRAME = defined(INCLUDE / "thread" / "frame.h")
 RECORD = defined(INCLUDE / "thread" / "record.h")
 CHOOSE = defined(RUNTIME / "dispatch_choose.h")
+NEED = defined(RUNTIME / "dispatch.h")  # the need page's words (DP_NEED_*)
 PORTS_CORES = km_thread.layout()["KMX_PORTS_CORES"]
 STEP_AT = (
     FRAME["TF_LAYER_AT"] + RECORD["TR_LAYERS"] * FRAME["TF_LAYER_WORDS"]
@@ -42,6 +43,7 @@ NUMBERS = tuple(
         "display",
         "account",
         "account_records",
+        "need",
     )
 )
 COLUMNS = tuple(
@@ -95,6 +97,11 @@ def slices_bytes(capacity):
     return 4 * RECORD["TS_WORDS"] * capacity.slices
 
 
+def need_bytes(capacity):
+    """The need page's words (DP_NEED_BYTES), the region they are copied from."""
+    return NEED["DP_NEED_BYTES"]
+
+
 def log_bytes(capacity):
     """The count pull's log: a count a port's core, then its ranges (KMX_PULL_LOG_BYTES
     of the ranges a view)."""
@@ -128,6 +135,7 @@ UNIT = Unit(
         P + "slices": Region(slices_bytes),
         P + "log": Region(log_bytes),
         P + "state": Region(state_bytes),
+        P + "need": Region(need_bytes),
     },
     numbers=(*NUMBERS, PHASES),
     columns=COLUMNS,
@@ -146,19 +154,27 @@ def entry(capacity):
 
 
 def numbers(
-    policy, near, heavy, range_blocks, records, display, account=0, account_records=0
+    policy,
+    near,
+    heavy,
+    range_blocks,
+    records,
+    display,
+    account=0,
+    account_records=0,
+    need=0,
 ):
     """{number: value} of the loaded run's numbers: the policy by name, the near
     distance in slices, the weight above which a tile is cut, the blocks a count range,
     the records' and the display's addresses, the account's pages' address and the
-    records a page holds (0: no account)."""
+    records a page holds (0: no account), the need page's address (0: none)."""
     if policy not in POLICIES:
         raise ValueError(f"dispatch: policy {policy!r}, not one of {sorted(POLICIES)}")
     if range_blocks <= 0 or near < 0:
         raise ValueError(f"dispatch: {range_blocks} blocks a range, near {near}")
     values = (
         POLICIES[policy], near, heavy, range_blocks, records, display, account,
-        account_records,
+        account_records, need,
     )  # fmt: skip
     return dict(zip(NUMBERS, (int(value) for value in values), strict=True))
 
