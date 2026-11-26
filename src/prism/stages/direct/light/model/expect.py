@@ -17,14 +17,24 @@ from prism.stages.direct.light.model.surface import (
 )
 from prism.stages.material.texture.model.layers import later_pieces
 from prism_reference.direct.frame import TERMS
-from prism_reference.direct.lights import shadow_side
-from prism_reference.direct.shadow import FILL_SIDE
+from prism_reference.direct.lights import placeholder, shadow_side
+from prism_reference.direct.shadow import FILL_SIDE, shadow_map
 from prism_reference.indirect.field.build import voxel_keys
 from prism_reference.indirect.field.values import FIELD_SHIFT
 from prism_reference.indirect.light import field_for
 from prism_reference.post.display import to_srgb8
 from prism_reference.raster.frames import picture, rasterize_shaded, shade_setup
 from prism_reference.raster.setup import setup, world_points
+
+
+def with_map(view, materials, lights):
+    """`lights` with their shadow map: a placeholder (the sun above the horizon) made
+    by shadow_map at their sun and side now; else as they are."""
+    if not placeholder(lights) or lights["sun_direction"][1] <= 0:
+        return lights
+    side = shadow_side(lights)
+    depth, _, _ = shadow_map(view, lights["sun_direction"], materials, side)
+    return {**lights, "shadow_map": depth}
 
 
 def frame_check(name, scene, materials, samples, seed=1):
@@ -181,6 +191,7 @@ def light_check(view, materials, lights, got, terms=TERMS):
     pixels off by more than 2, 4, 8 in a channel, later pieces apart; with the shadow,
     the same inside the sun's shadow edge band and outside; with the field, by its
     sparse lookups."""
+    lights = with_map(view, materials, lights)
     lit = light_reference(view, materials, lights, terms)
 
     def crop(image):
@@ -233,6 +244,7 @@ def sun_check(view, materials, lights, got):
     """The card's shadow map `got` against rasterize_shaded at each quadrant's camera of
     `lights`' shadow camera: texels over 1e-5 relative apart and texels empty on one
     side only, by the reference's layer and by quadrant; later pieces apart."""
+    lights = with_map(view, materials, lights)
     side = shadow_side(lights)
     fill = FILL_SIDE
     want = np.zeros((side, side), dtype=F32)

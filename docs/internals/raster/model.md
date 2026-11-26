@@ -174,7 +174,12 @@ needs. The entries come from the pieces' pixel boxes alone, not from the whole s
 near plane's pieces, the screen coordinates, each piece's triangle) and the same steps
 `setup` takes to its boxes, and `fill.tile_counts` counts a tile's entries by a
 two-dimensional difference array (four corner adds a box, two running sums), the counts
-`bin_triangles` gives without its per-entry arrays. A frame that needs more slots stops
+`bin_triangles` gives without its per-entry arrays. The counts are made once
+(`counts.kept_counts`) for a scene's positions, indices and camera, its frame's size and
+the grid: kept in the process and under `$PRISM_CACHE/counts/` as one `.npy` named by the
+first 16 hex digits of the BLAKE2b digest of those and a version number, the whole digest
+in a `.json` beside it, compared on load (each written to a temporary name, then renamed).
+A frame that needs more slots stops
 with `RASTER_LISTS_SMALL` and the loop reloads with a quarter more.
 
 A shaded frame's layers (opaque, masked, glass) and their mesh blocks come from the

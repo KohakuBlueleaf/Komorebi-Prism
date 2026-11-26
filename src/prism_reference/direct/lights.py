@@ -52,6 +52,12 @@ def shadow_side(lights):
     return int(lights["shadow_map"].shape[0])
 
 
+def placeholder(lights):
+    """Whether prepared lights hold a placeholder shadow map (smaller than their
+    `shadow_side`): the card renders the map."""
+    return int(lights["shadow_map"].shape[0]) != shadow_side(lights)
+
+
 def moved(lights, scene, materials, azimuth, elevation):
     """The prepared lights with the sun at azimuth, elevation (degrees): the map turned
     with it, the shadow map rebuilt; elevation <= 0: no sun, a 1 x 1 map of 0."""

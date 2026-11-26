@@ -17,9 +17,9 @@ from prism.stages.material.texture.model.blocks import layer_blocks
 from prism.stages.raster import capacity as stage_capacity
 from prism.stages.raster.l1 import l1_check
 from prism.stages.raster.model import numbers, records
+from prism.stages.raster.model.counts import kept_counts
 from prism.stages.raster.model.frame import decoded
-from prism_reference.raster.fill import BACKGROUND, tile_counts
-from prism_reference.raster.setup import boxes
+from prism_reference.raster.fill import BACKGROUND
 from prism_reference.scene.frame import frame_grid, frame_size
 
 K, S = numbers.K, numbers.S
@@ -195,7 +195,7 @@ class RasterHost(Host):
         list_fraction)."""
         across, down = frame_grid(self.size if size is None else size)
         tiles = self.held.tiles if size is None else across * down
-        counts = tile_counts(boxes(scene), across, down)
+        counts = kept_counts(scene, across, down)
         heaviest = np.sort(counts)[-self.heavy :]
         entries = int(counts.sum()) + (numbers.MAX_BANDS - 1) * int(heaviest.sum())
         slots = list_slots_of(entries, tiles + self.band_items, self.cores)

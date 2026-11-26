@@ -39,12 +39,23 @@ def main():
         default="bake",
         help="lighting: the sky's visibility baked, or 1 a vertex until baked",
     )
+    parser.add_argument(
+        "--shadow",
+        choices=("host", "card"),
+        default="host",
+        help="lighting: the sun's shadow map rendered here, or left to the card",
+    )
     args = parser.parse_args()
     data = args.data or data_root()
     if args.command == "lighting":
         for name in args.scenes or [n for n, e in table().items() if "lighting" in e]:
             out, counts = prepare(
-                name, data, args.workers, args.rebake, visibility=args.visibility
+                name,
+                data,
+                args.workers,
+                args.rebake,
+                visibility=args.visibility,
+                shadow=args.shadow,
             )
             print(f"{name}: {out} {counts}")
         return

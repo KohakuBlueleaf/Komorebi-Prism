@@ -260,7 +260,17 @@ reused unless `--rebake`; `--workers` processes, by default the CPUs the process
 on, at most 32), finds the lamps, renders the sun's shadow map and writes
 `<scene>_lighting.npz` (to a temporary name, then renamed). With `--visibility open` and
 no visibility file yet, every vertex's visibility is 1 and the file's `counts` say
-`"visibility": "open"`; a later `--visibility bake` (the default) replaces it. The maps used:
+`"visibility": "open"`; a later `--visibility bake` (the default) replaces it.
+`--shadow card` (the default is `host`) does not render the sun's shadow map: the file
+holds the map's camera and texel from the same `sun_view` the map is drawn from, its
+`shadow_side`, and a 1 x 1 map of 0 in its place, and its `counts` say `"shadow": "card"`
+(`"host"` otherwise). Such lights hold a placeholder (`lights.placeholder`: the map smaller
+than `shadow_side`): the light pages give the map zero pages of the full count, the
+pipeline's `direct.shadow_pcf` sends its SUN command at the run's first view, as after a
+moved sun, so the card draws the map before the first frame is lit, and a check that
+compares with the reference's map (`direct/light/model/expect.py`'s `with_map`) draws it
+with `shadow_map` at that moment. A pipeline that lights without `direct.shadow_pcf`
+needs `--shadow host`. The maps used:
 
 | name | page | licence |
 |---|---|---|

@@ -9,6 +9,7 @@ from prism.stages.direct.light.model.terms import term_bits
 from prism.stages.material.texture.model.table import exponents
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.glass import GLASS_F0
+from prism_reference.direct.lights import shadow_side
 from prism_reference.direct.sky import C1, C2, C3, C4, C5
 from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN
 from prism_reference.raster.fill import BACKGROUND
@@ -72,12 +73,12 @@ def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
     put(LH["kLtTurnCos"], F32(np.cos(angle)))
     put(LH["kLtTurnSin"], F32(np.sin(angle)))
     # light_pages' layout from the maps' sides
-    shadow_pages = (lights["shadow_map"].shape[0] // PAGE) ** 2
-    first = {"shadow": 0, "octahedral": shadow_pages}
-    pages = shadow_pages + 3 * (lights["octahedral"].shape[0] // PAGE) ** 2
-    for name, key in (("Shadow", "shadow_map"), ("Octa", "octahedral")):
-        side = lights[key].shape[0]
-        put(LH[f"kLt{name}First"], 1 + first["shadow" if name == "Shadow" else key])
+    sides = {"Shadow": shadow_side(lights), "Octa": lights["octahedral"].shape[0]}
+    shadow_pages = (sides["Shadow"] // PAGE) ** 2
+    first = {"Shadow": 0, "Octa": shadow_pages}
+    pages = shadow_pages + 3 * (sides["Octa"] // PAGE) ** 2
+    for name, side in sides.items():
+        put(LH[f"kLt{name}First"], 1 + first[name])
         put(LH[f"kLt{name}Across"], side // PAGE)
         put(LH[f"kLt{name}Side"], side)
     put(LH["kLtOctaLast"], lights["octahedral"].shape[0] - 1)

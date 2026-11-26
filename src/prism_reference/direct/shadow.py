@@ -44,13 +44,24 @@ def quadrant_camera(camera, i, j):
     return out
 
 
+def sun_view(scene, sun, side=SHADOW_SIDE):
+    """The shadow map's camera (sun_camera) and a shadow texel's world size at the
+    scene's centre, without the map."""
+    camera = sun_camera(scene["positions"], sun, side)
+    distance = np.linalg.norm(
+        camera[0:3].astype(np.float64)
+        - (scene["positions"].min(0) + scene["positions"].max(0)) / 2
+    )
+    return camera, F(distance / camera[12])
+
+
 def shadow_map(scene, sun, materials=None, side=SHADOW_SIDE):
     """The 1/z (side, side) of the scene from the sun's camera, the camera and a shadow
     texel's world size at the scene's centre; with materials `rasterize_shaded`'s 1/z.
     """
     if side % FILL_SIDE:
         raise ValueError(f"a shadow map's side {side} is not a multiple of {FILL_SIDE}")
-    camera = sun_camera(scene["positions"], sun, side)
+    camera, texel = sun_view(scene, sun, side)
     depth = np.empty((side, side), dtype=np.float32)
     for j in range(side // FILL_SIDE):
         for i in range(side // FILL_SIDE):
@@ -67,11 +78,7 @@ def shadow_map(scene, sun, materials=None, side=SHADOW_SIDE):
                 part = rasterize_shaded(view, materials)["depth"]
             rows, columns = (slice(FILL_SIDE * k, FILL_SIDE * (k + 1)) for k in (j, i))
             depth[rows, columns] = part
-    distance = np.linalg.norm(
-        camera[0:3].astype(np.float64)
-        - (scene["positions"].min(0) + scene["positions"].max(0)) / 2
-    )
-    return depth, camera, F(distance / camera[12])
+    return depth, camera, texel
 
 
 def sun_shadow(lights, points, normals, pcf=True):

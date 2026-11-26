@@ -11,6 +11,7 @@ from prism.stages.direct.light.model.numbers import (
     PAGE,
 )
 from prism_reference.direct.frame import TERMS
+from prism_reference.direct.lights import placeholder, shadow_side
 
 
 def term_bits(terms):
@@ -36,15 +37,18 @@ def map_pages(values):
 
 
 def light_pages(lights, field=None):
-    """LIGHT's pages: the shadow map's 1/z, then the background map's red, green and
-    blue planes, each a map_pages; with `field` (field_of) its pages after them (its
-    `halves`, 1 when absent: the pages again, zero, for each half after the first);
-    and each part's first page."""
-    shadow = lights["shadow_map"].astype(F32)
+    """LIGHT's pages: the shadow map's 1/z (zero pages for a placeholder), the background
+    map's three planes, each a map_pages; with `field` (field_of) its pages (`halves`
+    of them, 1 when absent, those after the first zero); and each part's first page."""
+    side = shadow_side(lights)
     octa = lights["octahedral"].astype(F32)
-    if shadow.shape[0] % PAGE or octa.shape[0] % PAGE:
+    if side % PAGE or octa.shape[0] % PAGE:
         raise ValueError("a light map's side is not a multiple of 32")
-    parts = [map_pages(shadow)] + [map_pages(octa[:, :, c]) for c in range(3)]
+    if placeholder(lights):
+        shadow = np.zeros(((side // PAGE) ** 2, PAGE * PAGE), dtype=np.uint32)
+    else:
+        shadow = map_pages(lights["shadow_map"].astype(F32))
+    parts = [shadow] + [map_pages(octa[:, :, c]) for c in range(3)]
     first = {"shadow": 0, "octahedral": len(parts[0])}
     if field is not None:
         first["field"] = sum(len(part) for part in parts)
@@ -55,5 +59,5 @@ def light_pages(lights, field=None):
 
 def light_pages_first(lights):
     """The field's first page in light_pages: after the shadow and background maps."""
-    shadow, octa = lights["shadow_map"].shape[0], lights["octahedral"].shape[0]
+    shadow, octa = shadow_side(lights), lights["octahedral"].shape[0]
     return (shadow // PAGE) ** 2 + 3 * (octa // PAGE) ** 2

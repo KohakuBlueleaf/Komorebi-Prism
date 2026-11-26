@@ -45,7 +45,7 @@ def bake_in_background(name, data):
     files: its PID and its log's name."""
     log = public_dir(data) / f"{name}_bake.log"
     command = [sys.executable, str(LIGHTING), "lighting", name]
-    command += ["--visibility", "bake", "--data", str(data)]
+    command += ["--visibility", "bake", "--shadow", "card", "--data", str(data)]
     with open(log, "ab") as out:
         process = subprocess.Popen(
             command,
@@ -59,17 +59,17 @@ def bake_in_background(name, data):
 
 def lights(args, name, data, account):
     """The lights a preset needs when there is no lighting file: `open` first, the bake
-    by --bake; what was done."""
+    by --bake, the shadow map left to the card; what was done."""
     done = {"made": None}
     if lights_state(name, data) != "none":
         return done
     if args.bake == "wait":
         workers = min(len(os.sched_getaffinity(0)), MOST_WORKERS)
         with account.part("lights.bake"):
-            _, counts = prepare(name, data, workers, visibility="bake")
+            _, counts = prepare(name, data, workers, visibility="bake", shadow="card")
         return done | {"made": "bake", "counts": counts}
     with account.part("lights.open"):
-        _, counts = prepare(name, data, visibility="open")
+        _, counts = prepare(name, data, visibility="open", shadow="card")
     account.add("lights.open", -counts["shadow_seconds"])
     account.add("lights.open.shadow_map", counts["shadow_seconds"])
     done |= {"made": "open", "counts": counts}

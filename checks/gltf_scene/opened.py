@@ -39,6 +39,37 @@ def seed_environment(source, data):
                 os.symlink(kept, folder / name)
 
 
+def shadow_of(name, data):
+    """The shadow map, camera, texel and side of the scene's lighting file, and its
+    counts' `shadow`."""
+    with np.load(lighting_path(name, data)) as f:
+        arrays = [f[k] for k in ("shadow_map", "shadow_camera", "shadow_texel")]
+        return arrays + [f["shadow_side"], json.loads(str(f["counts"]))["shadow"]]
+
+
+def shadow_cases(name, data):
+    """The lights with shadow "card" (visibility open): the camera, texel and side of
+    shadow "host" and a 1 x 1 map of 0."""
+    host_map, camera, texel, side, shadow = shadow_of(name, data)
+    same("lights host: counted host", shadow, "host")
+    same("lights host: the map's side", host_map.shape, (int(side), int(side)))
+    prepare(name, data, workers=1, visibility="open", shadow="card")
+    card_map, card_camera, card_texel, card_side, shadow = shadow_of(name, data)
+    same("lights card: counted card", shadow, "card")
+    same(
+        "lights card: the host's camera",
+        card_camera.view(np.uint32),
+        camera.view(np.uint32),
+    )
+    same(
+        "lights card: the host's texel",
+        card_texel.view(np.uint32),
+        texel.view(np.uint32),
+    )
+    same("lights card: the host's side", int(card_side), int(side))
+    same("lights card: a 1 x 1 map of 0", card_map, np.zeros((1, 1), np.float32))
+
+
 def opened_cases(folder, source):
     """Opens a written file twice, then with a changed sidecar, then makes its lights
     open and baked, under a data root of its own (`source`: where maps may be)."""
@@ -79,6 +110,7 @@ def cases(folder, data, source):
     visibility, counts = counts_of(name, data)
     same("lights open: visibility 1 everywhere", visibility, np.ones_like(visibility))
     same("lights open: counted open", counts["visibility"], "open")
+    shadow_cases(name, data)
     prepare(name, data, workers=1, visibility="bake")
     visibility, counts = counts_of(name, data)
     with np.load(public_dir(data) / f"{name}_visibility.npz") as f:

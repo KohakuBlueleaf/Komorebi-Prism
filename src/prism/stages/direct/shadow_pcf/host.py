@@ -24,7 +24,7 @@ from prism.stages.direct.shadow_pcf.model.region import (
 )
 from prism_common.paths import data_root
 from prism_reference.direct import lights as reference_lights
-from prism_reference.direct.lights import shadow_side, sun_angles
+from prism_reference.direct.lights import placeholder, shadow_side, sun_angles
 from prism_reference.scene.frame import frame_grid
 
 SUN = "sun"  # the unit's region and its command
@@ -102,23 +102,28 @@ class ShadowHost(Host):
 
     def view(self, loaded, camera, size):
         """Once a run: the column naming LIGHT's table in every layer row; the SUN
-        command asked for when the sun was moved (the map is the light pages' own)."""
+        command asked for when the sun was moved or the lights hold a placeholder map.
+        """
         if self.loaded is loaded:
             return
         self.loaded, self.sent = loaded, 0
         table = loaded.thread.regions.address(SUN)[1]
         for index in range(loaded.layout.layers):
             loaded.layer(index, sun_table=table)
-        self.pending = self.sun is not None
+        self.pending = self.sun is not None or placeholder(self.lights)
+
+    def sun_now(self):
+        """The sun's azimuth and elevation: the set one, else the lights' own."""
+        return self.sun or sun_angles(self.lights["sun_direction"])
 
     def commands(self, loaded):
         """SUN, while asked for and the sun is above the horizon."""
-        return [SUN] if self.pending and self.sun[1] > 0 else []
+        return [SUN] if self.pending and self.sun_now()[1] > 0 else []
 
     def served(self, loaded, command, code):
         """A SUN command's code kept; done when 0."""
         self.sent += 1
-        self.passes.append({"sun": list(self.sun), "code": code})
+        self.passes.append({"sun": list(self.sun_now()), "code": code})
         self.pending = code != 0
 
     def controls(self):

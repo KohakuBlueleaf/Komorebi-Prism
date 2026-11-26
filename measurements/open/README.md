@@ -33,6 +33,7 @@ sky's visibility alone.
 | --- | --- |
 | `<scene>_<run>.json` | the command's record (one JSON object): the scene's name and key, converted or found, the lights' state, the frames' codes, the seconds to the first picture, the account (`account.seconds`, `account.tensors`, `account.builds`, the peak memory) |
 | `bake.json` | the bake alone: by scene and process count, the seconds, the rays and the rays a second |
+| `first_lit/<scene>_<first|second>.json` | the records of [the first lit picture without the host's shadow map](#the-first-lit-picture-without-the-hosts-shadow-map) |
 | `convert_memory.json` | the conversion alone: by scene, its seconds, its steps and the process's peak resident memory after it |
 
 ## The columns
@@ -184,6 +185,38 @@ same size):
 | italian_flat | 335,844,075 |
 | lynxsdesign | 880,644,051 |
 | hidden_alley | 899,408,323 |
+
+## The first lit picture without the host's shadow map
+
+The same command after two changes: `open` makes the lights with `shadow="card"` (the
+sun's map is not rendered on the host: the lighting file holds its camera, texel and side
+and a 1 x 1 placeholder, and the preset's SUN command draws the map on the card before
+the first frame is lit, [the lights' shadow](../../docs/concepts/scenes.md#lighting)), and
+the raster host's lists' counts are kept under `$PRISM_CACHE/counts/` ([the raster
+model](../../docs/internals/raster/model.md#the-lists-slots-a-load-holds)). Date
+2026-11-26, card 1, the same 8 CPUs, Komorebi at e908d6d16, `--pipeline lit --bake none`,
+16 frames on the scene's view. For each scene: its lighting file removed from the data
+root (its visibility file kept: `classroom`, `italian_flat`, `lynxsdesign`; none for
+`hidden_alley`, whose lights stay `open`), the blocks' and counts' caches empty, then
+three opens in a row: the first makes the lights, the blocks and the counts; the second
+and third find them. Komorebi's and tt-metal's build caches were new and empty before
+`classroom`'s first open (its `module` 17.1 s, `program.build` 8.1 s, `session.start`
+3.6 s); the later scenes' first opens found the module and built only their program (7.4
+to 7.5 s). Every frame's code 0; every PNG equal byte for byte to the picture of the runs
+above (`lit`, lights baked; `hidden_alley`: the run after the bake was stopped).
+`first_lit/` holds the first and the second's records (`<scene>_<first|second>.json`); the
+third's first picture was within 0.2 s of the second's.
+
+Seconds: to the first picture; `lights.open`; `lights.open.shadow_map` (now the map's
+camera and texel alone); `model.raster`. Before: the first lit open above (`lit, lights
+open`) and the warm one of the hosts' tables made once (`tables/<scene>_lit_kept.json`).
+
+| scene | first lit open before | first | warm before | second |
+|---|---|---|---|---|
+| classroom | 54.29; 11.50; 12.07; 2.48 | 57.08; 11.47; 0.06; 1.47 | 4.89; 0.00; 0.00; 0.88 | 4.16; 0.00; 0.00; 0.16 |
+| italian_flat | 107.79; 11.86; 50.99; 11.97 | 42.99; 12.15; 0.56; 9.00 | 12.34; 0.00; 0.00; 5.10 | 8.66; 0.00; 0.00; 1.25 |
+| lynxsdesign | 165.19; 6.99; 94.56; 29.03 | 53.05; 7.22; 0.92; 22.05 | 21.29; 0.00; 0.00; 12.40 | 11.43; 0.00; 0.00; 2.54 |
+| hidden_alley | 171.05; 14.13; 98.89; 21.67 | 56.84; 13.67; 0.99; 16.81 | 18.91; 0.00; 0.00; 7.40 | 13.76; 0.00; 0.00; 2.32 |
 
 ## The bake alone
 

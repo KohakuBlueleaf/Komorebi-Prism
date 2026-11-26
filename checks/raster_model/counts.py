@@ -1,12 +1,20 @@
 """The counts without the setup: `boxes` against `setup`'s boxes, `tile_counts` against
-`bin_triangles`' counts, and `corners` against its form before the positions' split."""
+`bin_triangles`' counts, `corners` against its form before the positions' split, and
+`kept_counts` made, then loaded."""
 
+import os
+import shutil
+import tempfile
 import time
+from pathlib import Path
 
 import numpy as np
 
-from checks.raster_model.compare import compare
+from checks.raster_model.compare import asserted, compare
 from prism.stages.direct.shadow_pcf.host import CAMERAS, ShadowHost
+from prism.stages.raster.model import counts as kept
+from prism.stages.raster.model.counts import kept_counts
+from prism_common.paths import CACHE_VARIABLE, cache_root
 from prism_reference.raster.fill import bin_triangles, tile_counts
 from prism_reference.raster.setup import (
     boxes,
@@ -20,6 +28,7 @@ from prism_reference.scene.public.views import make_view
 
 SIZES = ((1024, 1024), (1920, 1080))
 EXTRA = 3  # further corner values in the corners case
+KEPT = "sponza 1920x1080"  # the view of the kept counts' case
 
 
 def clip_polygon(corners, near):
@@ -123,11 +132,60 @@ def near_cut(scene):
     return {**scene, "camera": camera}
 
 
+def kept_case(name, scene):
+    """`kept_counts` twice (the second loaded from the cache root, the process's dict
+    emptied) equal to `tile_counts(boxes(...))`; another camera another key and file."""
+    started = time.perf_counter()
+    folder = Path(tempfile.mkdtemp(prefix="kept_counts_", dir=cache_root()))
+    previous = os.environ.get(CACHE_VARIABLE)
+    os.environ[CACHE_VARIABLE] = str(folder)
+    try:
+        across, down = grid(scene)
+        want = tile_counts(boxes(scene), across, down)
+        kept.MADE.clear()
+        first = kept_counts(scene, across, down)
+        kept.MADE.clear()
+        key = kept.digest(scene, across, down)
+        found = kept.loaded(folder / "counts" / key[: kept.NAME_DIGITS], key)
+        second = kept_counts(scene, across, down)
+        other = near_cut(scene)
+        other_key = kept.digest(other, across, down)
+        other_counts = kept_counts(other, across, down)
+        files = sorted(p.name for p in (folder / "counts").iterdir())
+        compare(
+            f"{name}: kept_counts made, then loaded",
+            {"first": first, "second": second, "found": found},
+            {"first": want, "second": want, "found": want},
+            time.perf_counter() - started,
+        )
+        names = {key[: kept.NAME_DIGITS], other_key[: kept.NAME_DIGITS]}
+        want_other = tile_counts(boxes(other), across, down)
+        asserted(
+            f"{name}: kept_counts of another camera",
+            [
+                ("another key", key != other_key),
+                ("another file", {f"{n}.npy" for n in names} <= set(files)),
+                ("its counts", np.array_equal(other_counts, want_other)),
+                ("not the first's", not np.array_equal(other_counts, want)),
+            ],
+            started,
+        )
+    finally:
+        if previous is None:
+            os.environ.pop(CACHE_VARIABLE, None)
+        else:
+            os.environ[CACHE_VARIABLE] = previous
+        kept.MADE.clear()
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def counts_cases(data, scenes):
     """Every counts case and the corners cases (each view; each eye's view moved in
-    so the near plane cuts)."""
-    for name, scene in counted_views(data, scenes):
+    so the near plane cuts), then the kept counts' case."""
+    views = counted_views(data, scenes)
+    for name, scene in views:
         counts_case(name, scene)
         corners_case(name, scene)
         if "depth" not in name:
             corners_case(f"{name} moved in", near_cut(scene))
+    kept_case(KEPT, dict(views)[KEPT])

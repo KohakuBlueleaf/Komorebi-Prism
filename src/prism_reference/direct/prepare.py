@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from prism_reference.direct.lamps import find_lamps
-from prism_reference.direct.shadow import SHADOW_SIDE, shadow_map
+from prism_reference.direct.shadow import SHADOW_SIDE, shadow_map, sun_view
 from prism_reference.direct.sky import (
     LUMINANCE,
     OCTA_SIDE,
@@ -99,10 +99,20 @@ def sky_visibility(name, data, mesh, workers, rebake, visibility):
         return f["visibility"], json.loads(str(f["counts"])) | {"visibility": "baked"}
 
 
-def prepare(name, data, workers=4, rebake=False, shadow_side=None, visibility="bake"):
+def prepare(
+    name,
+    data,
+    workers=4,
+    rebake=False,
+    shadow_side=None,
+    visibility="bake",
+    shadow="host",
+):
     """Writes <scene>_lighting.npz: the environment, the sky's visibility (`visibility`
-    "bake": baked and kept in <scene>_visibility.npz unless rebake; "open": the kept
-    one, else 1 a vertex), the lamps and the shadow map; path, counts."""
+    "bake": baked, kept in <scene>_visibility.npz unless rebake; "open": the kept one,
+    else 1), the lamps, the shadow map (`shadow` "card": 1 x 1 of 0); path, counts."""
+    if shadow not in ("host", "card"):
+        raise ValueError(f"shadow {shadow!r}: one of host, card")
     entry = table()[name]["lighting"]
     (env_path,) = fetch_environment(entry["environment"], data)
     mesh, _ = load_mesh(name, data)
@@ -120,9 +130,14 @@ def prepare(name, data, workers=4, rebake=False, shadow_side=None, visibility="b
     if shadow_side is None:
         shadow_side = entry.get("shadow_side", SHADOW_SIDE)
     counts["shadow_side"] = shadow_side = int(shadow_side)
-    depth, camera, texel = shadow_map(
-        mesh, env["sun_direction"], materials, shadow_side
-    )
+    counts["shadow"] = shadow
+    if shadow == "card":
+        camera, texel = sun_view(mesh, env["sun_direction"], shadow_side)
+        depth = np.zeros((1, 1), dtype=F)
+    else:
+        depth, camera, texel = shadow_map(
+            mesh, env["sun_direction"], materials, shadow_side
+        )
     counts["shadow_seconds"] = time.perf_counter() - started
     position, colour, intensity, lamps = scene_lamps(entry, mesh, materials)
     counts |= lamps
