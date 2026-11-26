@@ -9,6 +9,7 @@ P = dispatch.P  # the dispatcher's prefix of its numbers, regions, times and res
 POLICY = P + "policy"
 PHASES = dispatch.PHASES  # the view's phases (a bit mask; 0: every phase)
 SLICES = P + "slices"  # the slices' words, TS_WORDS a slice
+STATE = P + "state"  # the tile pull's choice (dispatch_choose.h dp_choose_t)
 LOG = P + "log"  # the count pull's log (KMX_PULL_LOG_BYTES of the view's ranges)
 TIMES, RESULTS = dispatch.TIMES, dispatch.RESULTS
 POLICIES = dispatch.POLICIES  # {name: value}: prefer, order, kept

@@ -1,8 +1,9 @@
 """The threads' form checked: `model` (no card) the checks' own parts against the model;
-`tile` the tile pull alone on the model's data, `geometry` count, sums and place
-against the model, `whole` the threads' preset's frame, each against the stage-wise
-preset `--pipeline`; at each of `--cores` and `--policy`. One JSON line; the record to
-<out>/<part>_<scene>[_<view>]_<W>_<H>.json (out: measurements/threads_frame). Exit 1
+`tile` the tile pull alone on the model's data, `depth` the sun's DEPTH view alone
+(a map of one quadrant: --shadow-side) against the stage-wise map, `geometry` count,
+sums and place against the model, `whole` the threads' preset's frame, each against
+the stage-wise preset `--pipeline`; at each of `--cores` and `--policy`. One JSON line;
+the record to <out>/<part>_<scene>[_<view>]_<W>_<H>.json (out: measurements/threads_frame). Exit 1
 on a difference. Example: python -m checks.threads_frame tile --pipeline textured
 --scene <scene> --view <view> --card 1"""
 
@@ -17,12 +18,12 @@ from prism_cli.preset import opened
 from checks.raster_model.compare import RESULTS
 from checks.threads_frame import model_only
 from checks.threads_frame.threaded import ThreadedLoop
-from prism.check.threads import geometry_half, names, tile_half, whole
+from prism.check.threads import depth_half, geometry_half, names, tile_half, whole
 from prism.check.threads.card import recorded
 from prism_reference.scene.camera import with_size
 
 ROOT = Path(__file__).resolve().parents[2]
-PARTS = ("model", "tile", "geometry", "whole")
+PARTS = ("model", "tile", "depth", "geometry", "whole")
 SUFFIX = "_threads"  # the threads' preset of a stage-wise preset
 
 
@@ -50,6 +51,15 @@ def parse():
     parser.add_argument(
         "--deadline", type=float, default=None, help="seconds a command may take"
     )
+    parser.add_argument(
+        "--sun", type=float, nargs=2, default=None, help="azimuth elevation (depth)"
+    )
+    parser.add_argument(
+        "--shadow-side", type=int, default=None, help="the map's side (depth)"
+    )
+    parser.add_argument(
+        "--no-recover", action="store_true", help="a core that gives up stays as it is"
+    )
     parser.add_argument("--card", type=int, default=None, help="needed but for model")
     parser.add_argument("--out", type=Path, default=None)
     return parser.parse_args()
@@ -73,6 +83,7 @@ def on_card(args, scene):
     threads_name = args.pipeline + SUFFIX
     policies = args.policy or list(names.POLICIES)
     options = {"heavy": args.heavy, "deadline": args.deadline}
+    options |= {"recover": False if args.no_recover else None}
     with km.Session(card=args.card) as session:
         open_loop = opener(args, session)
         match args.part:
@@ -85,6 +96,20 @@ def on_card(args, scene):
                     args.cores,
                     policies,
                     options,
+                )
+            case "depth":
+                sun = {"sun": args.sun and tuple(args.sun)}
+                sun |= {"shadow_side": args.shadow_side}
+                sun |= {"lights": depth_half.lights_of(args.lights, args.shadow_side)}
+                given = {k: v for k, v in (options | sun).items() if v is not None}
+                return depth_half.check(
+                    open_loop,
+                    threads_name,
+                    args.pipeline,
+                    scene,
+                    args.cores,
+                    policies,
+                    given,
                 )
             case "geometry":
                 return geometry_half.check(
@@ -121,6 +146,7 @@ def main():
         return 1 if different else 0
     if args.card is None:
         raise SystemExit(f"{args.part}: --card names the card")
+    args.lights = preset.options.get("lights")
     record = on_card(args, scene)
     record |= {"part": args.part, "pipeline": args.pipeline, "scene": name}
     out = args.out or ROOT / "measurements" / "threads_frame"

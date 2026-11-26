@@ -14,6 +14,7 @@ from prism_common.build import located
 TILE_THREAD = "tile_thread"  # the option naming the tile thread: a dotted path
 DEADLINE = "deadline"  # the option: seconds a command may take (else Komorebi's)
 WAIT_ABOVE = 1.0  # seconds the kernels' wait limit is above the deadline
+RECOVER = "recover"  # the option: false keeps a core that gave up as it stood
 
 
 @dataclass
@@ -76,18 +77,19 @@ def assembled(pipeline, session, scene, options):
 
 
 def load(threaded, session):
-    """The assembled program loaded on `session`, each host bound (Loaded); the
-    option DEADLINE: each command's deadline and the kernels' wait limit above it."""
+    """The assembled program loaded on `session`, each host bound (Loaded); the option
+    DEADLINE: the seconds a command may take, the kernels' wait limit above it; the
+    option RECOVER false: a core that gives up is not reset (its gave-up words kept)."""
     options = threaded.options
     seconds = options.get(DEADLINE)
-    if seconds is None:
+    recover = options.get(RECOVER)
+    recover = True if recover is None else bool(recover)
+    if seconds is None and recover:
         return loaded_program.load(threaded, session)
-    run = session.load(
-        threaded.program,
-        trace=int(options.get("trace") or 0),
-        deadline=float(seconds),
-        wait=float(seconds) + WAIT_ABOVE,
-    )
+    given = {"recover": recover}
+    if seconds is not None:
+        given |= {"deadline": float(seconds), "wait": float(seconds) + WAIT_ABOVE}
+    run = session.load(threaded.program, trace=int(options.get("trace") or 0), **given)
     loaded = loaded_program.Loaded(threaded, session, run)
     for host in threaded.hosts.values():
         hosted(host, "bind")(loaded)

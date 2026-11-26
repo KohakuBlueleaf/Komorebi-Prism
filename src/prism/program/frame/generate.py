@@ -443,13 +443,28 @@ def compute_text(composition):
     return lines
 
 
-def begin_text(composition):
-    """The steps' begin, once a command on mover A before its first thread."""
-    lines = ["    bool steps_begin(MoverContext& ctx) {"]
-    for step in composition.thread.steps:
+def begin_calls(steps):
+    """The begin of each of `steps` that has one, in order."""
+    lines = []
+    for step in steps:
         if step.begin:
-            lines += [f"        if (!{step.name}_begin(ctx)) {{"]
-            lines += ["            return false;", "        }"]
+            lines += [f"            if (!{step.name}_begin(ctx)) {{"]
+            lines += ["                return false;", "            }"]
+    return lines
+
+
+def begin_text(composition):
+    """The steps' begin of the view's tile thread (a DEPTH view: the steps marked
+    depth), once a command on mover A before its first thread."""
+    thread = composition.thread
+    lines = [
+        "    bool steps_begin(MoverContext& ctx) {",
+        "        if (view_kind(ctx.page) == TV_DEPTH) {",
+        *begin_calls(thread.depth()),
+        "        } else {",
+        *begin_calls(thread.colour()),
+        "        }",
+    ]
     return lines + [
         "        static_cast<void>(ctx);",
         "        return true;",
