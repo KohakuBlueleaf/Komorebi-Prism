@@ -132,9 +132,8 @@ namespace geometry_k {
                             positions[at_tile] = word + 1;
                             noc_async_write(
                                 record,
-                                get_noc_addr(
+                                lists.get_noc_addr(
                                     word / fill_k::kSlotsPerPage,
-                                    lists,
                                     (word % fill_k::kSlotsPerPage) * 128
                                 ),
                                 128
@@ -156,9 +155,8 @@ namespace geometry_k {
                             band[1] = slot + 1;
                             noc_async_write(
                                 record,
-                                get_noc_addr(
+                                lists.get_noc_addr(
                                     slot / fill_k::kSlotsPerPage,
-                                    lists,
                                     (slot % fill_k::kSlotsPerPage) * 128
                                 ),
                                 128

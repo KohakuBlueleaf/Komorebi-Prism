@@ -76,7 +76,7 @@ namespace geometry_k {
         const InterleavedAddrGen<true> tensor = {
             .bank_base_address = base, .page_size = bytes
         };
-        return get_noc_addr(page, tensor, offset);
+        return tensor.get_noc_addr(page, offset);
     }
 
 }  // namespace geometry_k
