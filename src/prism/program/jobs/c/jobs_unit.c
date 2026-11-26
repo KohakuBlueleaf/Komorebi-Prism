@@ -24,7 +24,8 @@ uint32_t jobs_unit_cores_wanted(void) {
 }
 
 uint32_t jobs_unit_frame_first(uint32_t cores) {
-    return g_wants.wanted < cores ? g_wants.wanted : 0u;
+    (void)cores;
+    return g_wants.wanted;
 }
 
 uint32_t jobs_unit_field(uint32_t* half, uint32_t* scale) {

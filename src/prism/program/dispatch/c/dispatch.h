@@ -22,10 +22,11 @@
 #endif
 
 /* The view's codes: a region under its need; a group without cores (the update holds
- * them all); a number out of range (range blocks, policy, a grid); more layers
- * than a record holds; more ranges or slices than the capacity; a slice with more
- * records than TR_SLICE_RECORDS; fewer list slots than a layer's entries; a command's
- * block refused; a pull refused or its log full; each pull late, by its place */
+ * them all: their count in the result DP_R_WANTED); a number out of range (range
+ * blocks, policy, a grid); more layers than a record holds; more ranges or slices than
+ * the capacity; a slice with more records than TR_SLICE_RECORDS; fewer list slots than
+ * a layer's entries; a command's block refused; a pull refused or its log full; each
+ * pull late, by its place */
 #define DP_SMALL_REGION (DR_UNIT_CODES + 64u)
 #define DP_NO_CORES (DR_UNIT_CODES + 65u)
 #define DP_BAD_NUMBERS (DR_UNIT_CODES + 66u)

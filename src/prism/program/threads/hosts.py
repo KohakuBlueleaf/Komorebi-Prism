@@ -14,6 +14,8 @@ from prism.stages.post.show.host import ShowHost
 
 APPLY = "apply"  # the transport's handler the graph queues
 IRRADIANCE = "elements.irradiance"  # the slot the transport's implementation writes
+UPDATE_CORES = "update_cores"  # the option: the cores an update's applies take
+UPDATE_SHARE = 4  # without it: a quarter of the ranks, at least 1
 
 
 class LightThreadsHost(LightHost):
@@ -49,9 +51,27 @@ class ShowThreadsHost(ShowHost):
         return {"display.picture": self.tensors["display"]}
 
 
+def update_cores(session, options):
+    """The cores an update's applies take: the option UPDATE_CORES, else a quarter of
+    the ranks (at least 1); ValueError when it leaves the frame's cores none."""
+    frame = options.get("cores") or session.ranks
+    cores = int(options.get(UPDATE_CORES) or max(1, session.ranks // UPDATE_SHARE))
+    if not 0 < cores < frame:
+        raise ValueError(
+            f"an update wants {cores} cores of the frame's {frame}: the frame's pulls "
+            f"need at least one above them ({UPDATE_CORES})"
+        )
+    return cores
+
+
 class TransportThreadsHost(TransportHost):
     """The transport's host with no thread unit: its apply is queued by the field
-    update's graph on the cores the allocator finds."""
+    update's graph on `update_cores` cores the allocator finds, its weights dealt to
+    them."""
+
+    def __init__(self, session, scene, options):
+        super().__init__(session, scene, options)
+        self.cores = update_cores(session, options)
 
     def bind(self, loaded):
         """Nothing: no number of a thread unit."""

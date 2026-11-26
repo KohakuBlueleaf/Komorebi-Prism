@@ -253,6 +253,9 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     if (code == 0) {
         code = view_page(frame, view, &one);
     }
+    if (code == DP_NO_CORES) {
+        frame->times[DP_R_WANTED] = first_rank(frame);
+    }
     if (code == 0 && (phases & DP_PHASE_COUNT)) {
         code = work_command(&command, &one, TP_COUNT);
     }

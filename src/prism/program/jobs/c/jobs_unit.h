@@ -21,8 +21,8 @@ uint32_t jobs_unit_job_wants(dr_frame_t* frame, const km_command_t* command);
 /* The cores an update waiting wants (0: none). */
 uint32_t jobs_unit_cores_wanted(void);
 
-/* The first rank of the frame's pulls on `cores` cores: the wanted cores when fewer
- * than `cores` are wanted, else 0 (the job then gets the cores between two frames). */
+/* The first rank of the frame's pulls on `cores` cores: the cores a waiting update
+ * wants (the frame's view refuses one that wants them all). */
 uint32_t jobs_unit_frame_first(uint32_t cores);
 
 /* The field made last: the half of the field's pages it is in and its scale's word;
