@@ -21,6 +21,17 @@ NAMES_LISTED = 200
 TRIANGLES_MODE = 4
 
 
+def named_copy(name, data):
+    """A new object of `data` carrying `name`: a local object holding that name is
+    renamed out of the way first (the .blend is never saved)."""
+    holder = bpy.data.objects.get(name)
+    if holder is not None and holder.library is None:
+        holder.name = f"prism_source_{len(bpy.data.objects)}"
+    copy = bpy.data.objects.new(name, data)
+    copy.name = name
+    return copy
+
+
 def build_scene(found, depsgraph, source):
     """A new scene: one object a key at the identity, the cameras and punctual lights."""
     scene = bpy.data.scenes.new("prism_export")
@@ -32,12 +43,13 @@ def build_scene(found, depsgraph, source):
         names.append(obj.name)
     for obj in source.objects:
         if obj.type == "CAMERA":
-            copy = bpy.data.objects.new(obj.name, obj.data)
-            copy.matrix_world = obj.evaluated_get(depsgraph).matrix_world.copy()
+            matrix = obj.evaluated_get(depsgraph).matrix_world.copy()
+            copy = named_copy(obj.name, obj.data)
+            copy.matrix_world = matrix
             scene.collection.objects.link(copy)
     for name, data, matrix in common.lights(depsgraph):
         if data.type in PUNCTUAL:
-            copy = bpy.data.objects.new(name, data)
+            copy = named_copy(name, data)
             copy.matrix_world = matrix
             scene.collection.objects.link(copy)
     return scene, names
@@ -216,7 +228,7 @@ def main():
         export_animations=False,
         export_skins=False,
         export_morph=False,
-        export_tangents=False,
+        export_tangents=True,
     )
     record["not_exported"]["triangles"] = dropped(found, names, args.stem + ".glb")
     with open(args.stem + ".prism.json", "w") as f:

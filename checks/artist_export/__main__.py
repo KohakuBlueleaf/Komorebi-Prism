@@ -1,6 +1,6 @@
 """Reads a folder's `scene.glb` JSON chunk, sidecar, instance table and `stats.json`, and
-compares their counts, the triangles the sidecar records as not exported added back; exit
-1 on a difference."""
+compares their counts, the triangles the sidecar records as not exported added back, and
+finds the sidecar's render camera among its camera nodes; exit 1 on a difference."""
 
 import json
 import struct
@@ -60,6 +60,8 @@ def main():
         stored += count
         drawn += count * int(starts[i + 1] - starts[i])
     area = len(sidecar["area_lights"])
+    camera = sidecar["render"].get("camera")
+    camera_found = camera is None or "camera" in nodes.get(camera, {})
     record = {
         "folder": folder.name,
         "nodes": len(names),
@@ -70,6 +72,7 @@ def main():
         "drawn_triangles": [drawn, stats["drawn_triangles"]],
         "copies": [int(starts[-1]), stats["copies"]],
         "area_lights": [area, stats["lights"].get("AREA", 0)],
+        "render_camera": [camera, camera_found],
         "version": sidecar["version"],
         "matrices": list(instances["matrices"].shape),
     }
@@ -79,6 +82,7 @@ def main():
         and stored == stats["stored_triangles"]
         and drawn == stats["drawn_triangles"]
         and area == stats["lights"].get("AREA", 0)
+        and camera_found
         and sidecar["version"] == 1
         and len(starts) == len(names) + 1
         and int(starts[-1]) == len(instances["matrices"])

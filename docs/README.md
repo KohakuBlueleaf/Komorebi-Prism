@@ -26,6 +26,8 @@
 - [internals/reference/indirect.md](internals/reference/indirect.md)
 - [internals/reference/material.md](internals/reference/material.md)
 - [internals/reference/raster.md](internals/reference/raster.md)
+- [internals/reference/surface.md](internals/reference/surface.md): the metallic-roughness
+  model, tangents, the texture filters, the surface planes and their comparison with Cycles
 - [internals/reference/trace.md](internals/reference/trace.md)
 - [performance/frames.md](performance/frames.md): the frame's time on the card, by preset,
   scene and size

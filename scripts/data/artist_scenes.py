@@ -1,5 +1,5 @@
 """Lists and fetches the artists' scenes, and runs the scripts of `scripts/blender/` on
-them into <data>/artist/<key>/: list | fetch | measure | export | render."""
+them into <data>/artist/<key>/: list | fetch | measure | export | render | planes."""
 
 import argparse
 import json
@@ -22,15 +22,17 @@ BLENDER_VARIABLE = "PRISM_BLENDER"
 SCRIPTS = Path(__file__).resolve().parent.parent / "blender"
 PAUSE_SECONDS = 20
 ENGINE_STEMS = {"CYCLES": "truth", "EEVEE": "eevee"}
+PLANES = "surface/cycles.npz"  # the planes of truth.exr, under a scene's folder
 
 
-def blender(key, data, script, arguments, timeout):
-    """Runs a script of `scripts/blender/` on a scene; its JSON line, or the failure."""
+def blender(key, data, script, arguments, timeout, open_blend=True):
+    """Runs a script of `scripts/blender/` on a scene (without opening its .blend when
+    `open_blend` is False); its JSON line, or the failure."""
     command = [
         os.environ.get(BLENDER_VARIABLE, "blender"),
         "--background",
         "--disable-autoexec",
-        str(blend_path(key, data)),
+        *([str(blend_path(key, data))] if open_blend else []),
         "--python",
         str(SCRIPTS / f"{script}.py"),
         "--",
@@ -61,7 +63,7 @@ def fetch(keys, data):
 
 
 def run(command, keys, data, args):
-    """Runs measure, export or render on each scene; one JSON line a scene."""
+    """Runs measure, export, render or planes on each scene; one JSON line a scene."""
     for key in keys:
         folder = artist_dir(data) / key
         folder.mkdir(exist_ok=True)
@@ -73,6 +75,10 @@ def run(command, keys, data, args):
         elif command == "export":
             arguments = [str(folder / "scene"), *frame]
             record |= blender(key, data, "export", arguments, args.timeout)
+        elif command == "planes":
+            (folder / PLANES).parent.mkdir(exist_ok=True)
+            arguments = [str(folder / "truth.exr"), str(folder / PLANES)]
+            record |= blender(key, data, "planes", arguments, args.timeout, False)
         else:
             for engine in args.engines:
                 arguments = [
@@ -93,7 +99,8 @@ def main():
     """Lists, fetches, measures, exports and renders the artists' scenes."""
     parser = argparse.ArgumentParser(description=main.__doc__)
     parser.add_argument(
-        "command", choices=("list", "fetch", "measure", "export", "render")
+        "command",
+        choices=("list", "fetch", "measure", "export", "render", "planes"),
     )
     parser.add_argument("scenes", nargs="*")
     parser.add_argument("--data", type=Path, default=None)

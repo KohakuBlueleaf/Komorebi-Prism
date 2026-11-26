@@ -32,6 +32,7 @@ python scripts/data/artist_scenes.py measure [KEY ...]     # stats.json
 python scripts/data/artist_scenes.py export [KEY ...] [--frame N]
 python scripts/data/artist_scenes.py render [KEY ...] [--size W H] [--samples N]
         [--engines CYCLES EEVEE] [--frame N] [--timeout SECONDS]
+python scripts/data/artist_scenes.py planes [KEY ...]     # surface/cycles.npz from truth.exr
 python -m checks.artist_export $PRISM_DATA/artist/<KEY>
 ```
 
@@ -39,12 +40,22 @@ python -m checks.artist_export $PRISM_DATA/artist/<KEY>
 row's bytes and SHA-256, waits 20 s between two downloads and unpacks an archive into a
 folder named after it. The other commands write into `$PRISM_DATA/artist/<key>/`:
 `stats.json`, `scene.glb` with `scene.prism.json` and `scene.instances.npz`,
-`truth.exr` and `truth.png` (Cycles), `eevee.png` (EEVEE).
+`truth.exr` and `truth.png` (Cycles), `eevee.png` (EEVEE), `surface/cycles.npz` (`planes`).
 
 The scripts run on their own too:
 `blender --background <file.blend> --python scripts/blender/<name>.py -- <arguments>`,
 with `measure.py <out.json>`, `export.py <out_stem> [--frame N]` and
-`render.py <out_stem> --engine CYCLES|EEVEE --size W H [--samples N] [--frame N]`.
+`render.py <out_stem> --engine CYCLES|EEVEE --size W H [--samples N] [--frame N]`;
+`planes.py` runs without a `.blend`:
+`blender --background --python scripts/blender/planes.py -- <truth.exr> <out.npz>`.
+
+Cycles writes, besides Combined, the passes the surface's comparison reads: Z, Normal,
+Position, UV, Diffuse Color, Glossy Color and Emission. `planes.py` reads the render
+layer of the EXR with the most channels (not a composite layer) and writes `combined`,
+`depth`, `normal`, `position`, `diffuse_color`, `glossy_color`, `emit` and `uv` as
+float32 arrays with `size` (W, H); `normal` and `position` are turned from Blender's axes
+to the description's, `(x, y, z) -> (x, z, -y)`
+([surface](../internals/reference/surface.md)).
 
 ## Geometry keys and copies
 
@@ -71,7 +82,9 @@ frames, view transform and the text of a README text block.
 
 `<stem>.glb`: one node a geometry key, named `prism_mesh_<i, six digits>` (keys sorted),
 at the identity, with its material slots; the cameras and the sun, point and spot lights
-under their names. No animation, skin, morph or tangents.
+under the source objects' names (the source is renamed out of the way while the scene is
+built; the `.blend` is never saved), with Blender's own tangents (`export_tangents`). No
+animation, skin or morph.
 
 `<stem>.instances.npz`: `node_names` (N names), `starts` (N + 1, int64) and `matrices`
 (M, 4, 4) float32, row-major, in glTF's axes. The matrices of key i are
@@ -118,7 +131,8 @@ with a mesh, that the meshes' triangles times their copies sum to the drawn tria
 `stats.json` and the meshes' triangles sum to its stored triangles, with the triangles
 of `not_exported.triangles` added back, and that each of its entries holds the `.glb`'s
 count: a drop that is recorded passes, one that is not fails. The area lights must match
-its AREA lights and the sidecar's version must be 1.
+its AREA lights, the sidecar's render camera (when not null) must be a node of the `.glb`
+holding a camera, and the sidecar's version must be 1.
 
 ## Not carried yet
 

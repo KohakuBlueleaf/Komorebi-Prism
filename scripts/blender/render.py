@@ -16,7 +16,9 @@ ENGINES = {"CYCLES": "CYCLES", "EEVEE": "BLENDER_EEVEE"}
 
 
 def cycles(scene, samples):
-    """Cycles on the OptiX devices, fixed samples, no denoiser, Z and Normal passes."""
+    """Cycles on the OptiX devices, fixed samples, no denoiser, and the passes of the
+    surface's comparison: Z, Normal, Position, UV, diffuse and glossy colour, emission.
+    """
     preferences = bpy.context.preferences.addons["cycles"].preferences
     preferences.compute_device_type = "OPTIX"
     preferences.get_devices()
@@ -29,6 +31,11 @@ def cycles(scene, samples):
     for layer in scene.view_layers:
         layer.use_pass_z = True
         layer.use_pass_normal = True
+        layer.use_pass_position = True
+        layer.use_pass_uv = True
+        layer.use_pass_diffuse_color = True
+        layer.use_pass_glossy_color = True
+        layer.use_pass_emit = True
 
 
 def save(scene, path, file_format, media_type):
