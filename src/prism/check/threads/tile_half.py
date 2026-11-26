@@ -79,7 +79,9 @@ def check(
             laid = laid or model_of(loop, scene)
             given = written(loop, laid)
             count = cores or whole.loop_cores(loop)
-            ran = whole.frames(loop, scene, want["picture"], policies, count, tile)
+            ran = whole.frames(
+                loop, scene, want["picture"], policies, count, tile, sends=False
+            )
         finally:
             stop = closed(loop)
         out["runs"][str(cores or "all")] = {

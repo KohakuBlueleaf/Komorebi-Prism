@@ -20,7 +20,6 @@ from prism_cli.preset import opened
 
 from checks.raster_model.compare import RESULTS
 from checks.threads_frame import model_only
-from checks.threads_frame.threaded import ThreadedLoop
 from prism.check.threads import (
     depth_half,
     during,
@@ -98,14 +97,12 @@ def parse():
 
 
 def opener(args, session):
-    """open_loop(preset, options): the preset's Loop for the scene on `session`."""
+    """open_loop(preset, options): the preset's Loop for the scene on `session` (a
+    threads' preset's as a stage-wise one's)."""
 
     def open_loop(name, options):
         given = {key: value for key, value in options.items() if value is not None}
-        preset = opened(name, args.scene, args.view, args.size, given)
-        if name.endswith(SUFFIX):
-            return ThreadedLoop(preset, session)
-        return preset.open(session)
+        return opened(name, args.scene, args.view, args.size, given).open(session)
 
     return open_loop
 

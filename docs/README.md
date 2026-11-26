@@ -15,6 +15,9 @@
 - [guides/cli.md](guides/cli.md): the presets, the command line and the preset runner
 - [guides/gltf_scenes.md](guides/gltf_scenes.md): a glTF file converted into a scene of
   the tables: the command, the material mapping, the view and the lighting
+- [guides/scene_to_threads.md](guides/scene_to_threads.md): the one path from a glTF
+  file to a picture drawn as threads: opened, drawn from the command line, chosen in the
+  viewer
 - [guides/environment.md](guides/environment.md): the environment variables the code
   reads, and Komorebi's that a run on a card reads
 - [guides/viewer.md](guides/viewer.md): the viewer, its server and its page

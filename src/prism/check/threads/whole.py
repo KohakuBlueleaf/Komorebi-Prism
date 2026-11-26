@@ -89,14 +89,14 @@ def first_tile(loop, judged, policy, cores):
     }
 
 
-def frames(loop, scene, want, policies, cores, phases=0, want_map=None):
+def frames(loop, scene, want, policies, cores, phases=0, want_map=None, sends=True):
     """A frame a policy on `loop` against the picture `want` (and the sun's map
-    `want_map` when the loop sends the hosts' commands): {policy: judged}; the first
-    bad end stops them."""
+    `want_map` when `sends`: the hosts' commands sent as the loop sends them):
+    {policy: judged}; the first bad end stops them."""
     out = {}
     for policy in policies:
-        before = sun_armed(loop) if loop.sends else None
-        done = run_frame(loop, scene["camera"], phases, policy)
+        before = sun_armed(loop) if sends else None
+        done = run_frame(loop, scene["camera"], phases, policy, sends=sends)
         one = {"code": done["code"], "standing": done["standing"]}
         if done["picture"] is not None:
             one |= compare.pictures(done["picture"], want)
@@ -158,7 +158,6 @@ def check(
         return out | {"equal": False}
     for cores in cores_list:
         loop = open_loop(threads_name, {**(options or {}), **sun, "cores": cores})
-        loop.sends = True
         try:
             count = cores or loop_cores(loop)
             ran = frames(loop, scene, want["picture"], policies, count, 0, want["map"])

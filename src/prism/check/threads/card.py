@@ -25,15 +25,17 @@ def set_frame(loop, phases=0, policy=None):
         loaded.number(names.POLICY, names.POLICIES[policy])
 
 
-def run_frame(loop, camera, phases=0, policy=None, picture=True):
-    """One frame of `camera` with `phases` and `policy`, no retry or reload: {code,
-    picture (None unless asked and 0), standing (None unless it ended badly)}."""
+def run_frame(loop, camera, phases=0, policy=None, picture=True, sends=True):
+    """One frame of `camera` with `phases` and `policy`, no retry or reload, the hosts'
+    commands sent first as the loop sends them when `sends` (else the FRAME command
+    alone): {code, picture (None unless asked and 0), standing (None unless it ended
+    badly)}."""
     camera = np.asarray(camera, dtype=np.float32)
     try:
         for host in loop.hosts():  # their numbers first, ours over them
             hosted(host, "view")(loop.loaded, camera, loop.size)
         set_frame(loop, phases, policy)
-        code = loop.attempt(camera)
+        code = loop.attempt(camera) if sends else loop.loaded.frame()
     except (km.KomorebiError, TimeoutError) as error:
         return {
             "code": None,

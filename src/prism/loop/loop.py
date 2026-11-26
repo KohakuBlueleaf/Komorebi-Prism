@@ -9,8 +9,7 @@ import numpy as np
 
 from prism.core.implementation import command_of, hosted
 from prism.loop import capacity
-from prism.program.assemble import assemble
-from prism.program.loaded import load
+from prism.program.form import form_of
 from prism_reference.scene.camera import with_size
 
 
@@ -27,11 +26,13 @@ class Frame:
 
 
 class Loop:
-    """`pipeline` loaded on `session` for `scene` (its WIDTH x HEIGHT view) at `size`:
-    `frame(camera)` a frame, `resize(size)`, `times()` after `stop()`."""
+    """`pipeline` loaded on `session` for `scene` (its WIDTH x HEIGHT view) at `size`,
+    assembled and loaded by its form (prism.program.form, chosen once): `frame(camera)`
+    a frame, `resize(size)`, `times()` after `stop()`."""
 
     def __init__(self, pipeline, session, scene, size, options):
         self.pipeline, self.session, self.scene = pipeline, session, scene
+        self.form = form_of(pipeline)
         self.size = tuple(int(n) for n in size)
         self.options = dict(options)
         self.held = None
@@ -61,8 +62,8 @@ class Loop:
         options = self.options | {"size": self.size, "capacity": self.held}
         scene = with_size(self.scene, self.size)
         try:
-            assembled = assemble(self.pipeline, self.session, scene, options)
-            self.loaded = load(assembled, self.session)
+            assembled = self.form.assemble(self.pipeline, self.session, scene, options)
+            self.loaded = self.form.load(assembled, self.session)
         except (ValueError, km.KomorebiError) as error:
             if self.held is None:
                 raise

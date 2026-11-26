@@ -6,6 +6,7 @@ import os
 import resource
 import time
 from contextlib import contextmanager
+from dataclasses import replace
 from functools import wraps
 from pathlib import Path
 
@@ -170,9 +171,23 @@ class Account:
         self.patch(session, "_build_levels", self.built)
 
     def loop(self):
-        """The loop's assembly and load timed as wholes."""
-        self.patch(loop_module, "assemble", self.timed("assemble"))
-        self.patch(loop_module, "load", self.timed("load"))
+        """The loop's assembly and load (its form's: prism.program.form) timed as
+        wholes."""
+        self.patch(loop_module, "form_of", self.timed_form)
+
+    def timed_form(self, original):
+        """`form_of` whose Form's assembly and load are timed."""
+
+        @wraps(original)
+        def call(pipeline):
+            form = original(pipeline)
+            return replace(
+                form,
+                assemble=self.timed("assemble")(form.assemble),
+                load=self.timed("load")(form.load),
+            )
+
+        return call
 
     def record(self):
         """The parts in seconds (the program's made: the assembly less its hosts; its

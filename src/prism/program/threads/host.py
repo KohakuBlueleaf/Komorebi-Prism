@@ -2,16 +2,22 @@
 histograms and positions, the records, the capacity of the dispatcher and of the
 classes, and the dispatcher's numbers and every view's layer columns written."""
 
+import math
+import re
+
 import numpy as np
 
 import prism.stages.raster.host as raster_host  # the module: the packages import in a cycle
 from prism.core.capacity import Capacity, capacity, default_capacity, narrow, need
+from prism.core.headers import defined
 from prism.core.implementation import Host
 from prism.program.assemble import MissingSlot
+from prism.program.director.thread import RUNTIME
 from prism.program.dispatch import thread as dispatch
 from prism.stages.material.texture.host import with_table
 from prism.stages.raster.model.counts import kept_counts
 from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS
+from prism.stages.raster.model.threads import M, R
 from prism.stages.raster.threads import layout
 from prism_reference.scene.frame import frame_grid, frame_size
 
@@ -25,6 +31,14 @@ RANGE_BLOCKS = 4  # the triangle blocks a count range holds, unless given
 POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
+SLICES = dispatch.P + "slices"  # the slices' words, R["TS_WORDS"] a slice
+LEAST = "list_slots_least"  # the option: a layer's least list slots
+UNIT_CODE = re.compile(r"#define\s+(DP_\w+)\s+\(DR_UNIT_CODES \+ (\d+)u\)")
+# the dispatcher's codes (dispatch.h) as a view returns them
+CODES = {
+    name: defined(RUNTIME / "director.h")["DR_UNIT_CODES"] + int(offset)
+    for name, offset in UNIT_CODE.findall((dispatch.RUNTIME / "dispatch.h").read_text())
+}
 
 
 def band_count(weight, heavy):
@@ -236,3 +250,26 @@ class ThreadsHost(Host):
             grid = raster_host.grid_word(self.size)
             loaded.numbers({"grid": grid, "tiles": across * down})
             self.written = self.size
+
+    def recover(self, loaded, code):
+        """A view's slices or ranges past the capacity: a reload; a layer's lists too
+        small: at least its entries in the slices' words (read after the stop) and a
+        quarter, in the option LEAST, a reload (None when none is past its slots)."""
+        if code == CODES["DP_TOO_MANY"]:
+            return "reload"
+        if code != CODES["DP_LISTS_SMALL"]:
+            return None
+        loaded.stop()
+        words = np.frombuffer(loaded.region(SLICES), np.uint32)
+        words = words.reshape(-1, R["TS_WORDS"]).astype(np.int64)
+        least = loaded.options.get(LEAST) or {}
+        if not isinstance(least, dict):
+            least = {name: least for name in self.layers}
+        grown = False
+        for index, (name, one) in enumerate(self.layers.items()):
+            entries = int(words[:, M["TS_ENTRIES"](index)].sum())
+            if entries > one["slots"]:
+                least[name] = math.ceil(entries * raster_host.LIST_MARGIN)
+                grown = True
+        loaded.options[LEAST] = least
+        return "reload" if grown else None

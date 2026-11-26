@@ -1,6 +1,6 @@
 """A threads' preset assembled into one program for one scene on a session: every host
 prepared and connected, then the classes made at the frame host's capacity and merged,
-the X280 ports, the frame's thread and the job thread; loaded, a view, its target."""
+the X280 ports, the frame's thread and the job thread; loaded (prism.program.form)."""
 
 from dataclasses import dataclass, field
 
@@ -96,20 +96,3 @@ def load(threaded, session):
     for host in threaded.hosts.values():
         hosted(host, "bind")(loaded)
     return loaded
-
-
-def view(threaded, loaded, camera, size):
-    """What a frame of `camera` at `size` needs, from every host in order."""
-    for host in threaded.hosts.values():
-        hosted(host, "view")(loaded, camera, size)
-
-
-def frame(loaded):
-    """The FRAME command (the eye's view as the dispatcher's pulls), waited for: its
-    code."""
-    return loaded.frame()
-
-
-def target(threaded, loaded):
-    """The display read back: (H, W, 4) uint8 of the frame's size."""
-    return threaded.hosts["post.show"].display(loaded)

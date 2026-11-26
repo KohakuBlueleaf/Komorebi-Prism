@@ -7,7 +7,8 @@ shows the frames a card renders through `prism.loop`. Two halves: the server
 
 Nothing in either half names a stage. The pipelines offered are the presets of
 `configs/pipeline/` that are given the slot `view.camera` (`raster`, `textured`, `lit`,
-`gi`),
+`gi`, and their threads' forms `textured_threads`, `lit_threads`, `gi_threads`:
+[scene to threads](scene_to_threads.md)),
 opened as the command line opens them (`prism_cli.preset.opened`, `docs/guides/cli.md`):
 a preset that takes inputs from a scene's view (`SCENE_INPUTS`: materials, lights) is
 offered only the scenes with views, and refused on a generated scene. The controls are the

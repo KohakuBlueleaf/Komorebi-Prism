@@ -1,13 +1,14 @@
 """The viewer's server checked without a browser, on one card: the server started, 403
-without the token, the state and the catalog read, poses posted and their frames read
+without the token, the state and the catalog read (the pipeline, every threads' preset,
+the scene and its view listed), poses posted and their frames read
 from the stream, two sizes (one past the capacity), refusals, then at the view's own
 pose each control moved (and moved back) and a frame after it, then each kind's own
 checks (prism_viewer.server.check_kinds), then the pose's field of view narrower, wider
 and back (prism_viewer.server.check_fov); the server stopped by SIGTERM; then, that
 control set and that pose on a loop of the check's own, each frame's JPEG against
 the loop's picture through the same encoder (at most SERVED_BOUND apart; another pose's
-must be further) and the loop's picture by the preset's JUDGE. One JSON line; exit 1 on
-a failure.
+must be further) and the loop's picture by the preset's JUDGE (not with --no-reference).
+One JSON line; exit 1 on a failure.
 python -m prism_viewer.server.check [--pipeline raster --scene sponza --view overview]
 """
 
@@ -26,6 +27,7 @@ import urllib.request
 
 import komorebi as km
 import numpy as np
+from prism_cli.preset import names as preset_names
 from prism_cli.preset import opened
 
 from prism_reference.scene.camera import sized_camera, with_size
@@ -39,6 +41,7 @@ STOP_S = 60.0
 POSES, POSE_GAP_S = 20, 0.1
 SIZES = ((1280, 720), (1920, 1080))  # within the capacity, then past it (a reload)
 SERVED_BOUND = 0.5  # served JPEG vs the loop's picture through the same encoder: mean
+THREADS = "_threads"  # a threads' preset's name ends with it
 
 
 def get(url, timeout=10.0):
@@ -165,6 +168,22 @@ def set_shown(base, token, reader, pose, size, record, control, value):
     return data
 
 
+def listed(known, args):
+    """The catalog's pipelines and scenes (their views), and what it lacks: the
+    pipeline asked, every threads' preset of configs/pipeline, the scene and view asked.
+    """
+    pipelines = [one["name"] for one in known["pipelines"]]
+    scenes = {one["name"]: one["views"] for one in known["scenes"]}
+    wanted = [args.pipeline] + [n for n in preset_names() if n.endswith(THREADS)]
+    missing = [name for name in dict.fromkeys(wanted) if name not in pipelines]
+    lacks = [f"catalog lacks {name}" for name in missing]
+    if args.scene not in scenes:
+        lacks.append(f"catalog lacks scene {args.scene}")
+    elif args.view and args.view not in scenes[args.scene]:
+        lacks.append(f"catalog lacks view {args.view} of {args.scene}")
+    return {"pipelines": pipelines, "scenes": scenes, "lacks": lacks}
+
+
 def served(base, token, args, record):
     """The server's half of the check, on a running server: the pictures served at the
     view's own pose (a label, the controls set, the JPEG), that pose, the last pose of
@@ -191,12 +210,8 @@ def served(base, token, args, record):
         fail.append(f"not running: {state and state['error']}")
         return None
     known = json.loads(get(f"{base}/api/catalog?token={token}")[1])
-    record["catalog"] = {
-        "pipelines": [one["name"] for one in known["pipelines"]],
-        "scenes": len(known["scenes"]),
-    }
-    if args.pipeline not in record["catalog"]["pipelines"]:
-        fail.append(f"catalog lacks {args.pipeline}")
+    record["catalog"] = listed(known, args)
+    fail += record["catalog"]["lacks"]
     record["controls"] = {c["name"]: c["value"] for c in state["controls"]}
     reader = Reader(f"{base}/api/stream?token={token}")
     reader.start()
@@ -320,7 +335,8 @@ def own_pictures(args, pose, other, size, pictures):
     view's own) and `size`: the JPEG against the loop's picture through the same
     encoder (it is the loop's picture), the loop's picture by the preset's JUDGE (it is
     right); the first against the pose `other`'s too (must differ). The JPEG against
-    the unencoded pictures is reported."""
+    the unencoded pictures is reported; with --no-reference, no JUDGE and no REFERENCE.
+    """
     preset = opened(args.pipeline, args.scene, args.view, size)
     scene = preset.scene
     own_pose = json.loads(json.dumps(pose_of(scene["camera"])))
@@ -343,8 +359,9 @@ def own_pictures(args, pose, other, size, pictures):
                     raise RuntimeError(f"the loop's frame code {frame.code}")
                 own = encode.colour(frame.picture, size)
                 view = with_size(dict(scene, camera=camera), size)
-                judge = preset.judge(loop, view)
-                want = encode.colour(preset.reference(loop, view), size)
+                judge = None if args.no_reference else preset.judge(loop, view)
+                made = None if args.no_reference else preset.reference(loop, view)
+                want = None if made is None else encode.colour(made, size)
                 got = None if data is None else encode.decoded(data)
                 base = got if base is None else base
                 out[label] = {"set": setting} | (
@@ -356,7 +373,7 @@ def own_pictures(args, pose, other, size, pictures):
                         "from_loaded": compared(got, base),
                         "unencoded": {
                             "own": compared(got, own),
-                            "reference": compared(got, want),
+                            "reference": None if want is None else compared(got, want),
                         },
                     }
                 )
@@ -383,6 +400,11 @@ def main():
     parser.add_argument("--port", type=int, default=8791)
     parser.add_argument("--card", type=int, default=0)
     parser.add_argument("--log", default=None, help="the server's output file")
+    parser.add_argument(
+        "--no-reference",
+        action="store_true",
+        help="the loop's pictures not judged by the preset's JUDGE nor REFERENCE",
+    )
     args = parser.parse_args()
     token, base = secrets.token_hex(16), f"http://127.0.0.1:{args.port}"
     command = [sys.executable, "-m", "prism_viewer.server", "--host", "127.0.0.1"]
