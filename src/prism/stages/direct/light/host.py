@@ -16,7 +16,7 @@ from prism.stages.direct.light.model.terms import light_pages
 from prism.stages.direct.light.unit import FORMS
 from prism.stages.direct.shadow_pcf.host import SUN
 from prism.stages.direct.shadow_pcf.model.region import lights_at
-from prism.stages.material.texture.host import held_of
+from prism.stages.material.texture.host import held_of, with_table
 from prism.stages.material.texture.model.layers import as_shaded
 from prism.stages.raster.model.numbers import K
 from prism_common.paths import data_root
@@ -124,6 +124,8 @@ class LightHost(Host):
             size = tuple(self.options.get("size") or frame_size(self.scene))
             self.held = held_of({**self.options, "cores": self.cores}, size)
             directory = self.tensor(np.zeros((self.cores, DIRECTORY_WORDS)))
+        if self.materials is not None:
+            self.held = with_table(self.held, self.materials)
         self.field = field_of(self.lights) if self.indirect else None
         if self.field is not None and self.options.get("update_beside"):
             self.field = {**self.field, "halves": 2, "half": 0}

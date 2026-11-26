@@ -42,6 +42,7 @@ COMMON = {
 # layouts overlap, as one stage's handlers are in a command at a time. A part holds
 # nothing a command of another stage must leave alone; each part's writer and reader:
 SPACE = "command_space"
+TABLE = "frame_table"  # the scene's materials table: its words a define as well
 LAYOUTS = {
     # SHADE and LIGHT, each within its command: the slots (their keys cleared, the
     # white or zero texels written, at each command); the pack CPU's texel indices,
@@ -139,6 +140,14 @@ def defines(held):
         f"PRISM_SPACE_{part.upper()}_AT": str(at)
         for part, (at, _) in parts(held).items()
     }
+
+
+def table_defines(cls, held):
+    """The kernels' define of the table field's words at the capacity `held`
+    (PRISM_FRAME_TABLE_WORDS) for class `cls` when it declares the field."""
+    if TABLE not in km_fields(cls):
+        return {}
+    return {f"PRISM_{varying(TABLE)}": str(size(TABLE, held))}
 
 
 def given(cls, held):

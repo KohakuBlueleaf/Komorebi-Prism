@@ -46,12 +46,30 @@ def transmission(materials):
     return np.where(clear[:, None], tau, 0).astype(F32)
 
 
-def table(materials, entries, pages, emissive_scale=1.0):
-    """SHADE's table: counts, the texel tables, the background, the materials (emissive
-    bases x emissive_scale; transparent: tau and 1 - max tau), the (texture, level)
-    entries."""
+LEAST_WORDS = SH["kShadeTableLeastBytes"] // 4  # the table's least words
+STEP_WORDS = SH["kShadeTableStepBytes"] // 4  # its words' step
+
+
+def table_needs(materials):
+    """The words SHADE's table needs for `materials`: (through the entries, through the
+    last material row)."""
+    rows = SH["kTabMaterial"] + SH["kMaterialWords"] * len(materials["kind"])
+    entries = SH["kEntryWords"] * materials["mip"].shape[0] * materials["mip"].shape[1]
+    return rows + entries, rows
+
+
+def stepped(words):
+    """`words` a table field holds: up to the step, at least LEAST_WORDS."""
+    return max(LEAST_WORDS, -(-words // STEP_WORDS) * STEP_WORDS)
+
+
+def table(materials, entries, pages, emissive_scale=1.0, size=None):
+    """SHADE's table of `size` words (None: its stepped need): counts, the texel
+    tables, the background, the materials (emissive bases x emissive_scale;
+    transparent: tau and 1 - max tau), the (texture, level) entries."""
     count, levels = entries.shape[:2]
-    words = np.zeros(SH["kShadeTableBytes"] // 4, dtype=np.uint32)
+    size = stepped(table_needs(materials)[0]) if size is None else size
+    words = np.zeros(size, dtype=np.uint32)
     materials_count = len(materials["kind"])
     words[SH["kTabMaterials"]] = materials_count
     words[SH["kTabEntries"]] = count * levels
@@ -114,7 +132,7 @@ def table(materials, entries, pages, emissive_scale=1.0):
     if end + entry_words.size > len(words):
         raise ValueError(
             f"SHADE's table needs {end + entry_words.size} words and holds"
-            f" {len(words)} (kernels/shade.h kShadeTableBytes)"
+            f" {len(words)} (the field frame_table's words)"
         )
     words[at:end] = rows.ravel()
     words[end : end + entry_words.size] = entry_words.ravel()

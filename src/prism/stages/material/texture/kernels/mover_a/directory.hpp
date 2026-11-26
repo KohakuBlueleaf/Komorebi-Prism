@@ -114,6 +114,7 @@ namespace shade_k {
     bool push_table(
         const Mover& mover, uint32_t table_address, uint32_t camera, uint32_t grid
     ) {
+        static_assert(kShadeTableBytes == kFieldFrameTablePageBytes);
         if (!mover.reserve(kFieldFrameTable, 1)) {
             return false;
         }

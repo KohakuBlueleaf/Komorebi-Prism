@@ -6,12 +6,13 @@ import komorebi as km
 from prism.core import fields
 from prism.core.compute import FRAME_COMPUTE
 from prism.stages.direct.light.model import numbers
+from prism.stages.material.texture.model.table import stepped
 from prism.stages.raster import capacity
 
 LH, TP = numbers.LH, numbers.TEXEL_PAGES
 PAGE = 4096  # a plane's page, a slot's, the out pages'
 DIRECTORY_WORDS = PAGE // 4  # a directory page
-TABLE_WORDS = numbers.SHADE["kShadeTableBytes"] // 4  # LIGHT's table, SHADE's after it
+TABLE_WORDS = LH["kLightTableBytes"] // 4  # LIGHT's table, SHADE's rows after it
 PLANE_PAGES = 4 * LH["kLightPart"]  # the ring: an item's 15 or 20 pages, five a push
 OUT_PAGES = 3 * LH["kLightOutPages"]  # three items' five pages
 SLOT_PAGES = TP["kShadeSlots"] + 1  # the light pages' slots and the zero texels' page
@@ -36,7 +37,11 @@ LIGHT = km.kernel(
 
 
 fields.need("in_planes", "direct.light", lambda held: PLANE_PAGES)
-fields.need("frame_table", "direct.light", lambda held: TABLE_WORDS)
+fields.need(
+    "frame_table",
+    "direct.light",
+    lambda held: stepped(TABLE_WORDS + (0 if held is None else held.table_rows)),
+)
 fields.need(
     "texel_slots",
     "direct.light",
@@ -108,6 +113,7 @@ def made(host):
         **fields.given(cls, host.held),
         defines=capacity.capacity_defines(host.held)
         | fields.defines(host.held)
+        | fields.table_defines(cls, host.held)
         | shows_defines(host),
         session=host.session,
         depth=1,

@@ -14,12 +14,16 @@ STEP_BASE = GRID["kGridDefault"] ** 2
 class Capacity(NamedTuple):
     """What a load sizes tables, tensors and regions from: `tiles` (TILE_ROWS each);
     `wide`, 32-bit box words past the narrow grid; `recount`, the heavy tiles'
-    histograms counted again; `cores`, the fill cores (None: host-stepped)."""
+    histograms counted again; `cores`, the fill cores (None: host-stepped); `table`,
+    `table_rows`, the scene's materials table's words through its entries and through
+    its last material row (0: none, the least)."""
 
     tiles: int
     wide: bool
     recount: bool = False
     cores: int | None = None
+    table: int = 0
+    table_rows: int = 0
 
 
 def narrow(grid):
@@ -57,7 +61,7 @@ def capacity(sizes, lit=False, at_least=None):
     wide = not all(narrow(frame_grid(size)) for size in sizes)
     if at_least is not None:
         tiles, wide = max(tiles, at_least.tiles), wide or at_least.wide
-        return Capacity(tiles, wide, at_least.recount, at_least.cores)
+        return at_least._replace(tiles=tiles, wide=wide)
     return Capacity(tiles, wide)
 
 

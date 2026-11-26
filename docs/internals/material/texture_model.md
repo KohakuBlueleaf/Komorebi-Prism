@@ -55,8 +55,8 @@ needing more pages is shaded in several passes of rows.
 
 ## SHADE's table
 
-One table of `kShadeTableBytes` (32 KB) in L1, written once a load (`table.table`), word by
-word:
+One table in L1, the common field `frame_table`, written once a load (`table.table`), word
+by word:
 
 | words | what |
 |---|---|
@@ -86,8 +86,21 @@ A material's row (`kMaterialWords`):
 An entry is the (texture, level)'s first page, then `width | height << 16`; texture `t`'s
 level `l` is entry `t x levels + l` (levels the most any texture has, 11), so the material
 row names a texture by its level 0 entry plus one. The table needs 816 words, 18 a
-material and 2 an entry; `table.table` refuses a scene beyond `kShadeTableBytes` with both
-numbers.
+material and 2 an entry.
+
+**Its size follows the scene.** The texture host states what the scene's table needs
+(`table.table_needs`: the words through the entries, and through the last material row) in
+the load's capacity (`Capacity.table`, `Capacity.table_rows`; `host.with_table`), before
+anything is filled. SHADE needs those words in steps of `kShadeTableStepBytes` (4 KB),
+never fewer than `kShadeTableLeastBytes` (32 KB, the least size, which every scene of up
+to 8,192 words keeps: the program of such a scene is the same at any number of
+materials). LIGHT, merged after it, needs its own 1,024 words and SHADE's through the last
+material row, which its glass form reads, stepped the same. The field is the larger of the
+two (`prism.core.fields`); the build gives its words to the kernels as
+`PRISM_FRAME_TABLE_WORDS` (`fields.defines`), from which `kShadeTableBytes` and LIGHT's
+`kLightShadeTableBytes` follow, and the host's table tensor is a page of the same words. A
+scene whose table the core's L1 cannot hold beside the other fields is refused by the
+load's L1 budget (the budget table, with the line of `frame_table`).
 
 - **The mask** is fetched at the albedo's place and level, so a masked material's mask
   texture must have the albedo's levels and sizes; `table.table` refuses one that has not.

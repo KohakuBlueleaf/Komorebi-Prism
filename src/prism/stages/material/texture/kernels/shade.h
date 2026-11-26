@@ -22,9 +22,15 @@ constexpr uint32_t kShadeGlass = 2;
 // Buffers: the reader's planes, the table, the pack thread's own space; the asks,
 // answers and slots are texel_pages' (protocol.h).
 constexpr uint32_t kShadePlanePages = 20;  // items of 5, 10 (merging), 15 (LIGHT) pages
-// the table in L1: 816 + 14 per material + 2 per (texture, level) words; Bistro
-// exterior's needs 7,254 (133 materials, 208 textures of 11 levels)
-constexpr uint32_t kShadeTableBytes = 32768;
+// the table in L1: 816 + 18 per material + 2 per (texture, level) words, in steps of
+// kShadeTableStepBytes, at least kShadeTableLeastBytes; its bytes the field
+// frame_table's, as the build gives them (PRISM_FRAME_TABLE_WORDS)
+constexpr uint32_t kShadeTableLeastBytes = 32768;
+constexpr uint32_t kShadeTableStepBytes = 4096;
+#ifndef PRISM_FRAME_TABLE_WORDS
+#error "PRISM_FRAME_TABLE_WORDS: the field frame_table's words (prism.core.fields)"
+#endif
+constexpr uint32_t kShadeTableBytes = 4 * PRISM_FRAME_TABLE_WORDS;
 constexpr uint32_t kShadeWorkBytes = 8192;
 constexpr uint32_t kShadeColourPages = 3;  // red, green, blue out
 constexpr uint32_t

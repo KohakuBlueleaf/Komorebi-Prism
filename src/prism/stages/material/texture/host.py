@@ -6,11 +6,13 @@ picture."""
 
 import numpy as np
 
+from prism.core import fields
 from prism.core.capacity import capacity, default_capacity
 from prism.core.implementation import Host
 from prism.program.assemble import MissingSlot
 from prism.stages.material.texture.model.layers import as_shaded, prepare
 from prism.stages.material.texture.model.numbers import SH, SURFACE
+from prism.stages.material.texture.model.table import table_needs
 from prism.stages.raster import capacity as stage_capacity
 from prism.stages.raster.model.frame import decoded
 from prism.stages.raster.model.numbers import K
@@ -35,12 +37,22 @@ MODES = {  # each layer's kShade* bits: the masked one's when a glass layer foll
 }
 
 
-def uploaded(scene, materials, lights=None):
+def uploaded(scene, materials, lights=None, size=None):
     """What is uploaded once for a shaded frame of `materials` (unlit: as shaded; lit
-    with `lights`): mesh and shade blocks of each layer, pages, table."""
+    with `lights`): mesh and shade blocks of each layer, pages, table of `size` words.
+    """
     if lights is None:
-        return prepare(scene, as_shaded(materials))
-    return prepare(scene, materials, lights)
+        return prepare(scene, as_shaded(materials), size=size)
+    return prepare(scene, materials, lights, size)
+
+
+def with_table(held, materials):
+    """The capacity `held` holding the materials table `materials` need (never less
+    than it held)."""
+    words, rows = table_needs(materials)
+    return held._replace(
+        table=max(held.table, words), table_rows=max(held.table_rows, rows)
+    )
 
 
 def held_of(options, size):
@@ -70,7 +82,8 @@ class TextureHost(Host):
         self.lights = options.get("lights")
         self.cores = options.get("cores") or session.ranks
         self.size = tuple(options.get("size") or frame_size(scene))
-        self.held = held_of({**options, "cores": self.cores}, self.size)
+        held = held_of({**options, "cores": self.cores}, self.size)
+        self.held = with_table(held, self.materials)
         self.tensors = {}
         self.layers = {}
         self.examples = {}
@@ -84,7 +97,8 @@ class TextureHost(Host):
 
     def prepare(self):
         """The textures' pages, the table, and per layer its shade blocks and profiles."""
-        prepared = uploaded(self.scene, self.materials, self.lights)
+        size = fields.size("frame_table", self.held)
+        prepared = uploaded(self.scene, self.materials, self.lights, size)
         self.tensors = {
             "textures": self.tensor(prepared["pages"]),
             "table": self.tensor(prepared["table"].reshape(1, -1)),

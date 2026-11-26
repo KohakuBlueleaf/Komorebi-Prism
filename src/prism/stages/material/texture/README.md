@@ -48,6 +48,14 @@ common field `command_space` it lays with LIGHT (layout `texel`, `prism.core.fie
 each part's address from `core/include/texel_pages/space.hpp`); the other stages lay
 theirs over the same bytes, each within its commands.
 
+The table is read whole into the common field `frame_table` of every core. Its size
+follows the scene: the host states the words the scene's materials and textures need
+(`model/table.py` `table_needs`) in the load's capacity, the field takes them in steps of
+4 KB and never fewer than `kShadeTableLeastBytes` (32 KB, the least size), and the build
+gives the field's words to the kernels as `PRISM_FRAME_TABLE_WORDS`, from which
+`kShadeTableBytes` follows (`docs/internals/material/texture_model.md`). Only a core's L1
+refuses a scene's table, in the load's L1 budget.
+
 ## In the frame's thread
 
 The preset `textured` (`configs/pipeline/textured.py`) is the raster stage, then this

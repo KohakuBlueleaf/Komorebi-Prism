@@ -8,6 +8,7 @@ from prism.core import fields
 from prism.core.compute import FRAME_COMPUTE
 from prism.stages.direct.light.model.numbers import LH
 from prism.stages.material.texture.model.numbers import PAGES, SH, SURFACE
+from prism.stages.material.texture.model.table import stepped
 from prism.stages.raster import capacity
 from prism.stages.raster.model.numbers import K
 
@@ -17,7 +18,6 @@ LIST_PAGES = K["kInPages"]  # the core's list pages in flight
 LIST_WORDS = K["kInPageBytes"] // WORD
 OUT_PAGES = K["kOutPages"]  # items of kShadeOutPages: none wraps
 PLANE_PAGES = SH["kShadePlanePages"]  # items of five, ten merging
-TABLE_WORDS = SH["kShadeTableBytes"] // WORD
 WORK_WORDS = SH["kShadeWorkBytes"] // WORD
 ASK_PAGES = PAGES["kShadeAskPages"]
 ASK_WORDS = PAGES["kShadeAskBytes"] // WORD
@@ -39,7 +39,11 @@ SHADE = km.kernel(
 
 
 fields.need("in_planes", "material.texture", lambda held: PLANE_PAGES)
-fields.need("frame_table", "material.texture", lambda held: TABLE_WORDS)
+fields.need(
+    "frame_table",
+    "material.texture",
+    lambda held: stepped(0 if held is None else held.table),
+)
 fields.need(
     "texel_slots",
     "material.texture",
@@ -99,7 +103,9 @@ def made(host):
     return Shade(
         **host.examples,
         **fields.given(Shade, host.held),
-        defines=capacity.capacity_defines(host.held) | fields.defines(host.held),
+        defines=capacity.capacity_defines(host.held)
+        | fields.defines(host.held)
+        | fields.table_defines(Shade, host.held),
         session=host.session,
         depth=1,
     )

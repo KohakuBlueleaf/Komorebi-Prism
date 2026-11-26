@@ -18,10 +18,10 @@ def layer(scene, materials, keep):
     return {**scene, "indices": scene["indices"][keep]}, {**materials, **per_triangle}
 
 
-def prepare(scene, materials, lights=None):
+def prepare(scene, materials, lights=None, size=None):
     """Everything uploaded once for a shaded frame (`lights`: corner light terms the
-    baked visibility): mesh and shade blocks, pages, table; masked triangles a mesh of
-    their own ("masked_*"), transparent too ("glass_*"), the others without."""
+    baked visibility): mesh and shade blocks, pages, table (of `size` words); masked
+    triangles a mesh of their own ("masked_*"), transparent too ("glass_*")."""
     lit = lights is not None
     if lit:
         materials = {**materials, "light": lights["visibility"][scene["indices"]]}
@@ -54,7 +54,7 @@ def prepare(scene, materials, lights=None):
         "blocks": blocks,
         "shade_blocks": shade_blocks,
         "pages": pages,
-        "table": table(materials, entries, len(pages), scale),
+        "table": table(materials, entries, len(pages), scale, size),
     }
 
 

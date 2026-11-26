@@ -51,7 +51,11 @@ the pack thread's work (the texel indices, then the profile's counters) and the 
 passes' hash (`texel_work`). The fields it shares (`in_planes`, `frame_table`,
 `texel_asks`, `texel_dones`, `command_space`, `out_ring`) are each defined once in
 `prism.core.fields`, sized by the largest need its users register (this class's in
-`device.py`). The command space is the space a handler has for the length of its
+`device.py`). The table page's need is LIGHT's 1,024 words and SHADE's table through its
+last material row (what the glass form reads), from the scene's numbers in the load's
+capacity, stepped as SHADE's and never fewer than its least (32 KB); its words reach the
+kernels as `PRISM_FRAME_TABLE_WORDS`, and `kLightShadeTableBytes` is the field's bytes
+after LIGHT's table (`docs/internals/material/texture_model.md`). The command space is the space a handler has for the length of its
 command: each stage lays its parts in it from byte 0, the stages' layouts overlapping,
 its size the largest stage's; nothing in a part outlives the command. A part's address
 is the space's base and the part's byte (`core/include/texel_pages/space.hpp`, the
