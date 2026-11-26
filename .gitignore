@@ -23,3 +23,8 @@ tt-cache/
 /data/
 /runs/
 *.log
+
+# Raw measurement records stay on disk only: the tables in each folder's README are
+# what the repository holds (the only JSON tracked is configuration)
+measurements/**/*.json
+measurements/**/*.jsonl

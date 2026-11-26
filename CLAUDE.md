@@ -133,7 +133,9 @@ not.
 
 No test suite. `checks/` holds behaviour scripts run by hand when the logic they cover
 changes; `checks/README.md` says which goes with which. Recorded results go to
-`measurements/`, and the pages under `docs/performance/` quote them.
+`measurements/`, and the pages under `docs/performance/` quote them: a folder's README
+holds the table, the raw records (JSON) stay on disk and are never tracked. The only JSON
+in the repository is configuration.
 
 ## Workflow
 
