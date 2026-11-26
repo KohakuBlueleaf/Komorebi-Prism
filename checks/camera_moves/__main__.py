@@ -43,6 +43,14 @@ def parse():
     parser.add_argument("--view", default="overview")
     parser.add_argument("--size", type=int, nargs=2, default=(1920, 1080))
     parser.add_argument("--card", type=int, required=True)
+    parser.add_argument(
+        "--sun",
+        type=float,
+        nargs=3,
+        default=None,
+        metavar=("FRAME", "AZIMUTH", "ELEVATION"),
+        help="the sun moved before that frame (the field's update then runs)",
+    )
     parser.add_argument("--out", type=Path, default=None)
     return parser.parse_args()
 
@@ -120,10 +128,28 @@ def code_of(why):
     return why
 
 
-def played(loop, frames, pictures):
-    """Each frame of `frames` on `loop`: its record; its picture kept when `pictures`."""
+def sun_moved(loop, sun):
+    """The loop's sun control (`<implementation>.sun`) set to `sun` (azimuth,
+    elevation)."""
+    names = [c.name for c in loop.controls() if c.name.endswith(".sun")]
+    if not names:
+        raise SystemExit("--sun: the preset has no sun control")
+    loop.set(names[0], tuple(sun))
+
+
+def updating(loop):
+    """Whether a host's update (its graph) runs beside the frames now."""
+    graphs = [getattr(host, "graph", None) for host in loop.hosts()]
+    return any(getattr(graph, "handle", None) is not None for graph in graphs)
+
+
+def played(loop, frames, pictures, sun=None):
+    """Each frame of `frames` on `loop` (`sun`: (frame, azimuth, elevation), the sun
+    moved before that frame): its record; its picture kept when `pictures`."""
     out, kept = [], []
     for index, (path, camera) in enumerate(frames):
+        if sun is not None and index == int(sun[0]):
+            sun_moved(loop, sun[1:])
         reloads = len(loop.reloads)
         live = len(getattr(loop, "recoveries", []))
         began = time.perf_counter()
@@ -137,6 +163,7 @@ def played(loop, frames, pictures):
                 {"code": code_of(r["why"]), "s": r["s"]} for r in loop.reloads[reloads:]
             ],
             "recoveries": list(getattr(loop, "recoveries", [])[live:]),
+            "update": updating(loop),
         }
         out.append(one)
         kept.append(frame.picture)
@@ -153,7 +180,7 @@ def run(args, name, frames, pictures, session):
     loop = preset.open(session)
     opened_s = round(time.perf_counter() - began, 3)
     try:
-        records, kept = played(loop, frames, pictures)
+        records, kept = played(loop, frames, pictures, args.sun)
     finally:
         loop.stop()
     return records, kept, opened_s
@@ -187,6 +214,7 @@ def main():
     record["reloads"], record["recoveries"] = len(reloads), len(live)
     record["reload_s"] = round(sum(r["s"] for r in reloads), 3)
     record["recovery_ms"] = round(sum(r.get("ms", 0.0) for r in live), 3)
+    record["update_frames"] = [one["frame"] for one in records if one["update"]]
     record["codes"] = sorted({one["code"] for one in records if one["code"]})
     if want is not None:
         record["differ"] = [one["frame"] for one in records if not one["equal"]]
