@@ -304,7 +304,9 @@ picture (the card part's process start is 0.2 to 0.3 s more).
 What is left, cold (lynxsdesign): Komorebi's host module built 17.1 (one compiler, one
 CPU), the program built 8.2 and launched 9.2, with the card opened again when the kernels
 ask for a larger kernel buffer and every tensor written again (11.1 GB in 7.5 s, cold
-only); the tensors 22.1 GB in 16.4 s; the digest of the files 2.7 (BLAKE2b, one CPU, every
+only); the tensors 22.1 GB in 16.4 s (the card's PCIe link was found at 2.5 GT/s later
+the same day, 16 GT/s being its normal speed; the link's speed during these runs was
+not recorded, so the tensors' seconds are an upper bound); the digest of the files 2.7 (BLAKE2b, one CPU, every
 open, warm too: the scene's key is the digest of the bytes); the conversion's writing 5.5
 (2.3 GB); the HDR map's run-length rows 4 (the interpreter: a serial format); `sun_view`
 2.8. The mesh's colours and the materials' `light` (`vertex_shade`) are not read by `gi`

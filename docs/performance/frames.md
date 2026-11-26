@@ -48,7 +48,8 @@ The renderer's frame was measured on its own ([gi_threads](gi_threads.md), from
 [measurements/gi_threads](../../measurements/gi_threads/README.md)): 1,920 x 1,080, the
 view's camera, 64 frames a load, the median over frames 2 to 64 then of three runs, card
 120 cores, 2026-11-27 (UTC+8), Komorebi 0.6.0, every `gi_threads` picture equal to `gi`'s.
-`gi` holds its push (4.440 ms); `gi_threads` has none. ms.
+`gi` holds its push (4.440 ms at the 2.5 GT/s the card's link ran at during these runs;
+0.565 ms at its normal 16 GT/s); `gi_threads` has none. ms.
 
 | scene (view) | `gi` | `gi` less push | `gi_threads` |
 |---|---:|---:|---:|

@@ -78,7 +78,8 @@ and after.
 What a cold load still spends on lynxsdesign: Komorebi's host module built (17.1, one
 compiler on one CPU), the program built (8.2) and launched (9.2, with the card opened
 again and every tensor written again when the kernels ask for a larger kernel buffer),
-the tensors (22.1 GB in 16.4 s), the files' digest (2.7, every open), the conversion's
+the tensors (22.1 GB in 16.4 s; an upper bound, the link's speed during the runs was not
+recorded and it was found slow later that day), the files' digest (2.7, every open), the conversion's
 writing (5.5).
 
 ## The sky's visibility bake

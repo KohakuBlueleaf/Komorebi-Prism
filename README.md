@@ -141,7 +141,7 @@ Archive); both from Morgan McGuire's Computer Graphics Archive.*
 P150A, 120 cores, AICLK 1,350 MHz, Komorebi 0.6.0, 2026-11-27, 1,920 x 1,080, 64 frames at
 the view's camera, the median over frames 2 to 64, then over three runs, in ms; every
 `gi_threads` picture equal to `gi`'s byte for byte. `gi` pushes its picture into the
-host's memory inside its frame (4.440 ms) and `gi_threads` does not, so the like frame is
+host's memory inside its frame (0.565 ms) and `gi_threads` does not, so the like frame is
 `gi` less its push; the ratio is `gi_threads` over it
 ([gi_threads](docs/performance/gi_threads.md)).
 

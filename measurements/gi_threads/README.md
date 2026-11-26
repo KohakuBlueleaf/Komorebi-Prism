@@ -32,6 +32,15 @@ ms. The ratio is `gi_threads` over `gi`. `gi` pushes its picture to the host ins
 frame (`push`, 4.440 ms on every scene, the preset's option `push` true); `gi_threads`
 does not (its option `push` false): the column "`gi` less push" is the like frame.
 
+The card's PCIe link ran at 2.5 GT/s during these runs; 16 GT/s is its normal speed.
+The link lengthens only what crosses to the host: the push here, and the host columns
+of the update's table. Measured the same day after the link was trained again (the
+stage-wise `textured` frame on sponza, 1,920 x 1,080, three runs at each speed, with
+Komorebi 0.5.3 and 0.6.0 alike): the push 0.565 ms at 16 GT/s against 4.441 ms at
+2.5 GT/s, the frame 16.43 against 20.30 ms, every other time the same. So `gi`'s frame
+at the normal speed is its frame less push plus 0.565 ms, and the column "ratio"
+(with the push) holds for the slow link only.
+
 | scene (view) | `gi` (runs' range) | `gi` less push | `gi_threads` (runs' range) | ratio | ratio less push | pictures |
 |---|---|---:|---|---:|---:|---|
 | sponza (overview) | 26.887 (26.884 to 26.888) | 22.447 | 18.610 (18.602 to 18.625) | 0.69 | 0.83 | equal |
@@ -118,7 +127,7 @@ span as the host sees it is the column "sun set to swap frame's end".
 - `gi`'s push and `gi_threads`' lack of it are the presets' own options, not
   equalised; the frame less push is given beside.
 - The update's table is one run a scene; its host columns hold host time (the loop's
-  Python, the reads), not the card's alone. The span of the update on the card in the
+  Python, the reads, at the slow link), not the card's alone. The span of the update on the card in the
   threads' form is not recorded.
 - The other ways of handing out (`order`, `kept`) and a tile cut (`heavy`) were not run
   for `gi_threads`.

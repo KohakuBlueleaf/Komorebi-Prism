@@ -15,9 +15,13 @@ options. 64 frames a load, no sun moved; a run's number is the median over frame
 
 ## The frame
 
-`gi` pushes its picture into the host's memory inside its frame (4.440 ms on every scene,
-its option `push` true); `gi_threads` does not (the post step writes the display's pages
-from the cores). "`gi` less push" is the like frame; the ratio is `gi_threads` over it.
+`gi` pushes its picture into the host's memory inside its frame (its option `push`
+true); `gi_threads` does not (the post step writes the display's pages from the cores).
+"`gi` less push" is the like frame; the ratio is `gi_threads` over it. The card's PCIe
+link ran at 2.5 GT/s during these runs (16 GT/s is its normal speed), so the push in
+the column `gi` is 4.440 ms on every scene; at 16 GT/s it is 0.565 ms (measured the
+same day on the stage-wise `textured` frame, every other time unchanged), and `gi`'s
+frame is then its frame less push plus 0.565 ms.
 
 | scene (view) | `gi` | `gi` less push | `gi_threads` | ratio |
 |---|---:|---:|---:|---:|
