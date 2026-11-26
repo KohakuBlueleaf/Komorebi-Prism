@@ -127,7 +127,7 @@ command on the cores: 0.2 to 0.6 % in every tile pull, 3.7 to 4.3 % in the place
 the X280). `prefer`'s choosing takes 3.3 to 3.4 us a call on the X280 (`order` 0.42,
 `kept` 0.38), 7.2 to 7.4 ms of the X280 a frame: 74 % of Sponza's tile pull on the X280,
 which the cores feel as a longer ask (95th percentile 12.6 us against `order`'s 4.4 us),
-not yet as a longer frame.
+not as a longer frame.
 
 ## Inside a tile thread
 

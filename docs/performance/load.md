@@ -58,8 +58,10 @@ The load `gi` needs on three new exports (classroom 1,252,126 triangles, lynxsde
 29,756,735, hidden_alley 8,994,697), before and after the work nobody needed was taken
 out: Komorebi 0.6.0, 24 host CPUs, the host part (conversion and lights, no card) and
 `python -m prism_cli open <folder>/scene.glb --pipeline lit --bake none --size 1920 1080
---card 1`. Every converted file and every picture is equal byte for byte before and
-after.
+--card 1`. A scene opened from glTF has no transport set, so `gi` opens on it without
+the far field, with the implementations of `lit` ([presets](../guides/cli.md#the-presets)):
+its load is `lit`'s. Every converted file and every picture is equal byte for byte before
+and after.
 
 | part, lynxsdesign / hidden_alley / classroom | before | after |
 |---|---|---|

@@ -12,13 +12,13 @@ code is `src/prism_reference/scene/artist/` (`opened.py`, `convert.py`, `materia
 
 ```
 export PRISM_DATA=<data root>
-python -m prism_cli open <file>.glb --pipeline lit_threads --size 1920 1080 --card C \
+python -m prism_cli open <file>.glb --pipeline gi_threads --size 1920 1080 --card C \
     --out <folder> [--camera NODE] [--bake wait|background|none]
 ```
 
 converts the file once and keeps it, makes the lights when the preset takes them and the
 scene has none, and draws `--frames` frames (16) as threads, the last written as
-`<folder>/<name>_camera_lit_threads.png` ([the command line](cli.md#open)). The record
+`<folder>/<name>_camera_gi_threads.png` ([the command line](cli.md#open)). The record
 (one JSON line) names the scene `<stem>_<10 hex digits>`: the stem is the file's own, its
 folder's when the file is called `scene`; the digits begin the file's key, the BLAKE2b
 digest of the name, size and bytes of the file, of its sidecar and the sidecar's instance
@@ -31,14 +31,17 @@ When the preset takes the lights (the lit and `gi` presets) and the scene has no
 lighting file is first written with every vertex's sky visibility 1 and the sun's shadow
 map left to the card, so the first lit picture comes before the bake; the bake
 (`--bake background`, the default) runs as a process of its own and replaces the file
-when it ends, and the next open finds the lights baked.
+when it ends, and the next open finds the lights baked. The scene has no indirect file
+and no transport set yet: `gi_threads` (and `gi`, `gi_tile`) draws it without the far
+field, its picture `lit_threads`', the record's `far_field` `absent: ` with what the scene
+lacks ([the indirect light](#the-indirect-light)).
 
 From then on the scene is opened by its name with the view `camera`.
 
 ## 2. Draw it from the command line
 
 ```
-python -m prism_cli run --pipeline lit_threads --scene <name> --view camera \
+python -m prism_cli run --pipeline gi_threads --scene <name> --view camera \
     --size 1920 1080 --frames 64 --path forward --card C
 ```
 
@@ -52,7 +55,7 @@ reference made on the host.
 
 ```
 python -m prism_viewer.server --host 127.0.0.1 --port P --token TOKEN \
-    --pipeline lit_threads --scene <name> --view camera --card C
+    --pipeline gi_threads --scene <name> --view camera --card C
 ```
 
 The catalog lists every preset that renders a view and every scene of the data root with
@@ -61,7 +64,7 @@ its triangles drawn and stored, its objects and instances ([the viewer](viewer.m
 viewer's check runs the same on a threads' preset:
 
 ```
-python -m prism_viewer.server.check --pipeline lit_threads --scene <name> --view camera \
+python -m prism_viewer.server.check --pipeline gi_threads --scene <name> --view camera \
     --card C [--no-reference]
 ```
 
@@ -71,16 +74,20 @@ leaves them out (they only report numbers; every pass or fail of the check stays
 
 ## The indirect light
 
-`gi` and `gi_threads` also read the scene's indirect file and its transport set
-(`SCENE_FILES`), which neither `open` nor the conversion makes. After the lights:
+`gi`, `gi_threads` and `gi_tile` also read the scene's indirect file and its transport set
+(`SCENE_FILES`: the far field), which neither `open` nor the conversion makes. After the
+lights, one of the two builds ([the transport's build](../performance/transport_build.md)):
 
 ```
-python scripts/data/public_scenes.py indirect <name>
+python scripts/data/public_scenes.py indirect <name> --transport sketch   # block by block
+python scripts/data/public_scenes.py indirect <name>                      # dense
 ```
 
-([indirect light](../concepts/scenes.md#indirect-light)). Without them the viewer's
-catalog refuses both presets on the scene with the reason ("no indirect data; no
-transport set").
+([indirect light](../concepts/scenes.md#indirect-light)). Without them the preset is
+opened without the far field ([presets](cli.md#the-presets)); the viewer's scene menu
+shows the scene's Far field as `none` and its load notice says "without the far field"
+([the viewer](viewer.md)). The next open after the files are written loads the whole
+preset.
 
 ## The conversion alone
 
@@ -198,7 +205,7 @@ A scene converted by `gltf_scene.py convert` has no lights until they are made:
 
 ```
 python scripts/data/public_scenes.py lighting NAME     # environment, visibility bake, shadow map
-python -m prism_cli run --pipeline lit_threads --scene NAME --view camera --card C
+python -m prism_cli run --pipeline gi_threads --scene NAME --view camera --card C
 ```
 
 The lighting command is the public scenes' own: it downloads the environment map once,

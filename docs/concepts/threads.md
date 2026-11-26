@@ -1,6 +1,7 @@
 # The frame as threads
 
-In the threads' presets (`textured_threads`, `lit_threads`, `gi_threads`) a view is not
+In the threads' presets (the renderer `gi_threads`, and its smaller forms `lit_threads`
+and `textured_threads`) a view is not
 a list of commands run one after another on every core. It is work cut into threads,
 and every Tensix core takes threads one at a time from a thread on the card's X280
 cores until none is left. The core that takes a tile's thread runs every step of that
@@ -92,7 +93,7 @@ A pipeline's tile thread is its steps in order and the planes they share
 
 | step | given by | what it does with the tile | in a COLOUR view | in a DEPTH view |
 |---|---|---|---|---|
-| `visibility` | `stages/raster/steps` | walks every layer's list as it streams and fills each layer's planes (1/z, red, green, blue, the triangle number), equal depths going to the lower triangle number | yes | yes |
+| `visibility` | `stages/raster/steps` | walks every layer's list as it streams and fills each layer's planes (1/z, red, green, blue, the triangle's word: the bits of 1.0 plus its number), equal depths going to the lower triangle number | yes | yes |
 | `material` | `stages/material/texture/steps` | walks the layers' lists again in SHADE's order (opaque, masked, glass), asks for texture pages, leaves the colour | yes | no |
 | `material_lit` | the same | as `material`, leaving the surfaces (two frames of ten planes) for the light | yes | yes |
 | `light` | `stages/direct/light/steps` | the surface and visibility planes into the colour planes; asks for light pages (the shadow map's, the field's) | yes | no |

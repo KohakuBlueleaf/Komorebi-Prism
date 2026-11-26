@@ -65,8 +65,11 @@ given a scene that has not been fetched stops with an error that names the comma
 ### A scene's files
 
 Each file of a scene lies under `<data>/public/` (`scene.public.files`); a preset names the
-kinds it reads beside the mesh (`SCENE_FILES`, [presets](../guides/cli.md#the-presets)),
-and the viewer's catalog refuses it on a scene lacking one, saying what is missing:
+kinds it reads beside the mesh (`SCENE_FILES`, [presets](../guides/cli.md#the-presets)).
+The viewer's catalog refuses a preset on a scene lacking its `materials` or `lighting`,
+saying what is missing; a scene lacking `indirect` or `transport` (the far field) is drawn
+by `gi`, `gi_threads` and `gi_tile` without the far field, and the record and the viewer
+say what it lacks:
 
 | kind | file | made by | missing |
 | --- | --- | --- | --- |
@@ -362,20 +365,30 @@ it there; Tungsten renders it without a sky. These four take the filmic tone:
 For the optional term `indirect` of `rasterize_lighted` ([indirect light](../internals/reference/indirect.md)), after `lighting`:
 
 ```sh
-python scripts/data/public_scenes.py indirect sponza      # <scene>_indirect.npz, <scene>_transport/
+python scripts/data/public_scenes.py indirect sponza                      # the dense build
+python scripts/data/public_scenes.py indirect sponza --transport sketch   # block by block
 ```
 
-It writes `<scene>_indirect.npz` (the elements in the matrix's order, their transfer
+The transport has two builds ([the transport's build](../internals/reference/transport_build.md)).
+The dense one (the default) evaluates every pair of elements into an `N x N` file and
+takes an SVD of every admissible block; the block-by-block one (`--transport sketch`)
+evaluates each block where it lies and compresses it at once, without the dense matrix.
+On 2026-11-27, 50,000 elements sampled, the block-by-block build took 78 s on Sponza
+(8 tracer threads) against the dense build's 561 s (16 CPUs), with the same error against
+the dense `F` ([measurements](../performance/transport_build.md)). Either writes `<scene>_indirect.npz` (the elements in the matrix's order, their transfer
 rows of the sky, the field's sparse matrix and grid, `counts` with the times and sizes),
 the card's matrix files in `<scene>_transport/` (`blocks.npz`, `weights.f32`, `x.npy`,
 `y_exact.npy`, `y_float.npy`, `y_q8.npy`, `perm.npy`, `README.md`: the layout the
-stage `indirect.transport` reads) and keeps the dense form factors in `<scene>_indirect_work/`
-(`F.npy`, about 6 GB at 40,000 elements; a stopped build goes on from it; it may be
-deleted afterwards). `direct.lights.load` finds the indirect file by its name. Built, with
+stage `indirect.transport` reads; the block-by-block build writes no `y_exact.npy`, there
+being no dense matrix to apply). The dense build keeps the dense form factors in
+`<scene>_indirect_work/` (`F.npy`, about 6 GB at 40,000 elements; a stopped build goes on
+from it; it may be deleted afterwards). `direct.lights.load` finds the indirect file by its name. Built, with
 their elements and `weights.f32`: Sponza (36,832 elements, 1.7 GB), the Bistro interior
 (42,240, 3.2 GB), the Breakfast Room (27,136, 1.4 GB), the Salle de Bain (47,072, 2.4 GB),
 the Modern Hall (48,640, 2.8 GB) and The Modern Living Room (48,896, 2.4 GB). The presets
-`gi` and `gi_threads` read both the indirect file and the transport set.
+`gi`, `gi_threads` and `gi_tile` read both the indirect file and the transport set; on a
+scene without them they draw without the far field, their pictures the lit presets'
+([presets](../guides/cli.md#the-presets)).
 
 ### Limits
 

@@ -107,7 +107,8 @@ composition registers with `prism.core.fields`):
 | over the same bytes | each kind's kept state (a count or place pull holds no tile thread) |
 
 - **The planes** are a tile's working planes, kept between the steps of one tile thread:
-  `frame.visibility` (5 planes of fp32 a layer: depth, red, green, blue, triangle; 4
+  `frame.visibility` (5 planes of 32-bit words a layer: depth, red, green, blue as fp32, the
+  triangle's word `kTriBase + n`; 4
   layers, 20 pages of 4,096 bytes) in every tile thread, and `frame.surface` (two surfaces
   of 10 pages: the opaque layer's, the glass layer's) in the lit ones. A step reads the
   planes the steps before it left (`TileThread.check` refuses a step that reads a plane no

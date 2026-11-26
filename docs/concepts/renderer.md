@@ -2,11 +2,11 @@
 
 A glTF file in, a frame out. A frame draws the scene's layers, gives each pixel its
 material, lights it with the sun (through its shadow map), the lamps, the sky and, in the
-`gi` presets, the indirect field, and converts it for display, all on the card. In the
-threads' presets every step of a tile runs on the core that took the tile's thread
-([the frame as threads](threads.md)); the stage-wise presets run the same parts as
-commands on every core one after another, and draw the pictures the threads' presets are
-compared with.
+`gi` presets, the indirect field, and converts it for display, all on the card. The
+renderer is the preset `gi_threads`: every step of a tile runs on the core that took the
+tile's thread ([the frame as threads](threads.md)); `lit_threads` and `textured_threads`
+are its smaller forms. The stage-wise presets run the same parts as commands on every
+core one after another, and draw the pictures the threads' presets are compared with.
 
 ## The pipeline
 
@@ -42,7 +42,7 @@ earlier is refused when it is made, naming the slot.
 |---|---|---|
 | `scene.mesh` | the triangles as blocks of 32: corners' positions, then their colours | each layer's mesh blocks |
 | `view.camera` | a view's camera: 16 numbers and the frame's grid of tiles | the frame's page |
-| `frame.visibility` | per tile the five planes: 1/z, red, green, blue, the triangle number | a plane of the tile thread, kept on the core; no tensor of the frame |
+| `frame.visibility` | per tile the five planes: 1/z, red, green, blue, the triangle's word (the bits of 1.0 plus the triangle's number, exact for any scene; the float -1 where empty) | a plane of the tile thread, kept on the core; no tensor of the frame |
 | `frame.lists` | each layer's directory and lists | each layer's lists, written by the place pull |
 | `mesh.attributes` | each layer's shade blocks: albedo texel areas, material words, normals, speculars | the same |
 | `frame.surface` | each layer's lit surface: two frames of planes | a plane of the tile thread, kept on the core |
@@ -79,10 +79,13 @@ threads' frame host, else the stage-wise one. `prism.loop.Loop` runs both the sa
 
 The scene's data a preset needs: `raster` the mesh (a generated scene too); the textured
 presets a scene with materials (a public scene or an opened glTF file); the lit presets
-its lighting; `gi` its indirect files, made once by
-`python scripts/data/public_scenes.py indirect <scene>` ([scenes](scenes.md)).
-`gi_threads` draws a scene without them, without the far field, until its transport
-exists.
+its lighting; the `gi` presets its far field, the indirect file and the transport set,
+made once on the host by `python scripts/data/public_scenes.py indirect <scene>`
+([scenes](scenes.md#indirect-light)). On a scene without them, `gi`, `gi_threads` and
+`gi_tile` are opened without the far field, chosen once when the preset is opened: no
+implementation fills `indirect`, `gi_threads` lights with `direct.light.threads` in place
+of `direct.light.threads_field`, and the picture is the lit preset's of the same form
+([presets](../guides/cli.md#the-presets)).
 
 ## How a stage gives its parts
 

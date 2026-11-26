@@ -110,7 +110,8 @@ sky times both albedos (the second bounce).
 What it gets wrong: the light bounced within
 one element spacing is missed: walls next to sunlit ledges and sills, column bases,
 arcade back walls and the curtains' lower edges next to the sunlit floor stay dark (blue
-in the ratio pictures); the field's average over 1.5 spacings mixes the elements of a
+in the ratio pictures); the field's average (in this measurement over every element
+within 1.5 spacings, before the rule of item 5) mixes the elements of a
 curved surface that face the sky or the sun with those that do not, so arch soffits,
 vault strips and capitals are too bright (red); the open floor sees only
 the zenith, which 25 coefficients still underestimate (its sky -14 % on the elements).

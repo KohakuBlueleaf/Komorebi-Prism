@@ -34,8 +34,8 @@ their float32 bit patterns.
   `0x3F800000`, the bits of 1.0), as the fifth plane of the frame stores it: a positive
   normal float whose bit pattern counts the triangles one by one, exact for every
   number the word holds (the float32 of `n` is exact only below 16,777,216; past it
-  neighbours share a float). SETUP adds each lane's number to its block's first word as integers
-  on the vector unit (`SFPIADD`), a clipped triangle's piece takes the same word on the
+  neighbours share a float). SETUP adds each lane's number to its block's first word as
+  integers on the vector unit (`SFPIADD`), a clipped triangle's piece takes the same word on the
   scalar side, and FILL moves the word without arithmetic. Its readers compare words as
   bits (the lit material step's winners) or by a float subtraction that is zero only
   for equal words (two distinct floats from 1.0 up differ by a normal float). An empty
@@ -175,13 +175,13 @@ pages in the target follow the frame's page (`page_of`: `TF_PAGE_FIRST` and
 overview at 1,920 x 1,080: every item's list as a multiset against the reference's
 binning, every slot written once, a random log of 120 cores giving the same items and
 multisets, a heavy tile's bands covering its rows once, the places a running sum.
-`checks/threads_frame geometry` compares the card's pulls with it.
+`python -m checks.threads_frame geometry` compares the card's pulls with it.
 
 ## The frame's pages
 
 The fill writes, per tile, five 4,096-byte planes: depth (`1/z`, 0 where empty), red,
-green, blue, and the triangle's word (`kTriBase + n`, the float -1 where empty). A plane is in the order the
-destination register's window is read out: pixel (row, column) is word
+green, blue, and the triangle's word (`kTriBase + n`, the float -1 where empty). A plane
+is in the order the destination register's window is read out: pixel (row, column) is word
 `64 (row / 2) + 16 (column / 8) + 2 (column mod 8) + row mod 2` (`frame.window_index`), so
 two rows of a plane are 256 contiguous bytes, which lets a band write only its rows.
 `decode_frame` and `frame_of` turn pages into images and back.

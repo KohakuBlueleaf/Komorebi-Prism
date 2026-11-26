@@ -51,7 +51,7 @@ standard library; its docstring names the code and the records each figure is ta
 | [internals/reference/surface.md](internals/reference/surface.md) | the metallic-roughness model, tangents, the texture filters, the surface planes and their comparison with Cycles |
 | [internals/reference/described_light.md](internals/reference/described_light.md) | the direct light of a described scene, in units, against Cycles' passes |
 | [internals/reference/trace.md](internals/reference/trace.md) | the box tree, the walk and the batch tracer |
-| [internals/reference/transport_build.md](internals/reference/transport_build.md) | the transport built block by block: the pairs by block slices, mirrored pairs once, a far block's randomized range |
+| [internals/reference/transport_build.md](internals/reference/transport_build.md) | the transport's two builds: the dense one and where its time goes; block by block (the pairs by block slices, mirrored pairs once, a far block's randomized range); cross approximation and far field only |
 
 ## Performance
 
@@ -60,4 +60,5 @@ standard library; its docstring names the code and the records each figure is ta
 | [performance/frames.md](performance/frames.md) | the frame's time on the card by preset, scene and size, in both forms |
 | [performance/account.md](performance/account.md) | where a threads' frame's time and bytes go: the ways of handing out, a core's waits, the CPUs by step, the X280's choice |
 | [performance/load.md](performance/load.md) | opening a glTF file: a load part by part, cold and warm |
+| [performance/transport_build.md](performance/transport_build.md) | the transport set made on the host: the dense build against the block-by-block one, seconds, rays, memory, error |
 | [performance/gltf_truth.md](performance/gltf_truth.md) | the artists' scenes through glTF: Cycles on the same file against the reference and the card |

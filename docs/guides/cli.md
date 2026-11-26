@@ -8,8 +8,9 @@ checks and the viewer's server open a preset the same way, through
 
 ## The presets
 
-The renderer is the frame run as threads that the card's cores take
-([threads](../concepts/threads.md)): the presets whose names end in `_threads`. The
+The renderer is `gi_threads`: the frame run as threads that the card's cores take
+([threads](../concepts/threads.md)); `lit_threads` and `textured_threads` are its smaller
+forms, without the indirect light and without any light. The
 stage-wise presets run the same items one stage's command after another under the
 frame's thread; they are the form the threads' pictures are compared with. A threads'
 preset takes its stage-wise preset's scene inputs, scene files, `REFERENCE` and `JUDGE`,
@@ -27,7 +28,16 @@ and its options with `tile_thread` (the tile thread it runs) and `push` false ad
 | `field` | a part alone | the indirect field's update, the apply a pass | none named (its hosts read the scene's files) |
 
 The reads are the presets' `SCENE_FILES` (the kinds of `prism_reference.scene.public.files`).
-How the
+The viewer's catalog refuses a preset on a scene that lacks `materials` or `lighting` when
+it reads them. A
+preset with a far field (`gi`, `gi_threads`, `gi_tile`: `indirect` and `transport` in its
+`SCENE_FILES`) on a scene that lacks its indirect data or its transport set is opened
+without it, once, by `preset.opened`: the implementations that fill `indirect` left out,
+those that fill no item and read what nobody writes any more left out with them, each of
+the preset's `FAR_FIELD_ABSENT` replaced by its choice (`gi_threads`: the light unit that
+reads no field version), the term `indirect` taken from `terms`; its other options and its
+form stay. Its pictures are then the lit preset's of its form (`lit_threads`', `lit`'s,
+`lit_tile`'s). The next open after the files are written loads the whole preset. How the
 parts fit: [the renderer](../concepts/renderer.md).
 
 ## What a preset names
@@ -37,7 +47,8 @@ parts fit: [the renderer](../concepts/renderer.md).
 | `PIPELINE` | the implementations, in order, and the pipeline's inputs (a preset given `view.camera` renders a view) |
 | `OPTIONS` | the options a load takes (`frames` the number a check runs) |
 | `SCENE_INPUTS` | the options taken from a public scene's view: `materials`, `name`, `lights` (a preset with any needs a `--view`) |
-| `SCENE_FILES` | the scene's files it reads beside the mesh; the viewer's catalog refuses the preset on a scene lacking one, with the reason |
+| `SCENE_FILES` | the scene's files it reads beside the mesh; the viewer's catalog refuses the preset on a scene lacking `materials` or `lighting`, with the reason; without `indirect` or `transport` the preset opens without its far field (above) |
+| `FAR_FIELD_ABSENT` | (`gi_threads`) each implementation replaced by its choice when the scene has no far field: the light unit that reads no field version |
 | `REFERENCE(loop, scene)` | the picture a frame of `scene` (a view at its size) is compared with, at the loop's settings (the sun, the tone and the terms of `lit` included) |
 | `JUDGE(loop, scene)` | a function of a frame's picture that gives its numbers against the reference: pixels that differ for `raster`; pixels over 2 apart and the largest error for `textured`; the shares over 2, 4 and 8 and the largest error for `lit` (later pieces of cut triangles apart) |
 
@@ -53,7 +64,7 @@ for both forms.
 ## `run`
 
 ```
-python -m prism_cli run --pipeline lit_threads --scene sponza --view overview \
+python -m prism_cli run --pipeline gi_threads --scene sponza --view overview \
     --size 1920 1080 --check 0 15 --card 0 [--out FOLDER]
 ```
 
@@ -88,6 +99,7 @@ The record (one JSON line, and the harness's file under `--out`):
 | `frames`, `rows`, `codes`, `codes_not_0` | the frames run, the times rows read, the distinct codes, the frames whose code is not 0 |
 | `reloads`, `retries`, `frames_reloaded`, `frames_retried` | the loop's reloads (each with its reason and seconds) and retries; the frames that needed one |
 | `sizes`, `resized`, `results`, `path`, `pictures` | the sizes, each resize (frame, size, reloaded, the host's ms), each frame's result columns, the path, whether every picture was taken |
+| `far_field` | null for a preset without a far field; else `present`, or `absent: ` and what the scene lacks ("no indirect data", "no transport set"): the preset then drew without it |
 
 ## `open`
 
@@ -109,7 +121,8 @@ preset's sun command renders it on the card before the first frame is lit
 ([the lights' shadow](../concepts/scenes.md#lighting)); then `--frames` frames (16) on
 the scene's view, the first and the last with their pictures, the last written to
 `DIR/<name>_camera_<pipeline>.png`. `--pipeline` is `textured` by default (give
-`textured_threads`, `lit_threads` or `gi_threads` for the renderer's form), `--size` the
+`gi_threads` for the renderer, `textured_threads` or `lit_threads` for its smaller forms;
+a file just opened has no far field, so `gi_threads` draws it without the indirect light), `--size` the
 view's own if none, `--out` the current folder; `--most-triangles` refuses a file drawing
 more triangles, and without it no count is refused (what refuses is the card's capacity or
 the host's memory). Exit 0; 1 on a frame code that is not 0; 2 when the card refused the
@@ -121,6 +134,7 @@ load. The record, one JSON line:
 | `triangles`, `vertices` | what the conversion wrote (only when this open converted) |
 | `lights`, `lights_made` | the lights' state after the open (`none`, `open`, `baked`); what this open made, the bake's PID and log |
 | `size`, `frames`, `codes`, `picture`, `refused` | the size, the frames run and their codes, the picture's file, the refusal's text |
+| `far_field` | as `run`'s: null, `present`, or `absent: ` and what the scene lacks |
 | `first_picture_seconds` | from the command's start (`_from_process`: the process's) to the first frame's picture; `seconds` the command's |
 | `account.seconds` | each part of the load, exclusive of the tensor writes inside it: `digest`; `convert.<step>` (`import`, `flatten`, `materials`, `textures`, `shared_vertices`, `uv`, `writing`, `entry`); `lights.open` and `lights.open.shadow_map` (the map's camera alone, the map being the card's; or `lights.bake`); `module` (Komorebi's host module); `read.mesh`, `read.materials`, `read.lights`; `session.start`; `model.<implementation>` (its host's prepare and connect); `program.made` (the assembly less its hosts), `program.build`, `program.launch` (the load less the builds and the binds); `bind.<implementation>`; `frame.first`; `frames` (all of them); `other` (the rest) |
 | `account.tensors` | the tensors written to the card while the pipeline is opened, by implementation (`load`: outside every host): bytes, seconds, calls |

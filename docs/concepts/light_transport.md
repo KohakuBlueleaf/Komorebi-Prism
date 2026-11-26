@@ -13,11 +13,11 @@ parts are and where each runs.
 
 | part | what it is | made |
 |---|---|---|
-| elements | points sampled over the surfaces by area (the lighting entry's count, 50,000 by default, then those that see only the void or are buried dropped; 36,832 kept for Sponza), each with a position, a normal, an albedo or an emission and a sky transfer row; padded to whole units of 32 and ordered by a cluster tree | once, on the host, by `public_scenes.py indirect <scene>` |
-| the transport matrix `M = pi F` | what each element receives from every other: `F` the form factors with one visibility ray each, built dense once, then stored as a hierarchical matrix | once, with the elements |
+| elements | points sampled over the surfaces by area (the lighting entry's count, 50,000 by default, then those that see only the void or are buried dropped; 36,832 kept for Sponza), each with a position, a normal, an albedo or an emission and a sky transfer row; padded to whole units of 32 and ordered by a cluster tree | once, on the host, by `public_scenes.py indirect <scene>` (the far field: until it is made, `gi` and its forms draw the scene without the indirect light, [presets](../guides/cli.md#the-presets)) |
+| the transport matrix `M = pi F` | what each element receives from every other: `F` the form factors with one visibility ray each, stored as a hierarchical matrix; built dense then compressed, or block by block without the dense matrix (`--transport sketch`) | once, with the elements |
 | the sources `L0` | each element's outgoing light for the current lights: emission, and albedo / pi times the sun (through the shadow map), the lamps and the sky | at every update |
 | the bounce passes | `E1 = M L0`, `E_k = M (albedo / pi E_(k-1))`, `E = E1 + ... + E_b`, `b` the control `bounces` (2 by default) | at every update, each one apply |
-| the field | voxels of the element spacing, six directions a voxel, each holding `E` plus the element's own sky irradiance; texels of a has-data bit and three square-root codes, in light pages (slot `light.field`) | at every update |
+| the field | voxels of the element spacing, six directions a voxel, each holding `E` plus the element's own sky irradiance, averaged over the elements within 2 spacings of the voxel's centre that the centre sees (one ray each); texels of a has-data bit and three square-root codes, in light pages (slot `light.field`) | at every update |
 | the lookup | at a pixel, the eight voxel centres around `P + n h / 2` with trilinear weights, a direction a voxel by the normal's sign on each axis | in LIGHT, every pixel |
 
 ## The matrix as blocks
@@ -30,6 +30,19 @@ fewer numbers than the block, and dense otherwise. The card's files are the set
 Sponza's holds 8,406 low-rank and 13,024 dense blocks, 421,426 tiles of weights
 (1,726 MB as float32), Bistro interior's 774,298 tiles
 ([the indirect reference](../internals/reference/indirect.md)).
+
+## The build on the host
+
+The set is built in one of two ways ([the transport's build](../internals/reference/transport_build.md)).
+The dense build (the default) evaluates every pair into an `N x N` file, reorders it into
+the cluster order and takes a full SVD of every admissible block. The block-by-block
+build (`public_scenes.py indirect <scene> --transport sketch`) evaluates each block where
+it lies, mirrored pairs once, and compresses an admissible block at once by a randomized
+range; its blocks follow the same truncation and dense rules. On 2026-11-27, 50,000
+elements sampled, Sponza took 561 s dense (16 CPUs) and 78 s block by block (8 tracer
+threads), an artists' scene of 8.8 million triangles 986 s and 163 s (32 threads), each
+build's `y` within 2.4e-4 of the dense build's exact one
+([the transport's build](../performance/transport_build.md)).
 
 ## The apply on the card
 

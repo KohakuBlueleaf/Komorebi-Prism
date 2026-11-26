@@ -48,8 +48,10 @@ python -m prism_viewer.server --host 127.0.0.1 --port 8790 --token TOKEN \
 converts nothing), makes its lights when it has none, draws 16 frames from the file's
 camera and writes the last picture into `out/`; its one-line JSON record names the scene
 (`NAME`, the file's stem and ten hex digits). `run` draws 64 frames with the eye moving
-forward. A scene just opened is drawn by `gi_threads` without the far field until its
-transport exists; `python scripts/data/public_scenes.py indirect NAME` makes it once.
+forward. A scene just opened has no far field: `gi_threads` draws it without the
+indirect light (the record's `far_field` says so) until its indirect file and transport
+set exist; `python scripts/data/public_scenes.py indirect NAME --transport sketch` makes
+them once, on the host.
 The viewer, once its page is built
 (`cd apps/prism_viewer/web && npm install && npm run build`), is at
 `http://127.0.0.1:8790/?token=TOKEN`. Every step, and the public scenes, are in [the quick start](docs/guides/quick_start.md).
@@ -196,14 +198,22 @@ against Cycles reading the same glTF file in [glTF truth](docs/performance/gltf_
 - **What a scene's materials and lights keep**: no refraction, no glass behind glass (one
   transparent layer, the nearest), no coloured shadows, no mirrors or metals'
   reflections; masked, blended and transmitting surfaces cast opaque shadows; sheen and
-  clearcoat are dropped; LIGHT's table holds 32 lamps (a scene with more is refused); the
-  tone is the standard sRGB transfer, not Filmic or AgX
+  clearcoat are dropped; Blender's view transforms (Filmic, AgX) are not applied: the
+  display is a power transfer (2.2) or the standard sRGB one
   ([scenes](docs/concepts/scenes.md#limits), [glTF truth](docs/performance/gltf_truth.md)).
+- **32 lamps a scene.** LIGHT's table holds 32 lamps (`kLampsMax`); a scene with more is
+  refused when its lamps are lit.
 - **No tile is cut in the threads' presets** (`heavy` 0): a tile with far more entries
   than the others is one tile thread and can end the tile pull. A weight that follows the
   frame's data on the card is not in the threads' form.
-- **The indirect light is made on the host once** per scene (10 to 30 minutes for
-  Sponza, 1.8 GB written and 6 GB of work files), by `public_scenes.py indirect`.
+- **A scene opened from glTF has no far field** until its transport is built: the
+  indirect file and the transport set are made on the host once per scene by
+  `public_scenes.py indirect` (Sponza: 78 s block by block, 561 s dense;
+  [the transport's build](docs/performance/transport_build.md)), and until then `gi`,
+  `gi_threads` and `gi_tile` draw it without the indirect light.
+- **A plain glTF export loses part of an artist's scene** (materials, sky, framing or
+  geometry, by scene): what it keeps and what it loses is in
+  [glTF truth](docs/performance/gltf_truth.md).
 - **The presets that read a scene's materials** (`textured`, `lit`, `gi` and their
   threads' forms) are refused on a generated scene.
 - **A size past the capacity a load holds** is a reload of the program; a load that is
@@ -254,7 +264,7 @@ measurements/              every recorded run, a README a folder
 | [the command line](docs/guides/cli.md), [the viewer](docs/guides/viewer.md) | `run`, `open`, the preset runner; the server and the page |
 | [glTF scenes](docs/guides/gltf_scenes.md), [artists' scenes](docs/guides/artist_scenes.md) | opening a glTF file; Blender scenes and the truth by Cycles |
 | [dispatch](docs/internals/program/dispatch.md), [work](docs/internals/program/work.md), [steps](docs/internals/program/steps.md) | how the frame's thread and the handler `work` run a view |
-| [frames](docs/performance/frames.md), [account](docs/performance/account.md) | the frame's time by preset, scene and size; where a threads' frame's time goes |
+| [frames](docs/performance/frames.md), [account](docs/performance/account.md), [transport build](docs/performance/transport_build.md) | the frame's time by preset, scene and size; where a threads' frame's time goes; the transport set's two builds on the host |
 | [checks](docs/guides/checks.md), [scripts](scripts/README.md), [measurements](measurements/README.md) | what each check covers; every script; the records |
 
 ## Licence and credits

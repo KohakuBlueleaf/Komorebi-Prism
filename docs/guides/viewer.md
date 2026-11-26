@@ -6,18 +6,22 @@ shows the frames a card renders through `prism.loop`. Two halves: the server
 (`apps/prism_viewer/web/`), a Vue 3 + Vite project in KohakuTerrarium's design language.
 
 Nothing in either half names a stage. The pipelines offered are the presets of
-`configs/pipeline/` that are given the slot `view.camera`: the renderer's threads' presets
-`textured_threads`, `lit_threads` and `gi_threads`, the stage-wise presets their pictures
+`configs/pipeline/` that are given the slot `view.camera`: the renderer, `gi_threads`, and
+its smaller forms `lit_threads` and `textured_threads`; the stage-wise presets their pictures
 are compared with (`raster`, `textured`, `lit`, `gi`, `lit_tile`, `gi_tile`)
 ([presets](cli.md#the-presets)), opened as the command line opens them
 (`prism_cli.preset.opened`). A preset that takes inputs from a scene's view
 (`SCENE_INPUTS`: materials, lights) is refused on a generated scene ("a generated scene
 has no view to take ... from"), and a preset that reads a scene's files beside its mesh
 (`SCENE_FILES`, the kinds of `prism_reference.scene.public.files`: `materials`,
-`lighting`, `indirect`, `transport`) is refused on a scene that lacks one, with the
-reasons joined ("no lighting file", "no indirect data; no transport set"). The catalog
-says so for every scene and preset, so the page never offers a choice the server would
-refuse. The controls are the loop's (`Loop.controls()`: the hosts', named
+`lighting`, `indirect`, `transport`) is refused on a scene that lacks `materials` or
+`lighting`, with the reasons joined ("no lighting file"). A scene that lacks the far
+field's files (`indirect`, `transport`) is not refused: `gi`, `gi_threads` and `gi_tile`
+open on it without the far field, their pictures the lit presets'
+([the command line](cli.md#run)); the scene's facts say `far_field: none`, the scene menu
+shows it, and the load's notice says "without the far field" with what the scene lacks.
+The catalog says so for every scene and preset, so the page never offers a choice the
+server would refuse. The controls are the loop's (`Loop.controls()`: the hosts', named
 `<implementation>.<name>`); the card's times are the loaded run's columns by name, a
 layer unit's by layer (`part`, `part.<i>`).
 
@@ -31,13 +35,13 @@ npm install
 npm run build          # dist/, which the server serves
 ```
 
-Start the server on a card (the environment of any card run, as the README's "Running it"
-installs it, and `$PRISM_DATA` ([environment](environment.md)); Pillow, the `viewer`
+Start the server on a card (the environment of any card run, as the README's
+[Install](../../README.md#install) sets it up, and `$PRISM_DATA` ([environment](environment.md)); Pillow, the `viewer`
 extra, for the JPEG frames):
 
 ```
 python -m prism_viewer.server --host 127.0.0.1 --port 8790 --token TOKEN \
-    --pipeline lit_threads --scene sponza --view overview [--size W H] [--card 0] \
+    --pipeline gi_threads --scene sponza --view overview [--size W H] [--card 0] \
     [--offer NAME ...]
 ```
 
@@ -146,6 +150,7 @@ the right's. Every panel folds; the browser keeps what is folded.
   | Materials, Textures | materials, textures and the MiB of their texels | the materials file's `counts` |
   | Layers | opaque, masked, glass: the layers its triangles make | `counts.triangles_by_kind` |
   | Lighting | the lighting file's sky visibility: `baked`, `open` (1 everywhere), `none` | the lighting file's `counts` |
+  | Far field | `present` (the indirect data and the transport set), or `none`: `gi` and its forms draw without the indirect term | the files' presence (`catalog.far_field_of`) |
   | Views | the scene's views | the entry |
   | Presets | each family (`raster`, `textured`, `lit`, `gi`; its forms on hover); one that cannot run struck, its reason on hover | the catalog's `refusals` |
 
@@ -195,7 +200,8 @@ the right's. Every panel folds; the browser keeps what is folded.
   thresholds' table again and writes it for the next frame (SHOW reads it at each
   command); the checks and references stay on the default.
 - **Notices**: the last five, newest first, with "clear": loads and reloads with their
-  seconds (a frame recovered by a reload names the code), lists grown live (a threads'
+  seconds (a load of `gi` or its forms on a scene without the far field: "loaded NAME on
+  SCENE without the far field (no indirect data; no transport set)", what it lacks; a frame recovered by a reload names the code), lists grown live (a threads'
   preset whose frame needed more list slots than the load gave: the code's name, the
   view that stopped, each layer with its slots before and after, the milliseconds; [the
   raster model](../internals/raster/model.md#the-lists-slots-a-load-holds)), applied

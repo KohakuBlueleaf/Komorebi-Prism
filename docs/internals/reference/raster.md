@@ -66,7 +66,7 @@ Why exact: every operation is a float32 add, subtract, multiply, divide or compa
 fixed order (no fused multiply-add: `native.build` compiles with `-ffp-contract=off`),
 all IEEE-exact, and the winner of a pixel does not depend on the order fragments arrive in.
 
-A card implementation will not be bit-exact if it uses another order of operations;
+A card implementation that uses another order of operations is not bit-exact;
 compare coverage and depth per pixel and count the differing pixels, which sit on
 triangle edges.
 
