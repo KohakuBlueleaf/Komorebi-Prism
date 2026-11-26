@@ -57,6 +57,7 @@
                     <span v-else class="kt-text-micro text-ink-faint">unknown</span>
                   </td>
                   <td class="px-2 py-1.5 align-middle whitespace-nowrap kt-text-caption" :class="scene.lighting ? 'text-ink' : 'text-ink-faint'" :title="LIGHTING[scene.lighting ?? 'none']">{{ scene.generated ? "-" : (scene.lighting ?? "none") }}</td>
+                  <td class="px-2 py-1.5 align-middle whitespace-nowrap kt-text-caption" :class="scene.far_field === 'present' ? 'text-ink' : 'text-ink-faint'" :title="FAR_FIELD[scene.far_field ?? 'none']">{{ scene.generated ? "-" : (scene.far_field ?? "none") }}</td>
                   <td class="px-2 py-1.5 align-middle kt-text-caption text-ink whitespace-nowrap">{{ scene.views.length ? scene.views.join(", ") : "its own" }}</td>
                   <td v-if="presetsSay" class="px-2 py-1.5 align-middle">
                     <div class="flex gap-1">
@@ -84,7 +85,7 @@ import { compact, exact, presetGroups } from "@/composables/sceneFacts"
 
 // The scene menu: a button with the chosen scene, and a table of every scene the catalog
 // lists (its format and source, triangles, objects, materials, textures, layers, lighting,
-// views, the presets that run on it), filtered and sorted by a column.
+// far field, views, the presets that run on it), filtered and sorted by a column.
 const props = defineProps({
   modelValue: { type: String, default: null },
   scenes: { type: Array, default: () => [] },
@@ -105,6 +106,7 @@ const COLUMNS = [
   { key: "textures", label: "Textures", numeric: true, sort: (s) => s.texel_mib, help: "textures and the MiB of their texels (sorted by the MiB)" },
   { key: "layers", label: "Layers", sort: (s) => s.layers?.length, help: "the layers its triangles make: opaque, masked, glass" },
   { key: "lighting", label: "Lighting", sort: (s) => s.lighting, help: "the lighting file: sky visibility baked, open (1 everywhere), or none" },
+  { key: "far_field", label: "Far field", sort: (s) => s.far_field, help: "the far field's files (indirect data and transport set): present, or none (gi then draws without its indirect term)" },
   { key: "views", label: "Views", sort: (s) => s.views.length, help: "the scene's views" },
   { key: "presets", label: "Presets", sort: (s) => runs(s), help: "the presets that run on it; a struck one cannot, its reason on hover" },
 ]
@@ -112,6 +114,10 @@ const LIGHTING = {
   baked: "the lighting file with the sky's visibility baked",
   open: "the lighting file with the sky's visibility 1 everywhere (not baked)",
   none: "no lighting file: the lit presets cannot run",
+}
+const FAR_FIELD = {
+  present: "the indirect data and the transport set: gi draws its indirect term",
+  none: "no indirect data or no transport set: gi draws without its indirect term",
 }
 const FORMAT_ORDER = ["glTF opened", "glTF converted", "", "generated"]
 const GUTTER = 16

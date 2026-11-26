@@ -34,3 +34,5 @@ SCENE_INPUTS = STAGE_WISE["SCENE_INPUTS"]
 SCENE_FILES = STAGE_WISE["SCENE_FILES"]
 REFERENCE = STAGE_WISE["REFERENCE"]
 JUDGE = STAGE_WISE["JUDGE"]
+# without the scene's far field: the light unit that reads no field version
+FAR_FIELD_ABSENT = {"direct.light.threads_field": "direct.light.threads"}

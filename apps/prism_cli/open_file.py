@@ -156,6 +156,7 @@ def open_command(args):
     record |= {"converted": scene["converted"], "key": scene["key"]}
     record |= {"size": list(preset.size), "frames": len(codes), "codes": codes}
     record |= {"refused": refused, "lights": lights_state(name, data)}
+    record |= {"far_field": preset.far_field}
     record |= {"lights_made": made}
     record |= {"picture": None if picture is None else picture.name}
     if report is not None:
