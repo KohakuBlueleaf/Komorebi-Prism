@@ -94,6 +94,15 @@ The counts are the lengths of `cut_treelets(tree, max_bytes)`'s `treelet_root` a
 area(left) + count_right x area(right)` with triangles on both sides); from level 40 on
 every cut is the median cut, so the depth stays inside the walk's stack of 64.
 
+`tree.build(scene, split="presorted")` makes the median tree's cuts without a sort a
+level: the centroids are sorted once along each axis, and each level splits the three
+sorted orders stably by the cut (a running count a segment), O(n) a level instead of the
+median build's lexsort of every triangle a level. Centroids equal along the cut's axis
+keep the first sort's order (the median build: the previous level's), so the two trees
+can place such triangles differently; both are valid trees of the same cuts and give
+the same hits (any-hit visibility of 4 M rays equal on both scenes measured in
+[transport build](transport_build.md)).
+
 ## The batch tracer
 
 `trace.batch.trace(tree, origin, direction, tmax, any_hit=False)` returns what

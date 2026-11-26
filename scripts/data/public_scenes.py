@@ -8,6 +8,7 @@ from pathlib import Path
 
 from prism_common.paths import data_root
 from prism_reference.direct.prepare import prepare
+from prism_reference.indirect.blockwise.build import build as build_blockwise
 from prism_reference.indirect.build import build
 from prism_reference.scene.files import checksum, export_npy, save_scene
 from prism_reference.scene.public.materials import convert_materials, load_materials
@@ -45,6 +46,18 @@ def main():
         default="host",
         help="lighting: the sun's shadow map rendered here, or left to the card",
     )
+    parser.add_argument(
+        "--transport",
+        choices=("dense", "sketch", "cross"),
+        default="dense",
+        help="indirect: the dense F then SVDs, or block by block (all pairs and a "
+        "randomized range, or cross approximation)",
+    )
+    parser.add_argument(
+        "--far-only",
+        action="store_true",
+        help="indirect, block by block: no near block",
+    )
     args = parser.parse_args()
     data = args.data or data_root()
     if args.command == "lighting":
@@ -61,7 +74,13 @@ def main():
         return
     if args.command == "indirect":
         for name in args.scenes:
-            print(f"{name}: {json.dumps(build(name, data))}")
+            if args.transport == "dense":
+                counts = build(name, data)
+            else:
+                counts = build_blockwise(
+                    name, data, method=args.transport, far_only=args.far_only
+                )
+            print(f"{name}: {json.dumps(counts)}")
         return
     if args.command == "list":
         for name, entry in table().items():

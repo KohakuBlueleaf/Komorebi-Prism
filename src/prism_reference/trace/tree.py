@@ -74,6 +74,47 @@ def split_levels(centroid):
     return levels, perm
 
 
+def presorted_levels(centroid):
+    """As `split_levels` (median cut on the longest axis), each axis sorted once and
+    the sorted orders split stably by the cut: O(n) a level; equal keys keep the
+    first sort's order."""
+    n = len(centroid)
+    orders = np.stack([np.argsort(centroid[:, a], kind="stable") for a in range(3)])
+    flag = np.zeros(n, dtype=bool)
+    start, count, base = np.array([0]), np.array([n]), 0
+    levels = []
+    while len(start):
+        levels.append((base, start, count))
+        last = start + count - 1
+        extent = np.stack(
+            [
+                centroid[orders[a, last], a] - centroid[orders[a, start], a]
+                for a in range(3)
+            ],
+            axis=1,
+        )
+        axis = np.argmax(extent, axis=1)
+        left = (count + 1) // 2
+        first = np.cumsum(count) - count
+        owner = np.repeat(np.arange(len(start)), count)
+        rank = np.arange(int(count.sum())) - first[owner]
+        pos = start[owner] + rank
+        flag[orders[axis[owner], pos]] = rank >= left[owner]
+        for a in range(3):
+            t = orders[a, pos]
+            f = flag[t]
+            before = np.cumsum(f) - f
+            before = before - before[first][owner]
+            place = np.where(f, left[owner] + before, rank - before)
+            orders[a, start[owner] + place] = t
+        inner = count > 1
+        left = left[inner]
+        start = np.stack([start[inner], start[inner] + left], axis=1).ravel()
+        count = np.stack([left, count[inner] - left], axis=1).ravel()
+        base += len(inner)
+    return levels, orders[0]
+
+
 SAH_BINS = 16
 SAH_LEVELS = 40  # from this level on every cut is the median cut
 SAH_MAX_LEVELS = 60
@@ -171,10 +212,13 @@ def sah_cut(c, b_lo, b_hi, lo, hi, owner, count):
 
 def build(scene, split="median"):
     """The tree of a scene as a dict of the arrays named in KEYS; split "median" (the
-    median cut on the longest axis) or "sah" (`sah_levels`)."""
+    median cut on the longest axis), "presorted" (the same cut, `presorted_levels`)
+    or "sah" (`sah_levels`)."""
     p, tris, centroid = triangle_arrays(scene)
     if split == "median":
         levels, perm = split_levels(centroid)
+    elif split == "presorted":
+        levels, perm = presorted_levels(centroid)
     elif split == "sah":
         levels, perm = sah_levels(p, centroid)
     else:

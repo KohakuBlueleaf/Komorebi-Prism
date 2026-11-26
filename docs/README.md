@@ -51,6 +51,7 @@ standard library; its docstring names the code and the records each figure is ta
 | [internals/reference/surface.md](internals/reference/surface.md) | the metallic-roughness model, tangents, the texture filters, the surface planes and their comparison with Cycles |
 | [internals/reference/described_light.md](internals/reference/described_light.md) | the direct light of a described scene, in units, against Cycles' passes |
 | [internals/reference/trace.md](internals/reference/trace.md) | the box tree, the walk and the batch tracer |
+| [internals/reference/transport_build.md](internals/reference/transport_build.md) | the transport built block by block: the pairs by block slices, mirrored pairs once, a far block's randomized range |
 
 ## Performance
 

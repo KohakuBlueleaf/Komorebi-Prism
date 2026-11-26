@@ -20,3 +20,4 @@ under `docs/performance/` quote from here.
 | [viewer](viewer/README.md) | the viewer's field of view at its ends |
 | [gltf_truth](gltf_truth/README.md) | the artists' scenes exported plain and rendered by Cycles from the glTF: what the export loses against the `.blend`, which scenes are usable, the reference and the card against the same file |
 | [open](open/README.md) | `prism_cli open` on four artists' scenes: the account of a load part by part, cold and warm, `textured` and `lit`; the bake of the sky's visibility alone |
+| [transport_build](transport_build/README.md) | the indirect light's transport built dense and block by block on Sponza and an artists' scene: seconds by phase, rays, flops, memory, bytes, the error against the dense matrix; ray trees |
