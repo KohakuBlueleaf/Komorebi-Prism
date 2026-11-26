@@ -27,6 +27,11 @@ FLAT = np.array([128, 128, 255], np.uint8)
 BENT = np.rint((np.array([np.sin(TILT), 0, np.cos(TILT)]) * 0.5 + 0.5) * 255)
 NORMALS = np.zeros((4, 4, 3), np.uint8)
 NORMALS[:, :2], NORMALS[:, 2:] = FLAT, BENT.astype(np.uint8)
+# Lens cases: the camera's fields and the focal length across, over tan(yfov / 2).
+LENSES = (
+    ({"aspect": 2.0, "sensor_fit": "HORIZONTAL", "shift_x": 0.1, "shift_y": 0.05}, 2.0),
+    ({"aspect": 0.75, "sensor_fit": "AUTO", "shift_x": -0.05, "shift_y": 0.0}, 1.0),
+)
 
 
 def png(folder, name, image):
@@ -167,3 +172,28 @@ def surface_case(folder):
             same(f"surface {name} at {px},{py}", planes[name][py, px], want, 1e-5)
     same("surface corner covered", planes["covered"][0, 0], False)
     same("surface corner material", planes["material"][0, 0], -1)
+    for fields, across in LENSES:
+        lens_case(scene, fields, across)
+
+
+def lens_case(scene, fields, across):
+    """A sensor fit at another aspect and a lens shift: the position at every covered
+    pixel against the moved principal point and the kept field across (`across`
+    times tan(yfov / 2))."""
+    cam = scene.cameras[scene.nodes[1].camera]
+    for name, value in fields.items():
+        setattr(cam, name, value)
+    planes = surface(scene, 1, SIZE)
+    width, height = SIZE
+    focal = (width / 2) / (HALF_HEIGHT * across)
+    cx = width / 2 - fields["shift_x"] * width
+    cy = height / 2 + fields["shift_y"] * width
+    xs, ys = np.meshgrid(np.arange(width) + 0.5, np.arange(height) + 0.5)
+    x, y = DISTANCE * (xs - cx) / focal, DISTANCE * (cy - ys) / focal
+    inside = (np.abs(x) < 0.98) & (np.abs(y) < 0.98)
+    outside = (np.abs(x) > 1.02) | (np.abs(y) > 1.02)
+    fit = fields["sensor_fit"]
+    same(f"lens {fit} covered inside", bool(planes["covered"][inside].all()), True)
+    same(f"lens {fit} uncovered outside", bool(planes["covered"][outside].any()), False)
+    want = np.stack([x[inside], y[inside], 0 * x[inside]], -1)
+    same(f"lens {fit} position", planes["position"][inside], want, 1e-5)

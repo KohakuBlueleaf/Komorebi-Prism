@@ -26,6 +26,16 @@ def _node_index(scene, name, what):
     raise ValueError(f"{what}: no node named {name!r}")
 
 
+def _render_camera(scene, render, entry):
+    """The render camera's lens shift and sensor fit from the sidecar's `render`."""
+    index = scene.nodes[render.camera].camera
+    if index == -1:
+        return
+    cam = scene.cameras[index]
+    cam.shift_x, cam.shift_y = (float(v) for v in entry.get("shift", [0.0, 0.0]))
+    cam.sensor_fit = entry.get("sensor_fit") or cam.sensor_fit
+
+
 def _render(scene, entry):
     """Scene.render from the sidecar's `render`."""
     return Render(
@@ -83,6 +93,15 @@ def _instance_table(scene, path):
     return int(starts[-1]) if len(starts) else 0
 
 
+def _named(entry):
+    """A `not_exported` entry as a note's detail: a name, or "name: reason"."""
+    if isinstance(entry, str):
+        return entry
+    return (
+        f"{entry['name']}: {entry['reason']}" if entry.get("reason") else entry["name"]
+    )
+
+
 def apply(scene, path):
     """Applies the sidecar at `path` to `scene` and adds the notes of what it did."""
     path = Path(path)
@@ -94,6 +113,7 @@ def apply(scene, path):
         scene.world = _world(doc["world"])
     if doc.get("render") is not None:
         scene.render = _render(scene, doc["render"])
+        _render_camera(scene, scene.render, doc["render"])
     areas = doc.get("area_lights", [])
     for entry in areas:
         _area_light(scene, entry)
@@ -104,5 +124,7 @@ def apply(scene, path):
         names = _instance_table(scene, path.parent / table["file"])
         scene.notes.append(Note("used", "instance table", names, table["file"]))
     for key, what in NOT_EXPORTED:
-        for name in doc.get("not_exported", {}).get(key, []):
-            scene.notes.append(Note("dropped", f"{what} not exported", 1, name))
+        for entry in doc.get("not_exported", {}).get(key, []):
+            scene.notes.append(
+                Note("dropped", f"{what} not exported", 1, _named(entry))
+            )

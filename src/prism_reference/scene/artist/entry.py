@@ -79,6 +79,9 @@ def view_of(scene, name=None):
         off = np.degrees(np.arcsin(min(1.0, abs(float(up @ unit(across))))))
         if off > ROLL_DEGREES:
             notes.append(Note("dropped", "camera roll", 1, f"{off:.2f} degrees"))
+    if cam.shift_x or cam.shift_y:
+        shift = f"{cam.shift_x:.4f}, {cam.shift_y:.4f} of the fitted side"
+        notes.append(Note("dropped", "camera shift", 1, shift))
     return {VIEW: spec}, {"node": node.name, "aspect": aspect} | spec, notes
 
 

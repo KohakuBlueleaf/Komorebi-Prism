@@ -25,9 +25,25 @@ ROLES = {
 }
 
 
+def lens(cam, width, height):
+    """Focal length and principal point (cx, cy) of a camera at size (W, H): the field
+    of view of the fitted side kept (yfov holds at `aspect`), the lens shift applied."""
+    aspect = cam.aspect or width / height
+    across_file = cam.sensor_fit == "HORIZONTAL" or (
+        cam.sensor_fit == "AUTO" and aspect >= 1
+    )
+    across = cam.sensor_fit == "HORIZONTAL" or (
+        cam.sensor_fit == "AUTO" and width >= height
+    )
+    half = np.tan(cam.yfov / 2) * (aspect if across_file else 1.0)
+    side = width if across else height
+    focal = (side / 2) / half
+    return focal, width / 2 - cam.shift_x * side, height / 2 + cam.shift_y * side
+
+
 def camera_of(scene, node_index, size, near):
     """The rasterizer's camera (16,) float32 of a camera node at size (W, H): the node's
-    world axes as they are (a roll kept), focal length from yfov over H."""
+    world axes as they are (a roll kept), focal length and principal point by `lens`."""
     node = scene.nodes[node_index]
     cam = scene.cameras[node.camera]
     if cam.kind != "perspective":
@@ -36,10 +52,10 @@ def camera_of(scene, node_index, size, near):
     axes = [linear @ a for a in ([1.0, 0, 0], [0, 1.0, 0], [0, 0, -1.0])]
     right, up, forward = (a / np.linalg.norm(a) for a in axes)
     width, height = (int(n) for n in size)
-    focal = (height / 2) / np.tan(cam.yfov / 2)
+    focal, cx, cy = lens(cam, width, height)
     near = cam.znear if cam.znear > 0 else near
     eye = np.asarray(node.world, dtype=np.float64)[:3, 3]
-    tail = [focal, width / 2, height / 2, near]
+    tail = [focal, cx, cy, near]
     return np.concatenate([eye, right, up, forward, tail]).astype(np.float32)
 
 

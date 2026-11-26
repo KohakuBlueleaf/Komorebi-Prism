@@ -1,5 +1,6 @@
 """Lists and fetches the artists' scenes, and runs the scripts of `scripts/blender/` on
-them into <data>/artist/<key>/: list | fetch | measure | export | render | planes."""
+them into <data>/artist/<key>/: list | fetch | measure | export | render | planes;
+selftest runs the material rewrite's own check in Blender."""
 
 import argparse
 import json
@@ -45,6 +46,28 @@ def blender(key, data, script, arguments, timeout, open_blend=True):
     except subprocess.TimeoutExpired:
         return {"error": f"stopped after {timeout} s"}
     lines = [ln[ln.find('{"') :] for ln in done.stdout.splitlines() if '{"' in ln]
+    if done.returncode or not lines:
+        tail = (done.stdout + done.stderr).strip().splitlines()[-3:]
+        return {"error": f"exit {done.returncode}", "tail": tail}
+    return json.loads(lines[-1])
+
+
+def selftest(timeout):
+    """The material rewrite's check, run in Blender on an empty file; its JSON line."""
+    command = [
+        os.environ.get(BLENDER_VARIABLE, "blender"),
+        "--background",
+        "--factory-startup",
+        "--python",
+        str(SCRIPTS / "selftest_materials.py"),
+    ]
+    try:
+        done = subprocess.run(
+            command, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": f"stopped after {timeout} s"}
+    lines = [ln for ln in done.stdout.splitlines() if ln.startswith('{"')]
     if done.returncode or not lines:
         tail = (done.stdout + done.stderr).strip().splitlines()[-3:]
         return {"error": f"exit {done.returncode}", "tail": tail}
@@ -100,7 +123,7 @@ def main():
     parser = argparse.ArgumentParser(description=main.__doc__)
     parser.add_argument(
         "command",
-        choices=("list", "fetch", "measure", "export", "render", "planes"),
+        choices=("list", "fetch", "measure", "export", "render", "planes", "selftest"),
     )
     parser.add_argument("scenes", nargs="*")
     parser.add_argument("--data", type=Path, default=None)
@@ -114,6 +137,10 @@ def main():
     args = parser.parse_args()
     data = args.data or data_root()
     keys = args.scenes or list(table())
+    if args.command == "selftest":
+        record = selftest(args.timeout)
+        print(json.dumps(record), flush=True)
+        raise SystemExit(0 if record.get("ok") else 1)
     if args.command == "list":
         for key in keys:
             print(f"{key}: {attribution(key)}")

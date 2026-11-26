@@ -14,11 +14,19 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import bpy
 import common
+import materials
 import numpy
 
 PUNCTUAL = {"SUN", "POINT", "SPOT"}
 NAMES_LISTED = 200
 TRIANGLES_MODE = 4
+RENDER_SIZE = (
+    "resolution_x",
+    "resolution_y",
+    "resolution_percentage",
+    "pixel_aspect_x",
+    "pixel_aspect_y",
+)
 
 
 def named_copy(name, data):
@@ -33,8 +41,11 @@ def named_copy(name, data):
 
 
 def build_scene(found, depsgraph, source):
-    """A new scene: one object a key at the identity, the cameras and punctual lights."""
+    """A new scene: one object a key at the identity, the cameras and punctual lights,
+    at the source's render size (the cameras' field of view is written for it)."""
     scene = bpy.data.scenes.new("prism_export")
+    for name in RENDER_SIZE:
+        setattr(scene.render, name, getattr(source.render, name))
     names = []
     for i, key in enumerate(sorted(found)):
         name = f"prism_mesh_{i:06d}"
@@ -85,7 +96,8 @@ def world(scene, stem, not_exported):
     if background is None:
         if w is not None:
             entry["color"] = list(w.color)[:3]
-        not_exported["objects"].insert(0, "world")
+        entry_left = {"name": "world", "type": "WORLD", "reason": "not a Background"}
+        not_exported["objects"].insert(0, entry_left)
         return entry
     entry["color"] = list(background.inputs["Color"].default_value)[:3]
     entry["strength"] = float(background.inputs["Strength"].default_value)
@@ -123,13 +135,14 @@ def area_lights(depsgraph):
     ]
 
 
-def listed(names):
-    """At most NAMES_LISTED names, then the count of the rest."""
-    rest = len(names) - NAMES_LISTED
-    return names[:NAMES_LISTED] + ([f"{rest} more"] if rest > 0 else [])
+def listed(entries):
+    """At most NAMES_LISTED entries, then one holding the count of the rest."""
+    rest = len(entries) - NAMES_LISTED
+    more = {"name": f"{rest} more", "type": "", "reason": ""}
+    return entries[:NAMES_LISTED] + ([more] if rest > 0 else [])
 
 
-def sidecar(source, depsgraph, stem, frame):
+def sidecar(source, depsgraph, stem, frame, left):
     """The sidecar's dictionary."""
     render, view = source.render, source.view_settings
     camera = source.camera or next(
@@ -137,9 +150,9 @@ def sidecar(source, depsgraph, stem, frame):
     )
     scale = render.resolution_percentage / 100
     not_exported = {
-        "materials": [m.name for m in bpy.data.materials if not common.principled(m)],
+        "materials": [],
         "lights": [n for n, d, _ in common.lights(depsgraph) if d.type not in PUNCTUAL],
-        "objects": listed(common.not_taken(depsgraph)),
+        "objects": listed(common.not_taken(depsgraph, left)),
     }
     lights = area_lights(depsgraph)
     not_exported["lights"] = [
@@ -158,6 +171,8 @@ def sidecar(source, depsgraph, stem, frame):
                 int(render.resolution_y * scale),
             ],
             "camera": camera.name if camera else None,
+            "shift": [camera.data.shift_x, camera.data.shift_y] if camera else [0, 0],
+            "sensor_fit": camera.data.sensor_fit if camera else None,
             "exposure": float(view.exposure),
             "view_transform": view.view_transform,
             "look": view.look,
@@ -200,6 +215,15 @@ def dropped(found, names, path):
     return differences
 
 
+def lossy(rewritten):
+    """The materials of class X or with a socket lost."""
+    return [
+        name
+        for name, r in rewritten.items()
+        if r["class"] == "X" or any(v["done"] == "lost" for v in r["sockets"].values())
+    ]
+
+
 def main():
     """Exports the open scene to the stem named on the command line."""
     parser = argparse.ArgumentParser()
@@ -211,10 +235,14 @@ def main():
     if args.frame is not None:
         source.frame_set(args.frame)
     frame = source.frame_current
+    common.render_visibility()
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    found, bases = common.copies(depsgraph, keep=True)
-    record = sidecar(source, depsgraph, args.stem, frame)
+    found, bases, left = common.copies(depsgraph, keep=True)
+    record = sidecar(source, depsgraph, args.stem, frame, left)
     scene, names = build_scene(found, depsgraph, source)
+    rewritten, material_seconds, bakes = materials.Rewriter().run(materials.used(found))
+    record["materials"] = rewritten
+    record["not_exported"]["materials"] = lossy(rewritten)
     table(found, names, args.stem + ".instances.npz")
     bpy.context.window.scene = scene
     bpy.ops.export_scene.gltf(
@@ -246,7 +274,12 @@ def main():
             "bases": len(bases),
             "bases_with_several_meshes": sum(n > 1 for n in bases.values()),
             "area_lights": len(record["area_lights"]),
-            "materials_not_exported": len(record["not_exported"]["materials"]),
+            "materials": {
+                c: sum(r["class"] == c for r in rewritten.values()) for c in "PSX"
+            },
+            "materials_with_losses": len(record["not_exported"]["materials"]),
+            "material_seconds": material_seconds,
+            "bakes": bakes,
             "nodes_with_dropped_triangles": len(record["not_exported"]["triangles"]),
             "triangles_not_exported": sum(
                 d["expected"] - d["written"]

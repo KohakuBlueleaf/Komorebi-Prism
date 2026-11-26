@@ -96,8 +96,10 @@ def main():
     started = time.perf_counter()
     out = common.arguments()[0]
     scene = bpy.context.scene
+    common.render_visibility()
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    found, bases = common.copies(depsgraph)
+    found, bases, left = common.copies(depsgraph)
+    reasons = Counter(f"{kind} {reason}" for kind, reason in left.values())
     statistics = bpy.context.scene.statistics(bpy.context.view_layer)
     real = Counter(
         i.object.type for i in depsgraph.object_instances if not i.is_instance
@@ -115,6 +117,7 @@ def main():
         "copies": sum(len(v["matrices"]) for v in found.values()),
         "bases": len(bases),
         "bases_with_several_meshes": sum(n > 1 for n in bases.values()),
+        "objects_left_out": dict(sorted(reasons.items())),
         "blender_triangles": blender_triangles(statistics),
         "blender_statistics": statistics,
         "objects": dict(real),
@@ -147,6 +150,7 @@ def main():
                 "copies",
                 "bases",
                 "bases_with_several_meshes",
+                "objects_left_out",
                 "blender_triangles",
                 "lights",
             )

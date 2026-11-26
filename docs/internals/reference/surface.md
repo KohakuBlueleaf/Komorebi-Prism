@@ -110,7 +110,13 @@ computed.
 Visibility is the rasterizer's (`raster.frames.rasterize`) on the scene drawn by
 `flatten` (at most 40,000,000 triangles) and the camera: the node's world axes as they
 are, so a rolled camera keeps its roll, the focal length `(H / 2) / tan(yfov / 2)` and
-the principal point at the centre; the near distance is the camera's `znear`, else
+the principal point at the centre, with two exceptions the sidecar gives the render
+camera (`material.surface.lens`): the sensor fit keeps the field of view of one side
+(`AUTO`: the longer side at each size). `yfov` holds at the camera's `aspect` `a`, so the
+fitted side's half-angle tangent is `t = tan(yfov / 2) a` when that side was across at
+`a`, else `tan(yfov / 2)`, and `f = (S / 2) / t`, `S` the fitted side in pixels at the
+drawn size (W across, else H); a lens shift moves the principal point to
+`(W / 2 - shift_x S, H / 2 + shift_y S)`; the near distance is the camera's `znear`, else
 `1e-4` of the scene's diagonal. Only the triangle number of a pixel is taken from it.
 Everything else is computed in float64 from the pixel's ray
 `d = forward + right (x + 0.5 - W / 2) / f + up (H / 2 - y - 0.5) / f` through the
@@ -132,7 +138,9 @@ the mean absolute difference, 0 to 0.25) and `compare.json`:
 
 | key | numbers |
 | --- | --- |
-| `registration` | over pixels covered on both sides (Cycles: depth under 1e9), the position's distance over the scene's diagonal (median, 99th percentile), the share of all pixels covered on one side only, the share registered (distance at most 1e-3 of the diagonal) |
+| `registration` | over pixels covered on both sides (Cycles: depth under 1e9), the position's distance over the scene's diagonal (median, 99th percentile), the share of all pixels covered on one side only (Cycles shows a surface where its depth is under 1e9 or its Normal is not zero), the share where Cycles shows a surface without a position (`no_position`), the share registered (distance at most 1e-3 of the diagonal) |
+| `disagreeing` | the pixels where the two sides do not show the same thing (covered on both, not registered; or shown on one side only), the twenty largest groups by the reference's node and by Cycles' object (Object Index, with the object's type) |
+| `not_exported_pixels` | each object of the sidecar's `not_exported.objects` that Cycles' Object Index shows: its name, type, reason and pixels |
 | `normal_degrees` | the angle between the two normals over registered pixels (50th, 90th, 99th percentile) |
 | `base_color` | against Cycles' `diffuse_color + glossy_color` where the reference's metallic is under 0.01, over registered pixels: the mean absolute difference a channel, PSNR (peak 1) and the pixels; for each filter |
 | `aliasing` | per filter, the mean absolute difference of the base colour to the same filter at four times the size, box-filtered down, over pixels covered at both sizes in every sub-pixel |
@@ -143,6 +151,6 @@ A scene drawing more than the triangle budget is written with `skipped` and both
 
 Cycles' passes are the averages of a pixel's samples over its filter: at an edge the
 position, normal and colours mix both sides, so the 99th percentiles hold the edges.
-Materials that are
-not a Principled BSDF are written by the exporter as a name only (glTF's defaults: white,
-metallic 1), so they leave the base-colour numbers.
+The export rewrites
+every material as a plain Principled BSDF ([artists' scenes](../../guides/artist_scenes.md));
+a material of class X keeps only its viewport colour.

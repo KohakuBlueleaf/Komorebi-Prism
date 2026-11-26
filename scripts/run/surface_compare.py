@@ -15,13 +15,18 @@ from prism_reference.material.surface import MOST_TRIANGLES, surface, visibility
 from prism_reference.post.display import to_srgb_standard8
 from prism_reference.scene.artist.entry import camera_node
 from prism_reference.scene.artist.table import artist_dir
-from prism_reference.scene.description.flatten import drawn_triangles, flatten
+from prism_reference.scene.description.flatten import (
+    drawn_triangles,
+    flatten,
+    mesh_triangles,
+)
 from prism_reference.scene.importers import gltf
 
 PLANES_FILE = "cycles.npz"  # written by `artist_scenes.py planes`
 BACKGROUND_DEPTH = 1e9  # Cycles' depth at or past it: no surface
 REGISTERED = 1e-3  # position within this fraction of the diagonal
 METALLIC_UNDER = 0.01
+GROUPS = 20  # the largest groups of disagreeing pixels listed a side
 FILTERS = ("anisotropic", "trilinear", "nearest")
 
 
@@ -127,6 +132,72 @@ def aliasing(small, large, factor):
     return {"mad": float(d.mean()) if len(d) else None, "pixels": int(mask.sum())}
 
 
+def triangle_nodes(scene):
+    """The node index of every triangle `flatten` draws, in its order."""
+    owners, counts = [], []
+    for i, node in enumerate(scene.nodes):
+        if node.mesh != -1:
+            copies = 1 if node.instances is None else len(node.instances)
+            owners.append(i)
+            counts.append(copies * mesh_triangles(scene.meshes[node.mesh]))
+    return np.repeat(np.array(owners, np.int64), np.array(counts, np.int64))
+
+
+def largest(names, labels):
+    """The GROUPS most frequent labels as [[name, pixels]] (labels index `names`)."""
+    found, counts = np.unique(labels, return_counts=True)
+    order = np.argsort(-counts, kind="stable")[:GROUPS]
+    return [[str(names[found[i]]), int(counts[i])] for i in order]
+
+
+def disagreeing(scene, seen, cyc, wrong):
+    """The pixels where the two sides do not show the same thing, grouped by the
+    reference's node and by Cycles' object, the largest groups a side."""
+    tri = seen["tri"]
+    ref = wrong & (tri >= 0)
+    nodes = [n.name for n in scene.nodes]
+    record = {"pixels": int(wrong.sum())}
+    record["reference_nodes"] = largest(nodes, triangle_nodes(scene)[tri[ref]])
+    if "object_index" in cyc and "object_names" in cyc:
+        names = [n if n else "(no object index)" for n in cyc["object_names"]]
+        types = cyc["object_types"]
+        index = cyc["object_index"][wrong & (cyc["object_index"] >= 0)]
+        index = np.where(index < len(names), index, 0)
+        groups = largest(names, index)
+        kind = {n: str(t) for n, t in zip(names, types, strict=True)}
+        record["cycles_objects"] = [[n, c, kind[n]] for n, c in groups]
+    return record
+
+
+def left_out_pixels(folder, cyc):
+    """Pixels Cycles' object index gives each object of the sidecar's
+    `not_exported.objects`: [[name, type, reason, pixels]], the most first."""
+    if "object_index" not in cyc or "object_names" not in cyc:
+        return None
+    doc = json.loads((folder / "scene.prism.json").read_text())
+    rows = {str(n): i for i, n in enumerate(cyc["object_names"]) if n}
+    counts = np.bincount(cyc["object_index"].ravel().clip(0), minlength=len(rows) + 1)
+    found = []
+    for entry in doc.get("not_exported", {}).get("objects", []):
+        if isinstance(entry, dict) and entry["name"] in rows:
+            pixels = int(counts[rows[entry["name"]]])
+            if pixels:
+                found.append([entry["name"], entry["type"], entry["reason"], pixels])
+    return sorted(found, key=lambda e: -e[3])
+
+
+def material_shares(scene, flat, pixels):
+    """{material name: {"triangles": drawn, "pixels": covered}} (-1 and -2: none)."""
+    shares = {}
+    for label, values in (("triangles", flat["material"]), ("pixels", pixels)):
+        found, counts = np.unique(values, return_counts=True)
+        for m, count in zip(found, counts, strict=True):
+            name = scene.materials[m].name if m >= 0 else "(none)"
+            entry = shares.setdefault(name, {"triangles": 0, "pixels": 0})
+            entry[label] += int(count)
+    return shares
+
+
 def roll_degrees(scene, node_index):
     """The camera's roll: its up axis's angle off the vertical plane of its view."""
     linear = np.asarray(scene.nodes[node_index].world, dtype=np.float64)[:3, :3]
@@ -183,6 +254,7 @@ def compare(key, data, size, factor):
     cyc = dict(np.load(artist_dir(data) / key / "surface" / PLANES_FILE))
     diagonal = seen["diagonal"]
     hit, hit_c = ref["covered"], cyc["depth"] < BACKGROUND_DEPTH
+    shown_c = hit_c | (np.linalg.norm(cyc["normal"], axis=-1) > 0)
     both = hit & hit_c
     distance = np.linalg.norm(ref["position"] - cyc["position"], axis=-1) / diagonal
     distance = np.where(both, distance, 0.0)
@@ -191,10 +263,14 @@ def compare(key, data, size, factor):
     record["registration"] = {
         "distance_median": float(np.median(d)) if len(d) else None,
         "distance_p99": float(np.percentile(d, 99)) if len(d) else None,
-        "one_side_only": float(np.mean(hit != hit_c)),
+        "one_side_only": float(np.mean(hit != shown_c)),
+        "no_position": float(np.mean(shown_c & ~hit_c)),
         "registered": float(registered.sum() / max(both.sum(), 1)),
         "diagonal": diagonal,
     }
+    wrong = (both & ~registered) | (hit != shown_c)
+    record["disagreeing"] = disagreeing(scene, seen, cyc, wrong)
+    record["not_exported_pixels"] = left_out_pixels(artist_dir(data) / key, cyc)
     cosine = np.sum(ref["normal"] * cyc["normal"], axis=-1)
     length = np.linalg.norm(cyc["normal"], axis=-1)
     angle = np.degrees(np.arccos(np.clip(cosine / np.maximum(length, 1e-12), -1, 1)))
@@ -223,6 +299,7 @@ def compare(key, data, size, factor):
         },
     }
     record["tangent_primitives"] = report.get("tangents", {})
+    record["material_shares"] = material_shares(scene, flat, ref["material"][hit])
     record["pictures"] = pictures(
         folder, ref, others, cyc, box, (angle, distance, base_diff, mask)
     )
@@ -246,7 +323,13 @@ def main():
         line = {
             k: v
             for k, v in record.items()
-            if k not in ("pictures", "tangent_primitives")
+            if k
+            not in (
+                "pictures",
+                "tangent_primitives",
+                "disagreeing",
+                "not_exported_pixels",
+            )
         }
         print(json.dumps(line), flush=True)
 

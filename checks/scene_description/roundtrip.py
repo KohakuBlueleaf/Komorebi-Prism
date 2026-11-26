@@ -7,6 +7,7 @@ import numpy as np
 
 from checks.scene_description import build
 from checks.scene_description.compare import same
+from prism_reference.scene.artist.entry import view_of
 from prism_reference.scene.description.check import check
 from prism_reference.scene.description.flatten import flatten
 from prism_reference.scene.description.report import coverage
@@ -325,6 +326,8 @@ SIDECAR = {
     "render": {
         "size": [640, 360],
         "camera": "cam_persp",
+        "shift": [0.1, -0.05],
+        "sensor_fit": "HORIZONTAL",
         "exposure": 0.5,
         "view_transform": "AgX",
         "look": "None",
@@ -350,7 +353,10 @@ SIDECAR = {
     "not_exported": {
         "materials": ["toon"],
         "lights": ["sky light"],
-        "objects": ["hair", "smoke"],
+        "objects": [
+            "hair",
+            {"name": "smoke", "type": "VOLUME", "reason": "type not copied"},
+        ],
     },
 }
 
@@ -389,6 +395,14 @@ def sidecar_case(name, path):
         (index["cam_persp"], 0.5, "AgX", "None", 1.0),
     )
     same(f"{name} render size", r.size, [640, 360])
+    p, o = scene.cameras
+    same(
+        f"{name} render camera shift, sensor fit",
+        (p.shift_x, p.shift_y, p.sensor_fit, o.shift_x, o.shift_y, o.sensor_fit),
+        (0.1, -0.05, "HORIZONTAL", 0.0, 0.0, ""),
+    )
+    shifted = [n.detail for n in view_of(scene)[2] if n.what == "camera shift"]
+    same(f"{name} camera shift note", shifted, ["0.1000, -0.0500 of the fitted side"])
     w = scene.world
     same(f"{name} world", (w.strength, w.environment), (1.5, "sky.hdr"))
     same(
@@ -428,7 +442,9 @@ def sidecar_case(name, path):
         if n.kind == "dropped" and n.what.endswith("not exported")
     )
     same(
-        f"{name} not exported", dropped, sorted(["toon", "sky light", "hair", "smoke"])
+        f"{name} not exported",
+        dropped,
+        sorted(["toon", "sky light", "hair", "smoke: type not copied"]),
     )
     out = flatten(scene, 1000)
     same(

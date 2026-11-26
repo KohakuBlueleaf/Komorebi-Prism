@@ -1,7 +1,8 @@
 """Run inside Blender: the passes of a Cycles multilayer EXR as float32 planes in an .npz,
-normals and positions in the description's axes (+Y up).
+normals and positions in the description's axes (+Y up), the object index with its rows.
 `blender --background --python planes.py -- <truth.exr> <out.npz>`"""
 
+import json
 import os
 import sys
 import time
@@ -22,8 +23,10 @@ PASSES = {
     "glossy_color": ("Glossy Color", "RGB"),
     "emit": ("Emission", "RGB"),
     "uv": ("UV", "UV"),
+    "object_index": ("Object Index", "X"),
 }
 TURNED = ("normal", "position")
+ROWS = ".objects.json"  # render.py's object rows beside the EXR
 
 
 def channels(path):
@@ -69,6 +72,14 @@ def main():
         if name in TURNED:
             plane = turned(plane)
         planes[name] = numpy.ascontiguousarray(plane, dtype=numpy.float32)
+    if "object_index" in planes:
+        planes["object_index"] = numpy.rint(planes["object_index"]).astype(numpy.int32)
+    rows_path = os.path.splitext(exr)[0] + ROWS
+    if os.path.isfile(rows_path):
+        with open(rows_path) as f:
+            rows = json.load(f)
+        planes["object_names"] = numpy.array(rows["names"])
+        planes["object_types"] = numpy.array(rows["types"])
     size = numpy.array([pixels.shape[1], pixels.shape[0]], dtype=numpy.int64)
     numpy.savez(out, size=size, **planes)
     common.report(

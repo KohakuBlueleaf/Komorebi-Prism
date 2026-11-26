@@ -139,7 +139,9 @@ class Light:
 
 @dataclass
 class Camera:
-    """A perspective or orthographic camera."""
+    """A perspective or orthographic camera; a lens shift in units of the fitted side,
+    the side whose field of view is kept at another aspect ("" or "VERTICAL": yfov;
+    "AUTO": the longer side)."""
 
     kind: str = "perspective"
     yfov: float = 0.0
@@ -148,6 +150,9 @@ class Camera:
     zfar: float | None = None
     xmag: float = 0.0
     ymag: float = 0.0
+    shift_x: float = 0.0
+    shift_y: float = 0.0
+    sensor_fit: str = ""
 
 
 @dataclass
