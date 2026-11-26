@@ -10,9 +10,8 @@ run inside Blender (`scripts/blender/`), the table of the scenes
 
 Blender's own glTF exporter falls short of a renderer's input in three ways:
 
-- It writes every copy of an instanced mesh as a mesh of its own. On a production set of
-  35.5 M drawn triangles, the exported file held 142.36 M triangles in 3.9 GB, with the
-  exporter's instancing option on or off.
+- It writes every copy of an instanced mesh as a mesh of its own, with the exporter's
+  instancing option on or off, so a set of many copies grows by their count.
 - It drops area lights and the world.
 - It carries only materials built on a Principled BSDF, and of those only images linked
   straight (or through a Mapping, a Separate Color or a Normal Map node) to its inputs.
@@ -318,8 +317,22 @@ lights go through the exporter's and the importer's unit conversions. `planes.py
 `scene_gltf.blend` as on the artist's file, so the surface's and the light's comparisons
 can be pointed at the same glTF by a data root holding the plain export and these files.
 
-Which scenes pass, what the plain export loses against the `.blend` and how the
-reference compares: [the glTF truth](../../measurements/gltf_truth/README.md).
+The card's picture is judged the same way: `python -m prism_cli open
+$PRISM_DATA/artist/<KEY>/scene.glb --pipeline lit --size 1280 720 --bake none` draws the
+plain export ([the command line](cli.md#open)), and its last picture is compared with
+`truth_gltf.png`. Which scenes pass, what the plain export loses against the `.blend` and
+how the reference and the card compare: [the glTF truth](../performance/gltf_truth.md),
+from [measurements/gltf_truth](../../measurements/gltf_truth/README.md). A scene whose glTF
+picture is not a coherent picture of the scene is left out as a test scene, not repaired.
+
+The reference's own comparisons against Cycles' passes, both without a card:
+`python scripts/run/surface_compare.py KEY [KEY ...] [--data FOLDER] [--size W H]
+[--factor N]` (the surface's planes, [surface](../internals/reference/surface.md)) and
+`python scripts/run/light_compare.py passes|compare|table [KEY ...] [--data FOLDER]
+[--size W H] [--samples N] [--timeout SECONDS] [--runs ...]` (the direct light: `passes`
+renders Cycles' direct-light passes in Blender, `compare` sets the reference's direct
+light against them, writing the pictures and `compare.json` under
+`<data>/artist/<key>/light/`; `table` gathers them into a README table).
 
 ## Not carried yet
 
@@ -334,4 +347,4 @@ reference compares: [the glTF truth](../../measurements/gltf_truth/README.md).
 - Triangles the glTF exporter leaves out, each recorded in `not_exported.triangles`.
   Two cases were measured. When a mesh's material uses a tiled (UDIM) image, the
   exporter keeps a triangle only when its first corner lies on an existing tile. In the
-  second case, one object lost 20 of its 179 triangles, and the cause was not found.
+  second case, one object lost part of its triangles, and the cause was not found.

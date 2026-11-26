@@ -28,6 +28,8 @@ tt-metal tree. The variables it reads that a run of this repository meets:
 | --- | --- |
 | `KMR_CACHE` | the cache directory (default `~/.cache/komorebi`): the native host module built on first use, the dispatcher image, the RISC-V compiler `kmr sfpi` fetches and the runtime root; a new cache directory needs `kmr sfpi` again |
 | `TT_METAL_HOME` | a tt-metal tree; set, it always means that tree, and the native module is built against it; unset with `komorebi-runtime` installed, Komorebi takes its tree from the runtime package |
+| `TT_METAL_CACHE` | the folder of tt-metal's kernel caches (default `~/.cache`); the account of a preset's frames (`scripts/run/account.py`, `src/prism/check/account/code.py`) reads the built kernels' ELF files from its `tt-metal-cache*/kernels` |
 | `TT_VISIBLE_DEVICES` | a session's `card` selects the card through it (an error if the variable already names another card); `kmr setup` without `--card` takes its first card, else 0 |
 
-`prism_reference` needs neither Komorebi nor a card.
+`prism_reference` needs neither Komorebi nor a card. The steps from an installed Komorebi
+to a picture: [quick start](quick_start.md).

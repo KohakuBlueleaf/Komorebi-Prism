@@ -1,9 +1,13 @@
 # The scene description
 
 `prism_reference.scene.description` is one description of a scene, filled by an importer
-from an industrial file and read by everything after it. The reference and the compile
-for the card read the description, never a file format. The first importer is glTF 2.0
-(`prism_reference.scene.importers.gltf`).
+from a scene file and read by everything after it, never the file format itself. The
+importer is glTF 2.0 (`prism_reference.scene.importers.gltf`). What reads the description:
+the conversion into a scene of the tables, which every preset and the card's hosts then
+open ([glTF scenes](../guides/gltf_scenes.md)); the reference's surface
+(`prism_reference.material`) and its direct light of a described scene
+(`prism_reference.direct.described`), which the comparisons with Cycles use
+([artists' scenes](../guides/artist_scenes.md)).
 
 ## What it holds
 
@@ -18,7 +22,7 @@ Plain dataclasses of numpy arrays (`description/types.py`):
 | `TextureUse` | a texture index, its UV set (0 or 1), `offset`, `rotation`, `scale` (`KHR_texture_transform`; identity when absent) |
 | `Texture`, `Sampler`, `Image` | an image and sampler (-1: the default); wrap modes `REPEAT`, `CLAMP`, `MIRROR` and filters by glTF's names; an image's `mime`, `width`, `height` read from the PNG, JPEG or WebP header (0, 0 for another format) and its `uri` (a path beside the file) or `data` (a zero-copy view of the bytes). Images are never decoded here |
 | `Light` | `kind` (`directional`, `point`, `spot`, `area`), `color`, `intensity` (lux for directional, candela for point and spot, watts for area), `range`, cone angles; an area light's `shape` and `size` |
-| `Camera` | perspective (`yfov`, `aspect` or None) or orthographic (`xmag`, `ymag`); `znear`, `zfar` (None when absent) |
+| `Camera` | perspective (`yfov`, `aspect` or None) or orthographic (`xmag`, `ymag`); `znear`, `zfar` (None when absent); the lens shift `shift_x`, `shift_y` in units of the fitted side and `sensor_fit`, the side whose field of view is kept at another aspect (`""` or `VERTICAL`: `yfov`; `AUTO`: the longer side), both from the sidecar |
 | `World`, `Render` | the background colour, strength, environment image and its rotation; the render size, camera node, exposure, view transform, look and gamma |
 | `Note` | `kind`, `what`, `count`, `detail` |
 
@@ -92,7 +96,8 @@ When `<stem>.prism.json` lies beside the file, it is applied after the glTF:
 ```
 {"version": 1,
  "source": {"file": str, "blender": str, "frame": int},
- "render": {"size": [W, H], "camera": "<node name>", "exposure": float,
+ "render": {"size": [W, H], "camera": "<node name>", "shift": [x, y],
+            "sensor_fit": "AUTO" | "HORIZONTAL" | "VERTICAL", "exposure": float,
             "view_transform": str, "look": str, "gamma": float},
  "world": {"color": [r, g, b], "strength": float, "environment": str | null,
            "rotation": [x, y, z]},
@@ -100,12 +105,17 @@ When `<stem>.prism.json` lies beside the file, it is applied after the glTF:
                   "size": [sx, sy], "color": [r, g, b], "power": float,
                   "matrix": [16 floats, row-major, glTF axes]}],
  "instances": {"file": "<stem>.instances.npz"} | null,
- "not_exported": {"materials": [str], "lights": [str], "objects": [str]}}
+ "not_exported": {"materials": [str], "lights": [str],
+                  "objects": [str | {"name": str, "type": str, "reason": str}]}}
 ```
 
 `world` becomes `Scene.world`; `render` becomes `Scene.render`, its camera found by node
-name. Each area light becomes a `Light` of kind `area` (intensity in watts) on a new root
-node with that matrix. Each `not_exported` name becomes a `dropped` note. An unknown
+name, and that camera takes the `shift` and `sensor_fit`. Each area light becomes a `Light`
+of kind `area` (intensity in watts) on a new root node with that matrix. Each
+`not_exported` entry becomes a `dropped` note (`material not exported`, `light not
+exported`, `object not exported`; an object's detail `name: reason`). The sidecar, the
+area lights and the instance table each add a `used` note. Other keys of the sidecar (the
+workbench's `materials` record, `not_exported.triangles`) are not read here. An unknown
 `version` or camera name is a `ValueError`.
 
 The instance table is an `.npz` with `node_names` (N,) str, `starts` (N + 1,) int64 and
