@@ -18,6 +18,12 @@
 #define TF_HEAVY 9u       /* the weight above which a tile is cut into bands */
 #define TF_TARGET 10u     /* the display's (or a DEPTH view's target's) address */
 #define TF_RANGE_BLOCKS 11u /* the triangle blocks a count range holds */
+#define TF_PAGE_FIRST 12u  /* a tile's page in the target: TF_PAGE_FIRST + (tile / across) */
+#define TF_PAGE_ACROSS 13u /*   * TF_PAGE_ACROSS + tile % across (the display: 0, across) */
+#define TF_ITEMS 14u       /* the items' blocks: their tensor's address, a block a slice:
+                              TF_SLICE_TILES words (a tile: its first item in the slice |
+                              its items << 16), then TR_SLICE_RECORDS half-words (an
+                              item's rows: first | end << 8) */
 
 /* A view's kind */
 #define TV_COLOUR 0u
@@ -31,9 +37,13 @@
 #define TF_L_BLOCKS 2u      /* its blocks */
 #define TF_L_SHADE 3u       /* its shade blocks' address (0: not shaded) */
 #define TF_L_LISTS 4u       /* its lists' address */
-#define TF_L_COUNTS 5u      /* its counts' address: a page a core */
-#define TF_L_ROWS 6u        /* its row histograms' address: a page a core */
-#define TF_L_POSITIONS 7u   /* each core's first position in each tile's list */
+#define TF_L_COUNTS 5u      /* its counts: a page a core, a word a tile (its entries) */
+#define TF_L_ROWS 6u        /* its row histograms: a page a core, 64 bytes a tile (16
+                               counts of entries starting in a 2-row group, then 16 of
+                               entries ending in one, uint16) */
+#define TF_L_POSITIONS 7u   /* each core's first position in each item's list, from the
+                               slice's place: a block a (slice, core), TR_SLICE_RECORDS
+                               words, the slice's items in tile order */
 
 /* A step's own words follow, one a name of its `words`, assigned by prism.core as the
  * defines PRISM_TF_<STEP>_<WORD> from TF_STEP_AT, filled a view by the step's function
