@@ -53,8 +53,9 @@ python scripts/data/public_scenes.py indirect sponza      # <scene>_indirect.npz
    irradiance: a frame is direct light only (the sun, the lamps, the sky with its
    visibility). With the default every frame is the earlier one bit for bit.
 4. **The sky** by 25 spherical harmonics (bands 0 to 4): each element has a transfer row
-   `T_k = pi / 256 sum Y_k(w)` over those of 256 cosine rays (seed 51) from `p + eps n`
-   that escape; its sky irradiance is `max(0, T c)`, `c` (25 x 3) the least-squares fit,
+   `T_k = pi / 1024 sum Y_k(w)` over those of 1,024 cosine rays (seed 51; one in each
+   cell of a 32 x 32 grid over the two sample numbers, jittered) from `p + eps n` that
+   escape (256 random rays left a mottle of 0.6 points of roughness on plain walls); its sky irradiance is `max(0, T c)`, `c` (25 x 3) the least-squares fit,
    weighted by solid angle, of the basis to the turned octahedral map with its sun's cone
    replaced by the 4 to 8 degree ring's mean (as the 9 coefficients have it), on a
    256 x 512 grid. A turn of the sky changes `c` only. Another form, 32 patches of

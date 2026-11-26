@@ -11,14 +11,16 @@ from prism_reference.direct.sky import (
     texel_directions,
 )
 from prism_reference.direct.sky import sh_basis as sh_basis_9
-from prism_reference.indirect.elements import cosine_directions
+from prism_reference.raster.vector import cross3, normalized
+from prism_reference.scene.generated import uniform
 from prism_reference.trace.batch import trace
 from prism_reference.trace.tracer import TMAX
 
 F = np.float32
 LUMINANCE = np.array([0.2126, 0.7152, 0.0722])
-# Rays a transfer row and their seed; bands 0 to 4, fitted on SKY_GRID x 2 SKY_GRID.
-SKY_RAYS, SKY_SEED = 256, 51
+# A transfer row's rays (a SKY_SIDE x SKY_SIDE grid) and their seed; bands 0 to 4,
+# fitted on SKY_GRID x 2 SKY_GRID.
+SKY_SIDE, SKY_SEED = 32, 51
 SKY_TERMS = 25
 SKY_GRID = 256
 _MAPS = {}
@@ -88,15 +90,36 @@ def sky_coefficients(lights):
     return (fit @ sky_radiance(lights, d).astype(np.float64)).astype(F)
 
 
-def transfer(tree, elements, eps, rays=SKY_RAYS):
+def stratified_directions(index, k, side, normal, seed):
+    """Cosine-weighted unit directions (n, 3) float32 about normals (n, 3): cell k of a
+    side x side grid over (u1, u2), jittered by the hash of index + k, in the frame of
+    `elements.cosine_directions`."""
+    u1 = (k // side + uniform(index + k, 0, seed)) / F(side)
+    u2 = (k % side + uniform(index + k, 1, seed)) / F(side)
+    r, phi = np.sqrt(u1), F(2 * np.pi) * u2
+    normal = normal.astype(F)
+    helper = np.where(
+        (np.abs(normal[:, 0]) < F(0.9))[:, None], F([1, 0, 0]), F([0, 1, 0])
+    )
+    t = normalized(cross3(helper, normal))
+    b = cross3(normal, t)
+    up = np.sqrt(np.maximum(F(1) - u1, F(0)))
+    return (t * (r * np.cos(phi))[:, None] + b * (r * np.sin(phi))[:, None]) + (
+        normal * up[:, None]
+    )
+
+
+def transfer(tree, elements, eps, side=SKY_SIDE):
     """Each element's transfer row (N, SKY_TERMS) float32: pi / rays x the sum of
-    `sh_basis` over its escaping cosine rays from p + eps n (any hit)."""
+    `sh_basis` over its escaping cosine rays from p + eps n (any hit), rays = side^2
+    stratified over the hemisphere (`stratified_directions`)."""
     p, n = elements["position"], elements["normal"]
     out = np.zeros((len(p), SKY_TERMS))
+    rays = side * side
     index = elements["sample"].astype(np.int64) * rays
     origin = p + n * F(eps)
     for k in range(rays):
-        d = cosine_directions(index + k, n, SKY_SEED)
+        d = stratified_directions(index, k, side, n, SKY_SEED)
         _, tri, _, _ = trace(tree, origin, d, TMAX, any_hit=True)
         free = np.nonzero(tri < 0)[0]
         out[free] += sh_basis(d[free])
