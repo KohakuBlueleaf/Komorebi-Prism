@@ -1,11 +1,13 @@
 """The threads' form checked: `model` (no card) the checks' own parts against the model;
-`tile` the tile pull alone on the model's data, `depth` the sun's DEPTH view alone
-(a map of one quadrant: --shadow-side) against the stage-wise map, `geometry` count,
-sums and place against the model, `whole` the threads' preset's frame, each against
-the stage-wise preset `--pipeline` (with lights: the sun set, its command sent, its map
-compared too); at each of `--cores` and `--policy`. One JSON line;
-the record to <out>/<part>_<scene>[_<view>]_<W>_<H>.json (out: measurements/threads_frame). Exit 1
-on a difference. Example: python -m checks.threads_frame tile --pipeline textured
+`tile` the tile pull alone on the model's data, `depth` the sun's DEPTH view alone (a map
+of one quadrant: --shadow-side) against the stage-wise map, `geometry` count, sums and
+place against the model, `whole` the threads' preset's frame (with lights: the sun set,
+its command sent, its map compared too), `update` the field's update (its field against
+the stage-wise update's at each --deal) and the frames after it, `during` the frames
+while it runs (each the field before or after it); each against the
+stage-wise preset `--pipeline`, at each of `--cores` and `--policy`. One JSON line; the
+record to <out>/<part>_<scene>[_<view>]_<W>_<H>.json (out: measurements/threads_frame).
+Exit 1 on a difference. Example: python -m checks.threads_frame tile --pipeline textured
 --scene <scene> --view <view> --card 1"""
 
 import argparse
@@ -19,13 +21,21 @@ from prism_cli.preset import opened
 from checks.raster_model.compare import RESULTS
 from checks.threads_frame import model_only
 from checks.threads_frame.threaded import ThreadedLoop
-from prism.check.threads import depth_half, geometry_half, names, tile_half, whole
+from prism.check.threads import (
+    depth_half,
+    during,
+    geometry_half,
+    names,
+    tile_half,
+    update,
+    whole,
+)
 from prism.check.threads.card import recorded
 from prism_reference.direct.lights import sun_angles
 from prism_reference.scene.camera import with_size
 
 ROOT = Path(__file__).resolve().parents[2]
-PARTS = ("model", "tile", "depth", "geometry", "whole")
+PARTS = ("model", "tile", "depth", "geometry", "whole", "update", "during")
 SUFFIX = "_threads"  # the threads' preset of a stage-wise preset
 
 
@@ -61,10 +71,26 @@ def parse():
         help="azimuth elevation (depth, whole)",
     )
     parser.add_argument(
+        "--no-sun", action="store_true", help="whole: no sun set, its map as it stands"
+    )
+    parser.add_argument(
         "--shadow-side", type=int, default=None, help="the map's side (depth, whole)"
     )
     parser.add_argument(
         "--no-recover", action="store_true", help="a core that gives up stays as it is"
+    )
+    parser.add_argument(
+        "--deal",
+        type=cores_of,
+        nargs="+",
+        default=None,
+        help="update: the stage-wise transport's cores (else the update's, then all)",
+    )
+    parser.add_argument(
+        "--bounces", type=int, default=None, help="the field's passes (with a sun)"
+    )
+    parser.add_argument(
+        "--frames", type=int, default=64, help="during: frames sent at most"
     )
     parser.add_argument("--card", type=int, default=None, help="needed but for model")
     parser.add_argument("--out", type=Path, default=None)
@@ -86,15 +112,24 @@ def opener(args, session):
 
 def sun_of(args):
     """The whole part's sun options: the sun set (--sun, else the lights' own) when
-    the scene has lights, so both loops send its command; {} without lights."""
-    if args.lights is None:
+    the scene has lights, so both loops send its command; {} without lights or with
+    --no-sun (the lights' map as it stands)."""
+    if args.lights is None or args.no_sun:
         return {}
     sun = tuple(args.sun) if args.sun else sun_angles(args.lights["sun_direction"])
     given = {"sun": tuple(float(angle) for angle in sun)}
+    if args.bounces is not None:
+        given |= {"bounces": args.bounces}
     if args.shadow_side is not None:
         given |= {"shadow_side": args.shadow_side}
         given |= {"lights": depth_half.lights_of(args.lights, args.shadow_side)}
     return given
+
+
+def deals_of(args, threads_name):
+    """The update part's deals: the threads' preset's update cores, then every core."""
+    preset = opened(threads_name, args.scene, args.view, args.size)
+    return [int(preset.options["update_cores"]), None]
 
 
 def on_card(args, scene):
@@ -129,6 +164,28 @@ def on_card(args, scene):
                     args.cores,
                     policies,
                     given,
+                )
+            case "update":
+                return update.check(
+                    open_loop,
+                    threads_name,
+                    args.pipeline,
+                    scene,
+                    policies,
+                    options,
+                    sun_of(args),
+                    args.deal or deals_of(args, threads_name),
+                )
+            case "during":
+                return during.check(
+                    open_loop,
+                    threads_name,
+                    args.pipeline,
+                    scene,
+                    policies[0],
+                    options,
+                    sun_of(args),
+                    args.frames,
                 )
             case "geometry":
                 return geometry_half.check(

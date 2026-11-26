@@ -104,7 +104,7 @@ class FieldJobHost(FieldUpdateHost):
         self.loaded = loaded
         assembled = loaded.assembled
         name, transport = transport_of(assembled)
-        apply = assembled.handler(name, APPLY)
+        apply = assembled.program.handler(assembled.handler(name, APPLY))  # merged
         self.graph = FieldGraph(
             self,
             JobThread(loaded.run, assembled.jobs),

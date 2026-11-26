@@ -20,8 +20,9 @@ __attribute__((unused)) static uint32_t bits_of(float value) {
     return both.u;
 }
 
-/* The field's version words (none: 0): its first page for its half, a channel's unit
- * (1 / max code)^2 x the scale (light model field.field_words), the scale. */
+/* The field's version words (none: 0): 1 + its first page for its half as a float, a
+ * channel's unit (1 / max code)^2 x the scale (light model field.field_words), the
+ * scale. */
 static void field_words(dr_frame_t* frame, uint32_t* page) {
     page[PRISM_TF_LIGHT_FIELD_FIRST] = 0;
 #if defined(DIRECT_LIGHT_FIELD_BY_SLOT)
@@ -44,10 +45,9 @@ static void field_words(dr_frame_t* frame, uint32_t* page) {
         page[PRISM_TF_LIGHT_FIELD_UNIT_R + channel] = bits_of((unit * unit) * scale.f);
     }
     page[PRISM_TF_LIGHT_FIELD_SCALE] = scale_bits;
-    page[PRISM_TF_LIGHT_FIELD_FIRST] = dr_number(
-                                           frame, DR_DIRECT_LIGHT_N_LIGHT_FIELD_FIRST
-                                       ) +
+    const uint32_t first = dr_number(frame, DR_DIRECT_LIGHT_N_LIGHT_FIELD_FIRST) +
         (given - 1u) * dr_number(frame, DR_DIRECT_LIGHT_N_LIGHT_FIELD_PAGES);
+    page[PRISM_TF_LIGHT_FIELD_FIRST] = bits_of(1.0f + (float)first);
 #else
     (void)frame;
 #endif

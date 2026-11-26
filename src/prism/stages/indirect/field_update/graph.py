@@ -163,6 +163,7 @@ class FieldGraph:
         self.cores = int(cores)
         self.upload = None
         self.runs = 0  # the rounds the uploaded graph allows
+        self.kept = False  # whether the uploaded graph was started once (kept since)
         self.handle = None  # the graph's start that has not ended
         self.asked = None  # (sun, bounces, half) of the update running
 
@@ -196,7 +197,7 @@ class FieldGraph:
         if self.upload is not None:
             self.run.release(self.upload)
         handlers = {name: self.jobs.handler(name) for name in COMMANDS}
-        self.runs = bounces + 1
+        self.runs, self.kept = bounces + 1, False
         graph = update_graph(
             handlers, self.frame, self.apply, self.apply_args, self.jobs.lead, self.runs
         )
@@ -215,10 +216,12 @@ class FieldGraph:
         self.jobs.write("field_header", sun_words(lights, bounces), 4 * SUN_FIRST)
         self.write_numbers(half)
         bindings = {"cores": self.cores, "left": bounces, "half": half, "first": 1}
-        if self.graph_for(bounces):
-            self.handle = self.run.start(self.upload, bindings)
-        else:
+        self.graph_for(bounces)
+        if self.kept:
             self.handle = self.run.restart(REQ, bindings)
+        else:
+            self.handle = self.run.start(self.upload, bindings)
+            self.kept = True
         self.asked = (sun, bounces, half)
         return True
 

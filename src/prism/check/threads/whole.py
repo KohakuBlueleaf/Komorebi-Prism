@@ -41,11 +41,13 @@ def stagewise_picture(open_loop, name, scene, options=None):
 
 
 def sun_armed(loop):
-    """The sun's map cleared and its command asked for again (as a moved sun asks):
-    the host's passes so far; None without a sun's pass."""
+    """The sun's map cleared and its command asked for again (as a moved sun asks)
+    when a sun is set: the host's passes so far; None without a sun's pass."""
     host = shadow_host(loop)
     if host is None:
         return None
+    if host.sun is None:
+        return len(host.passes)
     cleared(loop)
     hosted(host, "set")(loop.loaded, "sun", tuple(host.sun_now()))
     return len(host.passes)
