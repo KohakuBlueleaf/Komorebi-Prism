@@ -43,49 +43,64 @@ def world_points(cam, px, py, w):
     )
 
 
-def clip_polygon(corners, near):
-    """The polygon (list of 6-vectors x, y, z, colour) of a triangle (3, 6) float32 cut
-    at z = near; a crossing edge adds the point from its vertex beyond."""
+def clip_corners(corners, near):
+    """The polygon of a triangle's camera-space corners (3, 3) float32 cut at z = near:
+    each point's position and its recipe (from, to, t), a kept corner's to its from."""
     out = []
     for k in range(3):
         a, b = corners[k], corners[(k + 1) % 3]
         if a[2] > near:
-            out.append(a)
+            out.append((a, k, k, F(0)))
         if (a[2] > near) != (b[2] > near):
-            inside, outside = (a, b) if a[2] > near else (b, a)
+            i, o = (k, (k + 1) % 3) if a[2] > near else ((k + 1) % 3, k)
+            inside, outside = corners[i], corners[o]
             t = (near - inside[2]) / (outside[2] - inside[2])
             point = inside + t * (outside - inside)
             point[2] = near
-            out.append(point.astype(np.float32))
+            out.append((point.astype(np.float32), i, o, t))
     return out
 
 
-def corners(scene, extra=None):
-    """Screen x, y, 1/z and colour (R, 3) per corner of every piece, and its triangle;
-    extra (T, 3, k) float32: further corner values, cut with the colour, after it."""
+def screen_pieces(scene):
+    """Screen x, y, 1/z (R, 3) per corner of every piece, its triangle, and each
+    corner's recipe: the triangle's corners from, to (R, 3) and t (R, 3) float32."""
     cam, idx = scene["camera"], scene["indices"]
     xc, yc, zc = camera_space(scene)
     beyond = (zc > cam[15])[idx].sum(axis=1)
     whole = np.nonzero(beyond == 3)[0]
     pos = np.stack([xc, yc, zc], axis=1)
+    kept = np.broadcast_to(np.arange(3, dtype=np.int8), (len(whole), 3))
     pieces, src = [pos[idx[whole]]], [whole]
-    values = scene["colors"][idx]
+    froms, tos, ts = [kept], [kept], [np.zeros((len(whole), 3), dtype=np.float32)]
+    for t in np.nonzero((beyond == 1) | (beyond == 2))[0]:
+        poly = clip_corners(pos[idx[t]], cam[15])
+        for fan in ([0, 1, 2], [0, 2, 3])[: len(poly) - 2]:
+            points = [poly[i] for i in fan]
+            pieces.append(np.stack([p[0] for p in points])[None])
+            froms.append(np.array([[p[1] for p in points]], dtype=np.int8))
+            tos.append(np.array([[p[2] for p in points]], dtype=np.int8))
+            ts.append(np.array([[p[3] for p in points]], dtype=np.float32))
+            src.append([t])
+    pos, src = np.concatenate(pieces), np.concatenate(src)
+    order = np.argsort(src, kind="stable")
+    pos, src = pos[order], src[order]
+    recipe = tuple(np.concatenate(parts)[order] for parts in (froms, tos, ts))
+    x, y, w = to_screen(cam, pos[..., 0], pos[..., 1], pos[..., 2])
+    return x, y, w, src.astype(np.int64), recipe
+
+
+def corners(scene, extra=None):
+    """Screen x, y, 1/z and colour (R, 3) per corner of every piece, and its triangle;
+    extra (T, 3, k) float32: further corner values, cut with the colour, after it."""
+    x, y, w, src, (froms, tos, ts) = screen_pieces(scene)
+    values = scene["colors"][scene["indices"]]
     if extra is not None:
         values = np.concatenate([values, extra.astype(np.float32)], axis=2)
-    cols = [values[whole]]
-    for t in np.nonzero((beyond == 1) | (beyond == 2))[0]:
-        tri = np.concatenate([pos[idx[t]], values[t]], axis=1)
-        poly = clip_polygon(tri, cam[15])
-        for fan in ([0, 1, 2], [0, 2, 3])[: len(poly) - 2]:
-            piece = np.stack([poly[i] for i in fan])
-            pieces.append(piece[None, :, :3])
-            cols.append(piece[None, :, 3:])
-            src.append([t])
-    pos, col, src = np.concatenate(pieces), np.concatenate(cols), np.concatenate(src)
-    order = np.argsort(src, kind="stable")
-    pos, col, src = pos[order], col[order], src[order]
-    x, y, w = to_screen(cam, pos[..., 0], pos[..., 1], pos[..., 2])
-    return x, y, w, col, src.astype(np.int64)
+    rows = src[:, None]
+    start, end = values[rows, froms], values[rows, tos]
+    cut = (froms != tos)[:, :, None]
+    col = np.where(cut, start + ts[:, :, None] * (end - start), start)
+    return x, y, w, col, src
 
 
 def planes(values, coef, inv_area):
@@ -101,19 +116,15 @@ def at(plane, px, py):
     return (plane[:, 0] * px + plane[:, 1] * py) + plane[:, 2]
 
 
-def setup(scene, extra=None):
-    """Per-triangle records of the triangles that can cover a pixel (dict of arrays);
-    with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2"."""
-    x, y, ww, col, src = corners(scene, extra)
-    cand = np.ones(len(src), dtype=bool)
+def doubled_area(x, y):
+    """The doubled signed area (R,) of every piece's screen corners x, y (R, 3)."""
     area2 = (x[:, 1] - x[:, 0]) * (y[:, 2] - y[:, 0])
-    area2 = area2 - (x[:, 2] - x[:, 0]) * (y[:, 1] - y[:, 0])
-    cand &= area2 != 0
-    flip = area2 < 0
-    order = np.where(flip[:, None], [0, 2, 1], [0, 1, 2])
-    rows = np.arange(len(src))[:, None]
-    x, y, ww, col = x[rows, order], y[rows, order], ww[rows, order], col[rows, order]
-    area2 = np.where(flip, -area2, area2)
+    return area2 - (x[:, 2] - x[:, 0]) * (y[:, 1] - y[:, 0])
+
+
+def pixel_bounds(scene, x, y):
+    """The first and last pixel columns and rows (ix0, ix1, iy0, iy1) int64 every
+    piece's screen corners x, y (R, 3) can cover in the scene's padded frame."""
     lo_x = np.minimum(np.minimum(x[:, 0], x[:, 1]), x[:, 2])
     hi_x = np.maximum(np.maximum(x[:, 0], x[:, 1]), x[:, 2])
     lo_y = np.minimum(np.minimum(y[:, 0], y[:, 1]), y[:, 2])
@@ -129,6 +140,31 @@ def setup(scene, extra=None):
     iy1 = np.maximum(np.minimum(np.floor(hi_y - half), F(height - 1)), F(-1)).astype(
         np.int64
     )
+    return ix0, ix1, iy0, iy1
+
+
+def boxes(scene):
+    """The pixel boxes (R, 4) int32 x0, x1, y0, y1 of the records `setup(scene)` keeps,
+    from the pieces' positions alone."""
+    x, y, _, _, _ = screen_pieces(scene)
+    ix0, ix1, iy0, iy1 = pixel_bounds(scene, x, y)
+    keep = (doubled_area(x, y) != 0) & (ix0 <= ix1) & (iy0 <= iy1)
+    return np.stack([ix0, ix1, iy0, iy1], axis=1)[keep].astype(np.int32)
+
+
+def setup(scene, extra=None):
+    """Per-triangle records of the triangles that can cover a pixel (dict of arrays);
+    with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2"."""
+    x, y, ww, col, src = corners(scene, extra)
+    cand = np.ones(len(src), dtype=bool)
+    area2 = doubled_area(x, y)
+    cand &= area2 != 0
+    flip = area2 < 0
+    order = np.where(flip[:, None], [0, 2, 1], [0, 1, 2])
+    rows = np.arange(len(src))[:, None]
+    x, y, ww, col = x[rows, order], y[rows, order], ww[rows, order], col[rows, order]
+    area2 = np.where(flip, -area2, area2)
+    ix0, ix1, iy0, iy1 = pixel_bounds(scene, x, y)
     cand &= (ix0 <= ix1) & (iy0 <= iy1)
     keep = np.nonzero(cand)[0]
     x, y, ww, col = x[keep], y[keep], ww[keep], col[keep]

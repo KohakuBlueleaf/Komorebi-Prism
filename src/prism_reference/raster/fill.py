@@ -32,6 +32,23 @@ def bin_triangles(records, tiles_x=TILES_X, tiles_y=TILES_Y):
     return counts, offsets, rec[order].astype(np.int32)
 
 
+def tile_counts(box, tiles_x=TILES_X, tiles_y=TILES_Y):
+    """The entries a tile (tiles,) int32 of pixel boxes (R, 4) x0, x1, y0, y1 in a grid
+    of tiles_x by tiles_y: `bin_triangles`' counts, by a difference array."""
+    tx0, tx1 = box[:, 0] // TILE, box[:, 1] // TILE + 1
+    ty0, ty1 = box[:, 2] // TILE, box[:, 3] // TILE + 1
+    if len(box) and (tx1.max() > tiles_x or ty1.max() > tiles_y):
+        raise ValueError(f"a box lies past the grid of {tiles_x} by {tiles_y} tiles")
+    across = tiles_x + 1
+    size = across * (tiles_y + 1)
+    corner = [(ty0, tx0, 1), (ty0, tx1, -1), (ty1, tx0, -1), (ty1, tx1, 1)]
+    diff = np.zeros(size, dtype=np.int64)
+    for ty, tx, sign in corner:
+        diff += sign * np.bincount(ty * across + tx, minlength=size)
+    counts = diff.reshape(tiles_y + 1, across).cumsum(axis=0).cumsum(axis=1)
+    return counts[:tiles_y, :tiles_x].reshape(-1).astype(np.int32)
+
+
 def fill_tile(records, members, tx, ty):
     """Colour (32, 32, 3), 1/z and record number (-1: none) of one tile."""
     px = (F(tx * TILE) + np.arange(TILE, dtype=np.float32) + F(0.5))[None, None, :]

@@ -162,3 +162,23 @@ refused with the numbers. `capacity_defines` gives the kernels' build defines;
 `numbers.sizes` the sizes `setup.h` computes from them. A frame's pages go to tensors of
 510 pages (a whole number of 3- and 5-page items, about 2 MB), more when 15 tensors would
 not hold them (`chunk_pages`).
+
+## The lists' slots a load holds
+
+Each layer's lists are sized when the host prepares (`RasterHost.guessed_slots`): the
+entries its triangles give the view's tiles, a heavy tile's entries again in each further
+band, a header an item and an end slot and a page's padding a core, in whole pages (times
+the layer's `list_fraction`); the DEPTH views' lists by the most any of their cameras
+needs. The entries come from the pieces' pixel boxes alone, not from the whole setup:
+`setup.boxes` takes the positions' part of `corners` (`screen_pieces`: camera space, the
+near plane's pieces, the screen coordinates, each piece's triangle) and the same steps
+`setup` takes to its boxes, and `fill.tile_counts` counts a tile's entries by a
+two-dimensional difference array (four corner adds a box, two running sums), the counts
+`bin_triangles` gives without its per-entry arrays. A frame that needs more slots stops
+with `RASTER_LISTS_SMALL` and the loop reloads with a quarter more.
+
+A shaded frame's layers (opaque, masked, glass) and their mesh blocks come from the
+texture model's `blocks.layer_blocks`, the same call the texture host takes its shade
+blocks from: made once for a scene, its materials and the lit flag, kept in the process
+and under `$PRISM_CACHE/blocks/` ([the environment](../../guides/environment.md)), read
+back with a memory map by a later load of the same arrays.

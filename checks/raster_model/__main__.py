@@ -1,5 +1,5 @@
-"""Runs every case in order: the C's sizes, the scenes, the C middle pass; exit 1 on a
-difference."""
+"""Runs every case in order: the C's sizes, the scenes, the C middle pass, the counts
+without the setup; exit 1 on a difference."""
 
 import json
 import sys
@@ -7,6 +7,7 @@ import time
 
 from checks.raster_model import middle_c, model
 from checks.raster_model.compare import RESULTS
+from checks.raster_model.counts import counts_cases
 from prism.stages.raster import capacity as p_stage
 from prism.stages.raster.model import numbers
 from prism_common.paths import data_root
@@ -31,6 +32,7 @@ def main():
     middle_c.c_case("seeded hot tiles", library, *middle_c.hot_counts(), 40)
     middle_c.large_cases()
     model.setup_writes_lists_case(scenes[0][1])
+    counts_cases(data, scenes)
     different = [r["case"] for r in RESULTS if not r["equal"]]
     arrays = sum(r["arrays"] for r in RESULTS)
     seconds = round(time.perf_counter() - started, 1)

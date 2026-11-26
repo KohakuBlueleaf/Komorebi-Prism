@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from checks.gltf_scene import cases, opened, scene
+from checks.gltf_scene.blocks import blocks_cases
 from prism_common.paths import DATA_VARIABLE, cache_root
 from prism_reference.scene.artist.convert import convert
 from prism_reference.scene.public.materials import load_materials
@@ -37,6 +38,7 @@ def main():
         cases.corners_case(load_materials(NAME, data)[0])
         cases.view_case(NAME, data)
         cases.entry_case(entry)
+        blocks_cases(NAME, data, folder)
         plain = folder / "plain.glb"
         scene.write_plain(plain)
         convert(plain, PLAIN, data, workers=1)

@@ -146,6 +146,45 @@ Seconds, the tensor writes counted as one part.
 - lynxsdesign: textured: `model.raster` 11.6, `model.material.texture` 6.3, `session.start` 1.0; lit, baked: `model.raster` 29.0, `model.material.texture` 8.1, `tensors` 1.4.
 - hidden_alley: textured: `model.raster` 12.5, `model.material.texture` 8.0, `digest` 2.5; lit, open, warm: `model.raster` 19.5, `model.material.texture` 8.6, `digest` 2.4.
 
+## The hosts' tables made once
+
+The same command after the raster host stopped running the reference's whole setup to
+size its lists (the counts now come from the pieces' boxes alone: `setup.boxes`,
+`fill.tile_counts`), and after each layer's mesh and shade blocks were made once for the
+two hosts and kept under `$PRISM_CACHE/blocks/` ([the raster model](../../docs/internals/raster/model.md#the-lists-slots-a-load-holds)).
+Date 2026-11-26, card 1, the same 8 CPUs, Komorebi at e908d6d16, `--bake none`, 16 frames
+on the scene's view; the lights as above (`hidden_alley`'s `open`). For each scene and
+preset: one open to fill the build caches, the blocks' cache emptied, then three opens in
+a row: the first makes and keeps the blocks, the second and third find them. Every
+frame's code 0; every PNG equal byte for byte to the one of the warm run above
+(`hidden_alley`, `lit`: of the run after the bake was stopped). `tables/` holds the first
+and the second's records (`<scene>_<preset>_<first|kept>.json`); the third's were within
+0.25 s of the second's.
+
+Seconds: to the first picture, `model.raster`, `model.material.texture`; before: the warm
+records above (`lit`: lights baked; `hidden_alley`: again after the bake was stopped).
+
+| scene | preset | before | first | kept |
+|---|---|---|---|---|
+| classroom | textured | 4.5; 0.81; 0.32 | 4.0; 0.64; 0.06 | 3.6; 0.27; 0.06 |
+| classroom | lit | 7.6; 2.35; 0.55 | 5.3; 1.35; 0.07 | 4.9; 0.88; 0.08 |
+| italian_flat | textured | 12.1; 4.54; 2.38 | 9.7; 4.07; 0.62 | 7.2; 1.53; 0.62 |
+| italian_flat | lit | 23.9; 13.13; 3.39 | 15.5; 8.25; 0.66 | 12.3; 5.10; 0.67 |
+| lynxsdesign | textured | 24.1; 11.57; 6.27 | 17.1; 10.14; 1.10 | 10.5; 3.44; 1.10 |
+| lynxsdesign | lit | 45.2; 29.03; 8.09 | 29.4; 20.63; 1.27 | 21.3; 12.40; 1.29 |
+| hidden_alley | textured | 29.8; 12.51; 7.95 | 19.8; 9.96; 1.63 | 13.0; 3.15; 1.63 |
+| hidden_alley | lit | 38.3; 19.48; 8.64 | 26.9; 15.54; 1.72 | 18.9; 7.40; 1.78 |
+
+The blocks' cache a scene and preset (`textured` and `lit` keep one folder each, of the
+same size):
+
+| scene | bytes |
+|---|---|
+| classroom | 53,459,399 |
+| italian_flat | 335,844,075 |
+| lynxsdesign | 880,644,051 |
+| hidden_alley | 899,408,323 |
+
 ## The bake alone
 
 `python scripts/data/public_scenes.py lighting <name> --rebake --workers N` on 32 CPUs of

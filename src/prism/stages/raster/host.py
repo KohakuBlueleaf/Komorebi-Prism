@@ -13,15 +13,13 @@ from prism.core.headers import defined
 from prism.core.implementation import Host
 from prism.program.assemble import MissingSlot
 from prism.program.director.thread import RUNTIME
-from prism.stages.material.texture.model.layers import as_shaded, layer
-from prism.stages.material.texture.model.triangles import mesh_blocks
+from prism.stages.material.texture.model.blocks import layer_blocks
 from prism.stages.raster import capacity as stage_capacity
 from prism.stages.raster.l1 import l1_check
 from prism.stages.raster.model import numbers, records
 from prism.stages.raster.model.frame import decoded
-from prism_reference.material.kinds import MASKED, TRANSPARENT
-from prism_reference.raster.fill import BACKGROUND, bin_triangles
-from prism_reference.raster.setup import setup
+from prism_reference.raster.fill import BACKGROUND, tile_counts
+from prism_reference.raster.setup import boxes
 from prism_reference.scene.frame import frame_grid, frame_size
 
 K, S = numbers.K, numbers.S
@@ -98,25 +96,8 @@ def layer_meshes(scene, materials, lights=None):
     `lights`, the lit ones: every corner's u, v and baked visibility)."""
     if materials is None:
         return [("opaque", scene, records.mesh_blocks(scene))]
-    lit = lights is not None
-    if lit:
-        shaded = {**materials, "light": lights["visibility"][scene["indices"]]}
-    else:
-        shaded = as_shaded(materials)
-    kind = shaded["kind"][shaded["material"]]
-    keeps = {
-        "opaque": (kind != MASKED) & (kind != TRANSPARENT),
-        "masked": kind == MASKED,
-        "glass": kind == TRANSPARENT,
-    }
-    meshes = []
-    for name, keep in keeps.items():
-        if name != "opaque" and not keep.any():
-            continue
-        layer_scene, layer_materials = layer(scene, shaded, keep)
-        blocks = mesh_blocks(layer_scene, layer_materials, lit)[0]
-        meshes.append((name, layer_scene, blocks))
-    return meshes
+    layers = layer_blocks(scene, materials, lights)
+    return [(name, layer_scene, blocks) for name, layer_scene, blocks, _, _ in layers]
 
 
 def list_slots_of(entries, items, cores):
@@ -214,7 +195,7 @@ class RasterHost(Host):
         list_fraction)."""
         across, down = frame_grid(self.size if size is None else size)
         tiles = self.held.tiles if size is None else across * down
-        counts, _, _ = bin_triangles(setup(scene), across, down)
+        counts = tile_counts(boxes(scene), across, down)
         heaviest = np.sort(counts)[-self.heavy :]
         entries = int(counts.sum()) + (numbers.MAX_BANDS - 1) * int(heaviest.sum())
         slots = list_slots_of(entries, tiles + self.band_items, self.cores)
@@ -231,8 +212,12 @@ class RasterHost(Host):
         directory."""
         pages = list_slots // numbers.PAGE_SLOTS
         return {
-            "lists": self.tensor(np.zeros((pages, numbers.PAGE_WORDS))),
-            "directory": self.tensor(np.zeros((self.cores, K["kDirBytes"] // 4))),
+            "lists": self.tensor(
+                np.zeros((pages, numbers.PAGE_WORDS), dtype=np.uint32)
+            ),
+            "directory": self.tensor(
+                np.zeros((self.cores, K["kDirBytes"] // 4), dtype=np.uint32)
+            ),
         }
 
     def layer_tensors(self, blocks, list_slots):
@@ -241,30 +226,42 @@ class RasterHost(Host):
         cores = self.cores
         frame_pages = self.held.tiles * K["kPlanes"]
         chunk = stage_capacity.chunk_pages(frame_pages)
-        zeros = np.zeros
         return {
             "mesh": self.tensor(blocks),
             **self.view_tensors(list_slots),
             "frame": [
-                self.tensor(zeros((min(chunk, frame_pages - at), PROFILE_WORDS)))
+                self.tensor(
+                    np.zeros(
+                        (min(chunk, frame_pages - at), PROFILE_WORDS), dtype=np.uint32
+                    )
+                )
                 for at in range(0, frame_pages, chunk)
             ],
-            "profile": self.tensor(zeros((cores, SPROF_WORDS))),
-            "fill_profile": self.tensor(zeros((cores, PROFILE_WORDS))),
-            "shade": self.tensor(zeros((1, SHADE_BLOCK_WORDS))),
+            "profile": self.tensor(np.zeros((cores, SPROF_WORDS), dtype=np.uint32)),
+            "fill_profile": self.tensor(
+                np.zeros((cores, PROFILE_WORDS), dtype=np.uint32)
+            ),
+            "shade": self.tensor(np.zeros((1, SHADE_BLOCK_WORDS), dtype=np.uint32)),
         }
 
     def made_tensors(self):
         """The DRAM tensors a frame needs at the capacity, by name: the opaque layer's
         and those every layer shares."""
         cores, sizes = self.cores, self.sizes
-        zeros = np.zeros
         return {
             **self.layer_tensors(self.blocks, self.list_slots),
-            "counters": self.tensor(zeros((cores, sizes["kCountBytes"] // 4))),
-            "slots": self.tensor(zeros((cores, sizes["kSlotsBytes"] // 4))),
-            "histograms": self.tensor(zeros((cores, 16 * self.heavy))),
-            "hprefix": self.tensor(zeros((cores, sizes["kHprefixPageBytes"] // 4))),
+            "counters": self.tensor(
+                np.zeros((cores, sizes["kCountBytes"] // 4), dtype=np.uint32)
+            ),
+            "slots": self.tensor(
+                np.zeros((cores, sizes["kSlotsBytes"] // 4), dtype=np.uint32)
+            ),
+            "histograms": self.tensor(
+                np.zeros((cores, 16 * self.heavy), dtype=np.uint32)
+            ),
+            "hprefix": self.tensor(
+                np.zeros((cores, sizes["kHprefixPageBytes"] // 4), dtype=np.uint32)
+            ),
             "empty_planes": self.tensor(empty_planes()),
         }
 

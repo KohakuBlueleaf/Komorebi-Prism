@@ -109,16 +109,21 @@ class TextureHost(Host):
                 continue
             self.layers[name] = {
                 "shade": self.tensor(prepared[key]),
-                "profile": self.tensor(np.zeros((self.cores, PROFILE_WORDS))),
+                "profile": self.tensor(
+                    np.zeros((self.cores, PROFILE_WORDS), dtype=np.uint32)
+                ),
             }
         if self.lights is not None:
             for name in {SURFACES[name] for name in self.layers}:
                 self.layers[name]["surface"] = self.surface_tensors()
-        zeros = np.zeros
-        directory = self.tensor(zeros((1, K["kDirBytes"] // 4)))
+        directory = self.tensor(np.zeros((1, K["kDirBytes"] // 4), dtype=np.uint32))
         self.examples = {
-            "directory": self.tensor(zeros((1, K["kDirBytes"] // 4))),
-            "lists": self.tensor(zeros((1, K["kInPageBytes"] // 4))),
+            "directory": self.tensor(
+                np.zeros((1, K["kDirBytes"] // 4), dtype=np.uint32)
+            ),
+            "lists": self.tensor(
+                np.zeros((1, K["kInPageBytes"] // 4), dtype=np.uint32)
+            ),
             "textures": self.tensors["textures"],
             "table": self.tensors["table"],
             "profile": self.layers["opaque"]["profile"],
@@ -130,7 +135,9 @@ class TextureHost(Host):
         frame_pages = self.held.tiles * K["kPlanes"]
         chunk = stage_capacity.chunk_pages(frame_pages)
         return [
-            self.tensor(np.zeros((min(chunk, frame_pages - at), PAGE_WORDS)))
+            self.tensor(
+                np.zeros((min(chunk, frame_pages - at), PAGE_WORDS), dtype=np.uint32)
+            )
             for at in range(0, frame_pages, chunk)
         ]
 

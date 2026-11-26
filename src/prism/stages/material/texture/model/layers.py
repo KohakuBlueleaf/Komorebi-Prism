@@ -3,19 +3,13 @@ mesh and shade blocks, texture pages, SHADE's table."""
 
 import numpy as np
 
+from prism.stages.material.texture.model.blocks import as_shaded, layer_blocks
 from prism.stages.material.texture.model.numbers import F32, KEY_PAGES
 from prism.stages.material.texture.model.table import table
 from prism.stages.material.texture.model.textures import texture_pages
-from prism.stages.material.texture.model.triangles import mesh_blocks
-from prism_reference.material.kinds import LIT, MASKED, TEXTURED, TRANSPARENT
 from prism_reference.raster.setup import setup
 
-
-def layer(scene, materials, keep):
-    """The scene and the materials of the triangles `keep` (a bool per triangle), in
-    their order: a layer's mesh."""
-    per_triangle = {name: materials[name][keep] for name in ("uv", "light", "material")}
-    return {**scene, "indices": scene["indices"][keep]}, {**materials, **per_triangle}
+__all__ = ["as_shaded", "later_pieces", "prepare"]
 
 
 def prepare(scene, materials, lights=None, size=None):
@@ -25,24 +19,15 @@ def prepare(scene, materials, lights=None, size=None):
     lit = lights is not None
     if lit:
         materials = {**materials, "light": lights["visibility"][scene["indices"]]}
-    kind = materials["kind"][materials["material"]]
     prepared = {}
-    others = np.ones(len(kind), dtype=bool)
-    for name, value in (("masked", MASKED), ("glass", TRANSPARENT)):
-        keep = kind == value
-        if not keep.any():
-            continue
-        layer_scene, layer_materials = layer(scene, materials, keep)
-        blocks, shade_blocks = mesh_blocks(layer_scene, layer_materials, lit)
-        prepared[f"{name}_blocks"] = blocks
-        prepared[f"{name}_shade_blocks"] = shade_blocks
-        prepared[f"{name}_triangles"] = int(keep.sum())
-        others &= ~keep
-    if others.all():
-        materials_kept = materials
-    else:
-        scene, materials_kept = layer(scene, materials, others)
-    blocks, shade_blocks = mesh_blocks(scene, materials_kept, lit)
+    for name, _, blocks, shade_blocks, triangles in layer_blocks(
+        scene, materials, lights
+    ):
+        prefix = "" if name == "opaque" else f"{name}_"
+        prepared[f"{prefix}blocks"] = blocks
+        prepared[f"{prefix}shade_blocks"] = shade_blocks
+        if name != "opaque":
+            prepared[f"{name}_triangles"] = triangles
     pages, entries = texture_pages(materials)
     if len(pages) > KEY_PAGES:
         raise ValueError(
@@ -51,19 +36,9 @@ def prepare(scene, materials, lights=None, size=None):
     scale = lights["emissive_scale"] if lit else 1.0
     return {
         **prepared,
-        "blocks": blocks,
-        "shade_blocks": shade_blocks,
         "pages": pages,
         "table": table(materials, entries, len(pages), scale, size),
     }
-
-
-def as_shaded(materials):
-    """A copy of the materials with the lit kind made textured: what SHADE shades
-    unlit."""
-    kind = materials["kind"].copy()
-    kind[kind == LIT] = TEXTURED
-    return {**materials, "kind": kind}
 
 
 def later_pieces(view, materials, tri):

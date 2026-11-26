@@ -9,7 +9,7 @@ on a card reads.
 | --- | --- | --- | --- |
 | `PRISM_DATA` | the data root: generated and public scenes, their materials, lights and indirect files, and what is made from them | none: a call that needs it stops with an error that names it | `src/prism_common/paths.py` (`data_root`) |
 | `PRISM_BUILD` | where the compiled helpers (`prism_reference/native`) and the checks' host-built C go | `$PRISM_DATA/build` | `src/prism_common/paths.py` (`build_root`) |
-| `PRISM_CACHE` | where caches go | `$PRISM_DATA/cache` | `src/prism_common/paths.py` (`cache_root`) |
+| `PRISM_CACHE` | where caches go: `blocks/<key>/`, each layer's mesh and shade blocks of a scene and its materials, unlit or lit (one `.npy` an array and `key.json`; the key the first 16 hex digits of the BLAKE2b digest of the arrays they are made from, the whole digest kept and compared), made by the first load and read by the next; `apply/`, the transport's weights; the checks' temporary files | `$PRISM_DATA/cache` | `src/prism_common/paths.py` (`cache_root`); `blocks/`: `src/prism/stages/material/texture/model/blocks.py` |
 | `PRISM_THREADS` | the threads of the native batch tracer | the CPUs the process may use, at most 8 | `src/prism_reference/trace/batch.py` (`threads`) |
 | `PRISM_SCENES_EXTRA` | a further JSON file in the layout of `public_scenes.json`, whose scenes are added to the table after the data root's `opened_scenes.json` ([scenes](../concepts/scenes.md)) | none: the table alone | `src/prism_reference/scene/public/table.py` (`table`) |
 | `PRISM_BLENDER` | the Blender the artists' scenes are measured, exported and rendered with ([artist scenes](artist_scenes.md)) | `blender` on the `PATH` | `scripts/data/artist_scenes.py` (`blender`) |
