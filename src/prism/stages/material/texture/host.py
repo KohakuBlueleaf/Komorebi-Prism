@@ -90,6 +90,7 @@ class TextureHost(Host):
         self.order = []  # the raster stage's layers, by its row index
         self.lists = self.frames = None  # its slots, once connected
         self.loaded = None  # the run whose layer rows are written
+        self.written_lists = {}  # by layer: the lists' addresses its row holds
 
     def tensor(self, rows):
         """A row-major uint32 array as a DRAM tensor, a page a row."""
@@ -220,12 +221,20 @@ class TextureHost(Host):
         }
 
     def view(self, loaded, camera, size):
-        """Each layer's row once a run (after the raster stage's, the same index)."""
+        """Each layer's row once a run (after the raster stage's, the same index), and
+        again when the raster stage gave it other lists in the live run."""
         self.size = tuple(size)
-        if self.loaded is loaded or not self.order:
+        if not self.order:
             return
+        if self.loaded is not loaded:
+            self.written_lists = {}
         for index, name in enumerate(self.order):
+            given = self.lists[name]
+            addresses = (given["directory"].address, given["lists"].address)
+            if self.written_lists.get(name) == addresses:
+                continue
             loaded.layer(index, **self.thread_layer(name))
+            self.written_lists[name] = addresses
         self.loaded = loaded
 
     def picture(self, loaded):

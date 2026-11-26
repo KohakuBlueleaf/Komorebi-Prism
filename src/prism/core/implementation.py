@@ -78,6 +78,11 @@ class Host:
         the live run), "reload" (assemble again; it raised what it asks for in
         `loaded.options`), or None (not its code, or nothing to do)."""
 
+    def recovered(self):
+        """What its last recover changed in the live run, for the loop's record of a
+        retry (a dict; {} by default)."""
+        return {}
+
     def picture(self, loaded):
         """The frame's picture as this host reads it back; asked only of a host whose
         `pictures` is true."""

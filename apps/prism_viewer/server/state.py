@@ -121,7 +121,7 @@ class State:
     # The render loop
 
     def notice(self, kind, text, seconds=None):
-        """A notice under the lock: kind (reload, refusal, applied, error), its text,
+        """A notice under the lock: kind (reload, grown, refusal, applied, error), its text,
         its seconds when it took some."""
         self.notice_serial += 1
         self.notices.append(

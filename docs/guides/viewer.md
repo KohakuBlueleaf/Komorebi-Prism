@@ -190,7 +190,11 @@ the right's. Every panel folds; the browser keeps what is folded.
   thresholds' table again and writes it for the next frame (SHOW reads it at each
   command); the checks and references stay on the default.
 - **Notices**: the last five, newest first, with "clear": loads and reloads with their
-  seconds, applied changes, refusals with their reasons, failures.
+  seconds (a frame recovered by a reload names the code), lists grown live (a threads'
+  preset whose frame needed more list slots than the load gave: the code's name, each
+  layer with its slots before and after, the milliseconds; [the raster
+  model](../internals/raster/model.md#the-lists-slots-a-load-holds)), applied changes,
+  refusals with their reasons, failures.
 
 The colours hold one meaning each: iolite the primary action and selection; sapphire the
 card's time; amber the host's time; aquamarine a rate; taaffeite the frame's size,
