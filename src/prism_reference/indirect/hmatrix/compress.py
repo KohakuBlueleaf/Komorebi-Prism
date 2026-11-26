@@ -57,6 +57,12 @@ def hierarchical(matrix, tree, tolerance=TOLERANCE, eta=ETA, log=print):
             seconds = time.perf_counter() - started
             log(f"SVD {m} x {n}: {len(group)} blocks, {seconds:.0f} s")
     rows += [(r0[i], r1[i], c0[i], c1[i], *found[i]) for i in sorted(found)]
+    return pack(rows, near_count)
+
+
+def pack(rows, near_count):
+    """Blocks dict and weights of block rows (r0, r1, c0, c1, kind, rank, A, B): A the
+    dense Wt or V, B U^T or None; the first `near_count` rows are the near blocks."""
     kind = np.array([row[4] for row in rows], dtype=np.int8)
     rank = np.array([row[5] for row in rows], dtype=np.int32)
     sizes = [row[6].size + (0 if row[7] is None else row[7].size) for row in rows]

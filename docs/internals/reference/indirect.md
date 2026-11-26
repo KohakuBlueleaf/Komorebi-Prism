@@ -35,8 +35,9 @@ python scripts/data/public_scenes.py indirect sponza      # <scene>_indirect.npz
 2. **Transport.** `F_ij = V max(0, cos_i) max(0, cos_j) A_j / (pi r^2 + A_j)` (the near
    field clamped as a disc of area `A_j` seen on its axis), `V` one any-hit ray between
    the points moved `eps` along their normals, 0 on the diagonal; built dense once
-   (kept in `<scene>_indirect_work/`, from which a stopped build goes on), then stored as
-   a hierarchical matrix of `M = pi F`: admissible when the boxes' separation (gap over
+   (kept in `<scene>_indirect_work/`, from which a stopped build goes on), or block by
+   block without the dense matrix ([transport build](transport_build.md)), then stored
+   as a hierarchical matrix of `M = pi F`: admissible when the boxes' separation (gap over
    the larger diagonal) is at least 1, zero blocks dropped, low rank where the rank at
    1e-2 of the block's largest singular value stores fewer numbers than the block. The
    files are the card's (the stage `indirect.transport` reads them): `<scene>_transport/` with `blocks.npz`,

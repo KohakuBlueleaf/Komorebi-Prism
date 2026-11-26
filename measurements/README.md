@@ -19,3 +19,4 @@ under `docs/performance/` quote from here.
 | [update_beside](update_beside/README.md) | the field's update on the cluster beside the frames' (`gi_tile`): the frames drawn during it, the swap, against `gi`'s blocking update |
 | [viewer](viewer/README.md) | the viewer's field of view at its ends |
 | [open](open/README.md) | `prism_cli open` on four artists' scenes: the account of a load part by part, cold and warm, `textured` and `lit`; the bake of the sky's visibility alone |
+| [transport_build](transport_build/README.md) | the indirect light's transport built dense and block by block on Sponza and an artists' scene: seconds by phase, rays, flops, memory, bytes, the error against the dense matrix; ray trees |
