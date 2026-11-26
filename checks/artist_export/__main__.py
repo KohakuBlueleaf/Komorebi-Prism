@@ -62,6 +62,9 @@ def main():
     area = len(sidecar["area_lights"])
     camera = sidecar["render"].get("camera")
     camera_found = camera is None or "camera" in nodes.get(camera, {})
+    failed = (
+        [] if camera_found else [f"render camera {camera!r}: no node holding a camera"]
+    )
     record = {
         "folder": folder.name,
         "nodes": len(names),
@@ -73,6 +76,7 @@ def main():
         "copies": [int(starts[-1]), stats["copies"]],
         "area_lights": [area, stats["lights"].get("AREA", 0)],
         "render_camera": [camera, camera_found],
+        "failed": failed,
         "version": sidecar["version"],
         "matrices": list(instances["matrices"].shape),
     }

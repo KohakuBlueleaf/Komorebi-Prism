@@ -24,10 +24,29 @@ clamped.
 
 The model is not energy conserving away from the normal. With base 1 and metallic 0, the
 diffuse lobe weighted by `1 - F(v.h)` and the specular lobe weighted by `F` sum to more
-than 1 when the view is far from the normal and the roughness is low: at 60 degrees
-from the normal it is up to about 1.03, at 80 degrees up to about 1.25 (roughness 0.2).
-The check judges the white furnace with the view along the normal and prints the
-integrals at 30, 60 and 80 degrees beside it.
+than 1 when the view is far from the normal and the roughness is low. The check judges
+the white furnace with the view along the normal (every value at most 1 + 1e-3) and
+prints the integrals off the normal beside it (64 x 256 cosine-weighted points, base 1):
+
+| metallic | roughness | 30 degrees | 60 degrees | 80 degrees |
+| --- | --- | --- | --- | --- |
+| 0 | 0.1 | 0.9992 | 1.0090 | 1.0043 |
+| 0 | 0.2 | 0.9995 | 1.0260 | 1.2518 |
+| 0 | 0.3 | 0.9992 | 1.0253 | 1.2195 |
+| 0 | 0.5 | 0.9962 | 1.0109 | 1.0818 |
+| 0 | 0.7 | 0.9877 | 0.9934 | 1.0212 |
+| 0 | 1.0 | 0.9731 | 0.9761 | 0.9860 |
+| 1 | 0.1 | 0.9925 | 0.7653 | 0.1556 |
+| 1 | 0.2 | 0.9979 | 0.9952 | 0.8317 |
+| 1 | 0.3 | 0.9888 | 0.9748 | 0.9019 |
+| 1 | 0.5 | 0.9041 | 0.8572 | 0.8552 |
+| 1 | 0.7 | 0.6920 | 0.7039 | 0.8072 |
+| 1 | 1.0 | 0.3351 | 0.4505 | 0.6669 |
+
+On a grid of 2,048 x 4,096 points, metallic 0 at roughness 0.2 gives 1.0166 at 1.0 rad
+(57 degrees) and 1.3165 at 1.4 rad (80 degrees): the excess belongs to the model, not to
+the grid. At metallic 1 and roughness 0.1 the 64 x 256 grid does not resolve the lobe
+(the 80-degree value is low for that reason; the fine grid gives 0.998 at 1.4 rad).
 
 ## Tangents (`tangents.py`)
 
