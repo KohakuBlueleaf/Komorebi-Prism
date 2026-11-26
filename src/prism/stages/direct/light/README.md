@@ -6,22 +6,24 @@ frame holds each pixel's 1/z and material word, LIGHT turns every core's tiles i
 frame's colour planes: the sun with its shadow map's filter, the lamps, the specular
 terms, the sky, the ambient or the indirect field, emissive and the background, then
 the tone step. A scene with glass runs it twice: the linear colour C, then the glass
-layer lit over C.
+layer lit over C. With the build option `light_shows`, the last LIGHT of a colour view
+also does the display stage's conversion: its mover B turns the colour planes it holds
+into the display's 8-bit page of each tile, and no SHOW command follows.
 
 ## Files
 
 | File | What it holds |
 | --- | --- |
-| `device.py` | `Light`, the class on the card: one handler `light`, a `km.kernel` handler; `made(host)` |
+| `device.py` | `Light`, the class on the card: one handler `light`, a `km.kernel` handler; `LightShown`, with the option `light_shows`: one own field more, mover B's scratch pages; `made(host)` |
 | `__init__.py` | the declaration (`LIGHT`), registered as `direct.light` |
 | `host.py` | `LightHost`: the light pages, LIGHT's table and profile pages a surface; the texture stage's surfaces (slot `frame.surface`), LIGHT's words written into their directory pages once loaded (the table's, the profile's, the pages'); slots `light.shadow_map`, `light.field`; the field's scale taken from slot `light.field_scale` when a host gives it; the unit's numbers; the sun region's table, its one writer: written once loaded and again when the run's sun, the tone, the terms, the indirect switch or the field's scale change (controls `exposure`, `saturation`, `curve`, `term_<name>`, `indirect` with the term indirect); the command's words |
-| `unit.py` | the thread unit (the frame role): its numbers (the surfaces' directories, 1 + the glass layer), the slots it takes, its times `light`, `light_glass`, the forms as defines |
-| `thread/direct_light_unit.c`, `.h` | a COLOUR view's LIGHT: displayed, or linear then glass with a glass layer; none for a DEPTH view |
+| `unit.py` | the thread unit (the frame role): its numbers (the surfaces' directories, 1 + the glass layer), the slots it takes, its times `light`, `light_glass`, the forms as defines (with `light_shows`, `DIRECT_LIGHT_SHOWN`) |
+| `thread/direct_light_unit.c`, `.h` | a COLOUR view's LIGHT: displayed, or linear then glass with a glass layer, the last one with `kLightShown` under `light_shows`; none for a DEPTH view |
 | `check/thread_frame.py` | the preset `lit`'s frames by a Loop: pictures against the reference's lit frame at the run's sun (the reference's moved lights, the map rebuilt), tone and terms, the sun's map, the sequence the times row shows, the times by layer; `lit`, the judge the display stage's check uses |
 | `model/` | LIGHT's numbers (`numbers.py`, read from `kernels/light.h`, `core/include`'s `surface.h` and `texel_pages/protocol.h`, the texture stage's `shade.h`), its table, terms, pages, field, the sun's region, the surface and the checks' expectations, in numpy |
 | `kernels/light.h` | LIGHT's table words, terms, an item's planes, the profile's words, the give-up places; it includes the texture stage's `shade.h` for SHADE's table words, the kinds and the camera's words |
 | `kernels/mover_a/` | mover A: the directories (`directories.hpp`), the table page with the camera and SHADE's table (`table.hpp`), an item's planes and word (`items.hpp`), the command (`light.hpp`): the pack CPU's asks served first |
-| `kernels/mover_b/` | mover B: the colour planes back to the frame (a band: its rows) and the profile page (`light.hpp`), its timed waits (`sends.hpp`) |
+| `kernels/mover_b/` | mover B: the colour planes back to the frame (a band: its rows) and the profile page (`light.hpp`), its timed waits (`sends.hpp`); shown (`shows.hpp`, built with `PRISM_LIGHT_SHOWS`): the thresholds, an item converted by the display stage's writer and written to its display page, mover B's profile words |
 | `kernels/unpack.hpp` | the unpack CPU: the pack CPU's mails served (a buffer's front page, a pop) |
 | `kernels/pack/dst.hpp` | Dst for a quarter tile, the numbers the row's steps share |
 | `kernels/pack/floats.hpp` | a float's bits and back, rsqrt on the vector unit |
@@ -61,7 +63,31 @@ The command's words: the frame's directory, the table's address in the regions' 
 the surface's table tensor), SHADE's table (glass), the camera's address, the glass
 layer's directory, the surface's directory (the glass layer's in the glass form), the
 bank and the grid (grid.h's a8), the form (`kLightLinear`, `kLightGlass`, else
-displayed).
+displayed; `kLightShown` with the displayed or the glass form).
+
+## Shown (the option `light_shows`)
+
+The presets `lit_tile` and `gi_tile` are `lit` and `gi` with the build option
+`light_shows` (False by default), resolved when the program is made: the kernels' define
+`PRISM_LIGHT_SHOWS`, the units' `DIRECT_LIGHT_SHOWN` and `POST_SHOW_BY_LIGHT`. The last
+LIGHT command of a colour view carries `kLightShown`; the pack CPU and mover A see the
+form without it. In place of writing an item's three colour planes to the frame, mover
+B converts them where they are in the out ring with the display stage's own functions
+(`post/show/kernels/write.hpp`, `convert.hpp`: `colour_rows`, `thresholds_of`, the
+writer's state) into one of two scratch pages and writes the item's rows to its tile's
+page of the display (page `tile`, as SHOW's with `first` 0, `across` 32); a scratch
+page is used again once its last write has left. The thresholds are read once a command
+from the display stage's region `show_table` into the writer's directory page, so the
+display's controls (transfer, gamma) work unchanged. The words it reads are in the
+surface's directory page beside LIGHT's (`surface.h` `kSurfaceShowDisplay`,
+`kSurfaceShowTable`, `kSurfaceShowPages`), written by the host at `bind` from the
+display tensor (slot `display.picture`, given by the display stage's host with the
+option) and the region's address in the loaded run. The scratch pages and buckets are
+the own field `shown_scratch` (16,384 bytes) of `LightShown`, the class made in place
+of `Light` with the option; `Light` is unchanged. Mover B's cycles converting and writing, its rows and items go to
+LIGHT's profile page after the pack CPU's words (`kLightProfShow*`). The frame's colour
+planes are not written in that command: nothing after it reads them.
+
 
 ## In the frame's thread
 

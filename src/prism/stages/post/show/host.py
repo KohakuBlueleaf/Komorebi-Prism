@@ -46,7 +46,8 @@ class ShowHost(Host):
     """What SHOW needs on the host for `scene` on `session`: after `prepare()`, the
     capacity, the display and profile tensors, the thresholds' table. Options: size,
     cores, recount, capacity (as the raster stage's); push (True: the image pushed,
-    False: the display read back); transfer (power, srgb) and gamma (of power)."""
+    False: the display read back); transfer (power, srgb) and gamma (of power);
+    light_shows (LIGHT writes the display: its slot display.picture given)."""
 
     pictures = True
 
@@ -64,6 +65,7 @@ class ShowHost(Host):
         self.waits = []  # each pushed frame's wait for its image, ms
         self.conversion = options.get("transfer", POWER)
         self.gamma = float(options.get("gamma", GAMMA))
+        self.light_shows = bool(options.get("light_shows", False))
 
     def prepare(self):
         """The capacity of the scene's frame (as the raster stage's), the table, the
@@ -82,6 +84,12 @@ class ShowHost(Host):
             "profile": self.tensors["profile"],
             "target": self.tensors["display"],
         }
+
+    def slots(self):
+        """With the option light_shows, the display tensor as display.picture."""
+        if not self.light_shows:
+            return {}
+        return {"display.picture": self.tensors["display"]}
 
     def thresholds(self):
         """The table of the transfer and gamma held (today's table for power at

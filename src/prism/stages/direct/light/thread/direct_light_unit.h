@@ -1,7 +1,8 @@
 /* The direct light's thread unit: a COLOUR view's LIGHT after every layer's SHADE, in
  * the displayed form, or with a glass layer the linear form then the glass form; its
  * words its numbers and the columns it takes, built by its class's builder
- * (DR_DIRECT_LIGHT_BUILD). The forms are the build's defines (DIRECT_LIGHT_*). */
+ * (DR_DIRECT_LIGHT_BUILD). The forms are the build's defines (DIRECT_LIGHT_*); with
+ * DIRECT_LIGHT_SHOWN the view's last LIGHT carries it. */
 #pragma once
 
 #include <stdint.h>

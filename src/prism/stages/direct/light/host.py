@@ -33,6 +33,8 @@ PROFILE_WORDS = LH["kLightProfBytes"] // 4  # a core's profile page
 LISTS = "frame.lists"  # the raster stage's layers, by name
 SURFACES = "frame.surface"  # each layer's surface directory, by name
 SCALE = "light.field_scale"  # the field's scale as its last update left it
+DISPLAY = "display.picture"  # the display LIGHT writes with the option light_shows
+SHOW_TABLE = "show_table"  # the display stage's thresholds' region
 SWITCHED = ("shadow", "lamps", "specular", "background")  # the terms a control turns
 EXPOSURE = (1e-3, 1e3)  # the tone's limits: exposure, saturation
 SATURATION = (0.0, 4.0)
@@ -60,6 +62,14 @@ def tone_of(lights):
     }
 
 
+def shown_table(loaded):
+    """The thresholds' region's address in the regions' bank (its place in the loaded
+    layout)."""
+    _, _, at, _, _ = loaded.layout.regions[SHOW_TABLE]
+    _, address = loaded.thread.regions.address(SHOW_TABLE)
+    return address + at
+
+
 class LightHost(Host):
     """What LIGHT needs on the host for `scene` on `session`: after `prepare()`, the
     light pages, the table's region and a surface's table and profile pages; after
@@ -68,7 +78,7 @@ class LightHost(Host):
     stage sizes the frame, from size, cores, capacity, recount), name (the scene's,
     for its lights when `lights` is not given), materials, terms, tone, sun (azimuth,
     elevation), shadow_side (refused unless the lights' map has it), glass (a second surface sharing the table and pages; else whether the
-    materials have a glass layer)."""
+    materials have a glass layer), light_shows (mover B converts for display)."""
 
     def __init__(self, session, scene, options):
         self.session = session
@@ -81,6 +91,8 @@ class LightHost(Host):
         self.terms = tuple(options.get("terms") or TERMS)
         self.indirect = "indirect" in self.terms
         self.glass = bool(options.get("glass", glass_of(self.materials)))
+        self.shows = bool(options.get("light_shows", False))
+        self.display = None  # slot display.picture, with light_shows
         self.order = []  # the raster stage's layers, by its row index
         self.surfaces = {}  # the texture stage's surface directories, by layer
         self.scale = None  # slot light.field_scale, when a host gives it
@@ -130,10 +142,12 @@ class LightHost(Host):
             "profile": self.tensor(np.zeros((self.cores, PROFILE_WORDS))),
         }
 
-    def light_words(self, session):
-        """LIGHT's words (its table's, its profile's, the pages' addresses) into each
+    def light_words(self, loaded):
+        """LIGHT's words (its table's, its profile's, the pages' addresses; with
+        light_shows the display's, its pages and the thresholds' region's) into each
         core's page of the surfaces' directories, the frames' words as the texture
         stage wrote them."""
+        session = loaded.session
         for layer, own in self.own.items():
             directory = self.surfaces[layer]
             words = (
@@ -143,6 +157,10 @@ class LightHost(Host):
             words[:, SURFACE["kSurfaceLightTable"]] = own["table"].address
             words[:, SURFACE["kSurfaceLightProfile"]] = own["profile"].address
             words[:, SURFACE["kSurfaceLightPages"]] = self.pages.address
+            if self.shows:
+                words[:, SURFACE["kSurfaceShowDisplay"]] = self.display.address
+                words[:, SURFACE["kSurfaceShowTable"]] = shown_table(loaded)
+                words[:, SURFACE["kSurfaceShowPages"]] = self.display.pages
             session.write(directory, words.view(np.uint8).reshape(directory.pages, -1))
 
     def table(self):
@@ -164,8 +182,10 @@ class LightHost(Host):
         its layers' order (frame.lists) when the pipeline has a giver; the texture
         stage's surfaces (frame.surface, by layer: ValueError without one for each
         surface LIGHT reads); the field's scale (light.field_scale) when a host gives
-        it."""
+        it; with light_shows the display (display.picture)."""
         self.frame = assembled.slot("frame.visibility")
+        if self.shows:
+            self.display = assembled.slot(DISPLAY)
         try:
             self.order = list(assembled.slot(LISTS))
         except MissingSlot:
@@ -189,7 +209,7 @@ class LightHost(Host):
         """The run whose sun region the table is written to, and the table; LIGHT's
         words into the surfaces' directories."""
         self.loaded = loaded
-        self.light_words(loaded.session)
+        self.light_words(loaded)
         self.write_region()
 
     def thread_numbers(self):

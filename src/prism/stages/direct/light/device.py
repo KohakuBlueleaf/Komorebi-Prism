@@ -84,12 +84,31 @@ class Light(km.Program, compute=FRAME_COMPUTE):
         at `camera`; `mode` displayed, linear, or glass over the linear (light.h)."""
 
 
+SHOWN_PAGES = numbers.SHOW["kShowScratchPages"]  # mover B's pages, LIGHT shown
+SHOWN_WORDS = numbers.SHOW["kShowPageBytes"] // 4
+
+
+class LightShown(Light):
+    """LIGHT with the option light_shows: mover B's scratch pages (two converted, the
+    profile's, the buckets) for the display stage's conversion."""
+
+    shown_scratch: km.L1[km.u32, SHOWN_PAGES, SHOWN_WORDS] = km.own(push=None, raw=True)
+
+
+def shows_defines(host):
+    """The kernels' define of the option light_shows (mover B converts for display)."""
+    return {"PRISM_LIGHT_SHOWS": "1"} if host.shows else {}
+
+
 def made(host):
     """The class made for a host's tensors and the raster's capacity."""
-    return Light(
+    cls = LightShown if host.shows else Light
+    return cls(
         **host.examples,
-        **fields.given(Light, host.held),
-        defines=capacity.capacity_defines(host.held) | fields.defines(host.held),
+        **fields.given(cls, host.held),
+        defines=capacity.capacity_defines(host.held)
+        | fields.defines(host.held)
+        | shows_defines(host),
         session=host.session,
         depth=1,
     )

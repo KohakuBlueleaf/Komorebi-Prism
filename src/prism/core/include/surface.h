@@ -25,6 +25,11 @@ constexpr uint32_t kSurfaceWords = 32;  // both frames' words (kDirFrameMax + 1 
 constexpr uint32_t kSurfaceLightTable = 16;    // LIGHT's table tensor
 constexpr uint32_t kSurfaceLightProfile = 17;  // LIGHT's profile tensor (0: none)
 constexpr uint32_t kSurfaceLightPages = 18;    // LIGHT's pages: shadow map, background
+// LIGHT shown (light.h kLightShown): the display tensor, the thresholds' table (its
+// address in the regions' bank), the display's pages
+constexpr uint32_t kSurfaceShowDisplay = 19;
+constexpr uint32_t kSurfaceShowTable = 20;
+constexpr uint32_t kSurfaceShowPages = 21;
 constexpr uint32_t kSurfaceAlbedo = 0;
 constexpr uint32_t kSurfaceNormal = 3;
 constexpr uint32_t kSurfaceVisibility = 6;

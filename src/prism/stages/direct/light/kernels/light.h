@@ -10,9 +10,11 @@ namespace light_k {
 
     // The mode (the command's last word): 0 displayed; kLightLinear C (no exposure, no
     // tone curve: glass next); kLightGlass the glass over C, then exposure and the tone
-    // curve everywhere.
+    // curve everywhere. kLightShown, with 0 or kLightGlass: mover B converts the colour
+    // planes to the display's page as SHOW does, in place of writing them to the frame.
     constexpr uint32_t kLightLinear = 1;
     constexpr uint32_t kLightGlass = 2;
+    constexpr uint32_t kLightShown = 4;
 
     // LIGHT's table (model table.light_table; float32 unless int): per channel c at 16
     // c the sky's terms, ambient, the sun; then the words below, the camera, each lamp.
@@ -184,6 +186,15 @@ namespace light_k {
     constexpr uint32_t kLightProfFieldItemPages = 24;
     constexpr uint32_t kLightProfWords = 25;
     static_assert(4 * kLightProfWords <= kLightProfBytes);
+    // kLightShown: mover B's words after the pack CPU's: cycles converting, writing the
+    // display (with the waits for a scratch page's last write); rows, items converted
+    constexpr uint32_t kLightProfShowConvert = 25;
+    constexpr uint32_t kLightProfShowWrite = 26;
+    constexpr uint32_t kLightProfShowRows = 27;
+    constexpr uint32_t kLightProfShowItems = 28;
+    constexpr uint32_t kLightProfShowWords = 29;
+    static_assert(kLightProfShowConvert == kLightProfWords);
+    static_assert(4 * kLightProfShowWords <= kLightProfBytes);
     // The pack thread's field: its space, then the profile's counters from kLwProfile.
     constexpr uint32_t kLwProfile = 25600;
     constexpr uint32_t kLightPackBytes = 102512;

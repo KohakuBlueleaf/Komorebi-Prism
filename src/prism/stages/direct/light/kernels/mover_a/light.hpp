@@ -136,11 +136,12 @@ namespace light_k {
              kFieldTexelDones,
              texel_space::texel_slots(get_write_ptr(kFieldCommandSpace))}
         };
+        const uint32_t form = mode & ~kLightShown;
         const TableWords words = {
-            table, camera, bank_grid, shade_table, mode == kLightGlass
+            table, camera, bank_grid, shade_table, form == kLightGlass
         };
         return read_command(
-            movement, command, buffers, directory, glass, surface, words, mode
+            movement, command, buffers, directory, glass, surface, words, form
         );
     }
 

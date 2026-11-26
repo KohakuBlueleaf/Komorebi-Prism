@@ -7,9 +7,11 @@ from prism.check.account.commands import cores_of
 from prism.check.account.profiles import (
     FILL_CPUS,
     LIGHT_CPUS,
+    LIGHT_SHOWN_CPUS,
     PASS_HANDLER,
     SHADE_CPUS,
     SHOW_CPUS,
+    SHOWN_ITEMS,
     decoded,
     pass_profile,
 )
@@ -29,7 +31,11 @@ def cpus_of(command, sample):
         "show": (sample["show"], SHOW_CPUS),
     }
     words, cpus = pages.get(name, (None, None))
-    return None if words is None else decoded(words, cpus)
+    if words is None:
+        return None
+    if cpus is LIGHT_CPUS and words[:, SHOWN_ITEMS].any():
+        cpus = LIGHT_SHOWN_CPUS
+    return decoded(words, cpus)
 
 
 def span_cpu(cpus):

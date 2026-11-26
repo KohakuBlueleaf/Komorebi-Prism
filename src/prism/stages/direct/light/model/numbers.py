@@ -14,6 +14,8 @@ SURFACE = constexpr(INCLUDE / "surface.h")  # the lit frame's planes
 TEXEL_PAGES = constexpr(INCLUDE / "texel_pages" / "protocol.h")  # slots, asks, done
 # SHADE's table, its kinds and the camera's words
 SHADE = constexpr(STAGE.parents[1] / "material" / "texture" / "kernels" / "shade.h")
+# SHOW's pages and scratch, for LIGHT shown (the display stage's show.h)
+SHOW = constexpr(STAGE.parents[1] / "post" / "show" / "kernels" / "show.h")
 
 F32 = np.float32
 RSQRT_MAGIC = 0x5F3759DF  # 1 / sqrt(x) estimate from the bits, then Newton steps

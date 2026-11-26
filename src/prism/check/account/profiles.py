@@ -15,12 +15,12 @@ from prism.stages.raster.model.numbers import K, S
 @dataclass(frozen=True)
 class Cpu:
     """A CPU's words in a profile page: busy steps, waits and counts {name: word}, the
-    total's word."""
+    total's word (None: its busy steps' sum)."""
 
     name: str
     busy: dict = field(default_factory=dict)
     wait: dict = field(default_factory=dict)
-    total: int = 0
+    total: int | None = 0
     counts: dict = field(default_factory=dict)
 
 
@@ -118,6 +118,20 @@ LIGHT_CPUS = (
     ),
 )
 
+# LIGHT shown (light.h kLightProfShow*): mover B's conversion and display write too
+LIGHT_SHOWN_CPUS = LIGHT_CPUS + (
+    Cpu(
+        "writer",
+        named(LH, "kLightProfShow", ("convert", "write")),
+        total=None,
+        counts={
+            "show_rows": LH["kLightProfShowRows"],
+            "show_items": LH["kLightProfShowItems"],
+        },
+    ),
+)
+SHOWN_ITEMS = LH["kLightProfShowItems"]  # nonzero on a core: LIGHT shown
+
 # SHOW's page (show.h kShowProf*): the writer's
 SHOW_CPUS = (
     Cpu(
@@ -142,10 +156,15 @@ def decoded(words, cpus, base=0):
     "counts": {name: n}}}, each value an array a core."""
     out = {}
     for cpu in cpus:
+        busy = columns(words, cpu.busy, base)
         out[cpu.name] = {
-            "busy": columns(words, cpu.busy, base),
+            "busy": busy,
             "wait": columns(words, cpu.wait, base),
-            "total": words[:, base + cpu.total].copy(),
+            "total": (
+                sum(busy.values())
+                if cpu.total is None
+                else words[:, base + cpu.total].copy()
+            ),
             "counts": columns(words, cpu.counts, base),
         }
     return out

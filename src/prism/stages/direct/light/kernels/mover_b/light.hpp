@@ -1,5 +1,6 @@
 // LIGHT on mover B: every item's colour planes back to the frame (a band: its rows),
-// then the profile page to the core's page of the surface's profile tensor.
+// or (kLightShown) converted to its page of the display, then the profile page to the
+// core's page of the surface's profile tensor.
 #pragma once
 
 #include <stdint.h>
@@ -8,11 +9,15 @@
 #include "../../../../../core/include/surface.h"
 #include "komorebi/device/tensors/km_ask.hpp"
 #include "sends.hpp"
+#if defined(PRISM_LIGHT_SHOWS)
+#include "shows.hpp"
+#endif
 
 namespace light_k {
 
     // LIGHT of one command on mover B: `scratch` its directory page's buffer, `out`
-    // the out pages'. False: gave up.
+    // the out pages', `bank_grid` the regions' bank and the grid, `mode` its form.
+    // False: gave up.
     template <typename Mover, typename Directory, typename Surface>
     bool write_command(
         const Mover& writer,
@@ -20,7 +25,9 @@ namespace light_k {
         uint32_t scratch_buffer,
         uint32_t out,
         const Directory& directory_tensor,
-        const Surface& surface_tensor
+        const Surface& surface_tensor,
+        uint32_t bank_grid,
+        uint32_t mode
     ) {
         using fill_k::kDirFrame;
         using fill_k::kDirFrameMax;
@@ -44,6 +51,23 @@ namespace light_k {
         }
         invalidate_l1_cache();
         const uint32_t profile_address = directory[kSurfaceLightProfile];
+#if defined(PRISM_LIGHT_SHOWS)
+        const bool shows = (mode & kLightShown) != 0;
+        Shown shown;
+        if (shows &&
+            !shown_start(writer, command, directory, scratch, bank_grid, shown)) {
+            return false;
+        }
+#else
+        static_cast<void>(bank_grid);
+        if ((mode & kLightShown) != 0) {
+            writer.gave_up(
+                km::kStWriter, fill_k::kGaveBadItem, kWhereLightBad, 0, command.sequence
+            );
+            *writer.control(KM_CONTROL_STOP) = 1;
+            return false;
+        }
+#endif
         if (!km::read_pages(
                 writer, command, directory_tensor, writer.me(), 1, scratch
             ) ||
@@ -68,6 +92,12 @@ namespace light_k {
                 return false;
             }
             if (item == items) {  // the profile item: the pack CPU's counters
+#if defined(PRISM_LIGHT_SHOWS)
+                if (shows &&
+                    !shown_profile(writer, command, shown, get_read_ptr(out))) {
+                    return false;
+                }
+#endif
                 if (profile_address != 0) {
                     const InterleavedAddrGen<true> profiles = {
                         .bank_base_address = profile_address,
@@ -107,6 +137,21 @@ namespace light_k {
                 .bank_base_address = directory[kDirFrame + 1 + page / tensor_pages],
                 .page_size = kOutPageBytes
             };
+#if defined(PRISM_LIGHT_SHOWS)
+            if (shows) {
+                if (!shown_item(
+                        writer,
+                        command,
+                        shown,
+                        id,
+                        get_read_ptr(out) + kLightFirstPlane * kOutPageBytes
+                    )) {
+                    return false;
+                }
+                cb_pop_front(out, kLightOutPages);
+                continue;
+            }
+#endif
             const uint32_t source = get_read_ptr(out) + byte_offset;
             for (
                 uint32_t plane = kLightFirstPlane;
@@ -147,10 +192,15 @@ namespace light_k {
         static_cast<void>(shade_table);
         static_cast<void>(camera);
         static_cast<void>(glass);
-        static_cast<void>(bank_grid);
-        static_cast<void>(mode);
         return write_command(
-            movement, command, kFieldWriterPage, kFieldOutRing, directory, surface
+            movement,
+            command,
+            kFieldWriterPage,
+            kFieldOutRing,
+            directory,
+            surface,
+            bank_grid,
+            mode
         );
     }
 

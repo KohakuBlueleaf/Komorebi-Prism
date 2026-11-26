@@ -2,6 +2,14 @@
  * takes (the frame's directories, SHADE's table, LIGHT's table), its times. */
 #include "direct_light_unit.h"
 
+/* The bit the last LIGHT of a COLOUR view carries: with the option light_shows, its
+ * mover B converts for display (no SHOW after it). */
+#if defined(DIRECT_LIGHT_SHOWN)
+#define DIRECT_LIGHT_LAST DIRECT_LIGHT_SHOWN
+#else
+#define DIRECT_LIGHT_LAST 0u
+#endif
+
 /* The row of the view's layer `layer` (its index in the view). */
 static const volatile uint32_t* layer_row(const dr_view_t* view, uint32_t layer) {
     return (const volatile uint32_t*)dr_region(
@@ -56,7 +64,7 @@ uint32_t direct_light_unit_frame(dr_frame_t* frame, const dr_view_t* view) {
     uint32_t code = light(
         frame,
         view,
-        glass_layer ? DIRECT_LIGHT_LINEAR : DIRECT_LIGHT_DISPLAYED,
+        glass_layer ? DIRECT_LIGHT_LINEAR : DIRECT_LIGHT_DISPLAYED | DIRECT_LIGHT_LAST,
         surface,
         surface,
         0
@@ -69,7 +77,7 @@ uint32_t direct_light_unit_frame(dr_frame_t* frame, const dr_view_t* view) {
     code = light(
         frame,
         view,
-        DIRECT_LIGHT_GLASS,
+        DIRECT_LIGHT_GLASS | DIRECT_LIGHT_LAST,
         dr_number(frame, DR_DIRECT_LIGHT_N_LIGHT_GLASS_SURFACE),
         glass[DR_DIRECT_LIGHT_TAKES_FRAME_VISIBILITY_DIRECTORY],
         glass[DR_DIRECT_LIGHT_TAKES_MESH_ATTRIBUTES_SHADE_TABLE]

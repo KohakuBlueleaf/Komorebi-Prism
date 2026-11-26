@@ -12,6 +12,7 @@ static uint32_t first_directory(const dr_view_t* view) {
     return layer[DR_POST_SHOW_TAKES_FRAME_VISIBILITY_DIRECTORY];
 }
 
+#if !defined(POST_SHOW_BY_LIGHT)
 /* SHOW of the view's first layer: its directory, the display and its pages. */
 static uint32_t show(dr_frame_t* frame, const dr_view_t* view) {
     const uint32_t directory = first_directory(view);
@@ -26,6 +27,7 @@ static uint32_t show(dr_frame_t* frame, const dr_view_t* view) {
     );
     return dr_run(&command);
 }
+#endif
 
 /* The PUSH from the words the host wrote into the push region, its nonce word XORed
  * with the frame's key. */
@@ -72,8 +74,13 @@ uint32_t post_show_unit_frame(dr_frame_t* frame, const dr_view_t* view) {
         return copy(frame, view);
     }
     uint64_t mark = kmx_time();
+#if defined(POST_SHOW_BY_LIGHT)
+    uint32_t code = 0; /* LIGHT's last command wrote the display */
+    frame->times[DR_POST_SHOW_T_SHOW] = 0;
+#else
     uint32_t code = show(frame, view);
     frame->times[DR_POST_SHOW_T_SHOW] = dr_ticks(&mark);
+#endif
     if (code == 0 && dr_number(frame, DR_POST_SHOW_N_SHOW_PUSHES)) {
         code = push();
         frame->times[DR_POST_SHOW_T_PUSH] = dr_ticks(&mark);

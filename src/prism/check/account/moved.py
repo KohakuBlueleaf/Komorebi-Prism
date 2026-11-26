@@ -107,6 +107,9 @@ def moved(command, cpus, frame):
                 "light pages": total(cpus, "pack", "pages") * TEXEL_PAGE,
                 "field pages": total(cpus, "pack", "field_pages") * TEXEL_PAGE,
             }
+            shown = total(cpus, "writer", "show_rows")
+            if shown:
+                return read, {"display": shown * ROW}
             return read, {"planes": COLOUR * int(items["rows"].sum()) * ROW}
         case "show":
             rows = total(cpus, "writer", "rows")

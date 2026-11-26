@@ -13,4 +13,5 @@ under `docs/performance/` quote from here.
 | [field_update](field_update/README.md) | the preset `field`: the update alone, against the reference, its parts |
 | [apply](apply/README.md) | the preset `apply`: the transport's apply alone |
 | [account](account/README.md) | the account of a frame: each command's cores, waits, standing still, bytes and closure, the L1, the code, the per-item constants |
+| [account_tile](account_tile/README.md) | the account with LIGHT shown (`lit_tile`, `gi_tile`): the tile frame against the stage-wise frame, the L1 |
 | [viewer](viewer/README.md) | the viewer's field of view at its ends |

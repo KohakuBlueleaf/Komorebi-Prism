@@ -285,7 +285,7 @@ namespace light_k {
             kFieldCommandSpace,
             kFieldCommandSpace
         };
-        pack_command(waits, buffers, bank_grid, mode);
+        pack_command(waits, buffers, bank_grid, mode & ~kLightShown);
     }
 
 }  // namespace light_k

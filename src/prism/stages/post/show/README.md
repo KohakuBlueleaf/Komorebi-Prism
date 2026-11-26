@@ -13,8 +13,8 @@ them into the picture. It fills the item `post` and writes `display.picture`.
 | `device.py` | `Show`, the class on the card: `show` (the colour as R, G, B, 255, the thresholds in its field `thresholds`) and `copy` (plane 0 word for word into pages of another tensor); the frame program's compute set |
 | `entries.py` | the tables it reads: the raster stage's directory page (`DirHead`, `DirFrames`, `DirItem`), imported |
 | `host.py` | `ShowHost`: the capacity, the display and profile tensors, the thresholds' table, the push armed for a frame's grid, the picture (pushed, or read back) |
-| `unit.py` | the thread unit (the frame role): takes `frame.visibility` (the columns the raster unit shares), its regions `show_table` and `show_push`, its numbers and times |
-| `thread/post_show_unit.c`, `.h` | a COLOUR view's SHOW, then the PUSH from the host's words, the frame's key in the nonce word; a DEPTH view's COPY of its 1/z into the view's target (no PUSH) |
+| `unit.py` | the thread unit (the frame role): takes `frame.visibility` (the columns the raster unit shares), its regions `show_table` and `show_push`, its numbers and times; with the option `light_shows` the define `POST_SHOW_BY_LIGHT` |
+| `thread/post_show_unit.c`, `.h` | a COLOUR view's SHOW (none with `POST_SHOW_BY_LIGHT`: its time 0), then the PUSH from the host's words, the frame's key in the nonce word; a DEPTH view's COPY of its 1/z into the view's target (no PUSH) |
 | `check.py` | the displayed picture (pushed and read back) against the host's conversion of the frame and against the reference of the stage before it; the times' medians |
 | `model/table.py` | the thresholds' table, the writer's conversion on the host, its check against `to_srgb8` |
 | `model/pages.py` | the display's pages untiled, the pages a frame pushes, COPY's pages |
@@ -35,6 +35,13 @@ stage's part of the common field `command_space`, `prism.core.fields`, its addre
 the item's rows to its tile's page of the display. The thresholds are the region
 `show_table`, filled into a field at each command. `copy` reads plane 0 and writes it
 row-major to page `first + (tile / 32) across + tile mod 32`.
+
+## With the option `light_shows`
+
+LIGHT's last command of a colour view writes the display with this stage's conversion
+(`direct/light/README.md`, "Shown"): the host gives the display tensor as the slot
+`display.picture`, and the unit sends no SHOW, only the PUSH. The thresholds' region
+and the controls are this stage's, unchanged.
 
 ## The display's transfer
 

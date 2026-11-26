@@ -16,7 +16,7 @@
 #define SHOW_PUSH_BYTES 64u
 #define SHOW_PUSH_NONCE 7u /* the transfer's nonce word: a7 */
 
-/* A COLOUR view: SHOW of its first layer's frame, then the PUSH (the number
- * show_pushes); a DEPTH view: COPY of its 1/z into its target, no PUSH. 0, or the
- * code. */
+/* A COLOUR view: SHOW of its first layer's frame (none with POST_SHOW_BY_LIGHT: LIGHT
+ * wrote the display), then the PUSH (the number show_pushes); a DEPTH view: COPY of its
+ * 1/z into its target, no PUSH. 0, or the code. */
 uint32_t post_show_unit_frame(dr_frame_t* frame, const dr_view_t* view);
