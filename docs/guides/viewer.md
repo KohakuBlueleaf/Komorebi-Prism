@@ -6,18 +6,20 @@ shows the frames a card renders through `prism.loop`. Two halves: the server
 (`apps/prism_viewer/web/`), a Vue 3 + Vite project in KohakuTerrarium's design language.
 
 Nothing in either half names a stage. The pipelines offered are the presets of
-`configs/pipeline/` that are given the slot `view.camera` (`raster`, `textured`, `lit`,
-`gi`, and their threads' forms `textured_threads`, `lit_threads`, `gi_threads`:
-[scene to threads](scene_to_threads.md)),
-opened as the command line opens them (`prism_cli.preset.opened`, `docs/guides/cli.md`):
-a preset that takes inputs from a scene's view (`SCENE_INPUTS`: materials, lights) is
-refused on a generated scene, and a preset that reads a scene's files beside its mesh
+`configs/pipeline/` that are given the slot `view.camera`: the renderer's threads' presets
+`textured_threads`, `lit_threads` and `gi_threads`, the stage-wise presets their pictures
+are compared with (`raster`, `textured`, `lit`, `gi`, `lit_tile`, `gi_tile`)
+([presets](cli.md#the-presets)), opened as the command line opens them
+(`prism_cli.preset.opened`). A preset that takes inputs from a scene's view
+(`SCENE_INPUTS`: materials, lights) is refused on a generated scene ("a generated scene
+has no view to take ... from"), and a preset that reads a scene's files beside its mesh
 (`SCENE_FILES`, the kinds of `prism_reference.scene.public.files`: `materials`,
-`lighting`, `indirect`, `transport`) is refused on a scene that lacks one, with the reason
-("no lighting file", "no indirect data"). The catalog says so for every scene and
-preset, so the page never offers a choice the server would refuse. The controls are the
-loop's (`Loop.controls()`: the hosts', named `<implementation>.<name>`); the card's times
-are the loaded thread's columns by name, a layer unit's by layer (`part`, `part.<i>`).
+`lighting`, `indirect`, `transport`) is refused on a scene that lacks one, with the
+reasons joined ("no lighting file", "no indirect data; no transport set"). The catalog
+says so for every scene and preset, so the page never offers a choice the server would
+refuse. The controls are the loop's (`Loop.controls()`: the hosts', named
+`<implementation>.<name>`); the card's times are the loaded run's columns by name, a
+layer unit's by layer (`part`, `part.<i>`).
 
 ## Starting it
 
@@ -35,14 +37,17 @@ extra, for the JPEG frames):
 
 ```
 python -m prism_viewer.server --host 127.0.0.1 --port 8790 --token TOKEN \
-    --pipeline lit --scene sponza --view overview [--size W H] [--card 0]
+    --pipeline lit_threads --scene sponza --view overview [--size W H] [--card 0] \
+    [--offer NAME ...]
 ```
 
 `--offer NAME [NAME ...]` limits what the page is offered: only those presets, and only
 the scenes at least one of them can run on (the catalog's reasons decide it); `--pipeline`
 must be one of them, and the server refuses any other choice as it refuses an unknown
-preset or scene. Without it every preset and scene is offered. With one family offered
-(`--offer gi gi_threads`) the scene menu drops its Presets column, which would say nothing.
+preset or scene. Without it every preset and scene is offered. The defaults are `--pipeline raster
+--scene tiny` (a generated scene) and the size 1,024 x 1,024. The scene menu drops its
+Presets column when it would say nothing: every preset offered of one family (the name
+before its first `_`: `--offer gi gi_threads`) and running on every scene listed.
 
 Open `http://127.0.0.1:8790/?token=TOKEN`. Every route under `/api` answers 403 without
 the token (`?token=` on a GET, the header `X-Token` on a POST); the page keeps the token of
@@ -307,3 +312,10 @@ preset's `JUDGE` against its `REFERENCE` at that setting, its numbers reported a
 `prism_cli run` reports them). The record also gives each picture's difference from the
 one as loaded (what the control changed) and the JPEG against the unencoded pictures. One
 JSON line; exit 1 on a failure.
+
+Its options: `--pipeline` (default `raster`), `--scene` and `--view` (default `sponza`,
+`overview`), `--port` (8791), `--card` (0), `--log FILE` (the server's output) and
+`--no-reference` (the loop's pictures not judged by the preset's `JUDGE` nor
+`REFERENCE`, whose host-made frames take long on a scene of millions of triangles; every
+pass or fail stays). A threads' preset is checked the same way (`--pipeline lit_threads`),
+an opened glTF scene with `--view camera` ([glTF scenes](gltf_scenes.md)).

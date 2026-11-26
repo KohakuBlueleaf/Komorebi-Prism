@@ -1,7 +1,10 @@
 # Scenes
 
 What `prism_reference.scene` holds: the generated scenes, the frame and the camera, the
-public demo scenes with their table, materials and lighting entries.
+public test scenes with their table, materials, lighting and indirect files, and the
+scenes opened from glTF files, which take the public scenes' files and entries
+([glTF scenes](../guides/gltf_scenes.md)). Every preset, of either form, opens a scene by
+its name and a view: a generated scene by its name alone, any other by `<scene>_<view>`.
 
 ## Generated scenes
 
@@ -58,6 +61,24 @@ they take a scene name, and make the view from the converted mesh on first use
 (`native.raster_cpu.ensure_scene`). Only the commands of `public_scenes.py` download
 (`fetch` the scene, `materials` its textures, `lighting` its environment map): a script
 given a scene that has not been fetched stops with an error that names the command.
+
+### A scene's files
+
+Each file of a scene lies under `<data>/public/` (`scene.public.files`); a preset names the
+kinds it reads beside the mesh (`SCENE_FILES`, [presets](../guides/cli.md#the-presets)),
+and the viewer's catalog refuses it on a scene lacking one, saying what is missing:
+
+| kind | file | made by | missing |
+| --- | --- | --- | --- |
+| `mesh` | `<name>.npz` | `fetch`; the glTF conversion | no mesh file |
+| `materials` | `<name>_materials.npz` | `materials`; the glTF conversion | no materials file |
+| `lighting` | `<name>_lighting.npz` | `lighting`; `prism_cli open` for a preset that takes the lights | no lighting file |
+| `indirect` | `<name>_indirect.npz` | `indirect` | no indirect data |
+| `transport` | `<name>_transport/` (with its `blocks.npz`) | `indirect` | no transport set |
+
+The npz files keep a JSON `counts` record (triangles, materials, textures, texel bytes,
+triangles by kind, the lighting's `visibility` and `shadow`), which the viewer's scene menu
+shows.
 
 ### Scenes and attribution
 
@@ -350,11 +371,11 @@ the card's matrix files in `<scene>_transport/` (`blocks.npz`, `weights.f32`, `x
 `y_exact.npy`, `y_float.npy`, `y_q8.npy`, `perm.npy`, `README.md`: the layout the
 stage `indirect.transport` reads) and keeps the dense form factors in `<scene>_indirect_work/`
 (`F.npy`, about 6 GB at 40,000 elements; a stopped build goes on from it; it may be
-deleted afterwards). `direct.lights.load` finds the indirect file by its name. Built: Sponza
-(36,832 elements, `weights.f32` 1.7 GB, about 8.5 minutes on 8 CPUs) and the Bistro
-interior (42,240, 3.2 GB, about 17 minutes); the Breakfast Room (27,136, 1.4 GB, 8
-minutes), the Salle de Bain (47,072, 2.4 GB, 17 minutes), the Modern Hall (48,640, 2.8
-GB, 17 minutes) and The Modern Living Room (48,896, 2.4 GB, 21 minutes).
+deleted afterwards). `direct.lights.load` finds the indirect file by its name. Built, with
+their elements and `weights.f32`: Sponza (36,832 elements, 1.7 GB), the Bistro interior
+(42,240, 3.2 GB), the Breakfast Room (27,136, 1.4 GB), the Salle de Bain (47,072, 2.4 GB),
+the Modern Hall (48,640, 2.8 GB) and The Modern Living Room (48,896, 2.4 GB). The presets
+`gi` and `gi_threads` read both the indirect file and the transport set.
 
 ### Limits
 

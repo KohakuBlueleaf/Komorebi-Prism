@@ -1,35 +1,88 @@
 # glTF scenes
 
-A glTF file (`.glb` or `.gltf`) converted, through the
+A glTF file (`.glb` or `.gltf`) opened into a scene, drawn by the renderer as threads,
+then chosen in the viewer. The file is converted once, through the
 [scene description](../concepts/scene_description.md), into a scene of the tables: the
-same three files and the same table entry a [public scene](../concepts/scenes.md) has.
-After the conversion every preset, check and the viewer open the scene by its name,
-unchanged. The code is `src/prism_reference/scene/artist/` (`convert.py`, `materials.py`,
-`entry.py`); the check is `python -m checks.gltf_scene`.
+same files and the same kind of table entry a [public scene](../concepts/scenes.md) has.
+After the conversion every preset, check and the viewer open the scene by its name. The
+code is `src/prism_reference/scene/artist/` (`opened.py`, `convert.py`, `materials.py`,
+`entry.py`, `source.py`); the check is `python -m checks.gltf_scene` ([checks](checks.md)).
 
-## One command
+## 1. Open the file
 
 ```
 export PRISM_DATA=<data root>
-python -m prism_cli open <file> [--pipeline textured|lit|...] [--size W H] [--card C] \
-    [--bake wait|background|none]
+python -m prism_cli open <file>.glb --pipeline lit_threads --size 1920 1080 --card C \
+    --out <folder> [--camera NODE] [--bake wait|background|none]
 ```
 
-converts the file once and keeps it, makes the lights in two steps when the preset takes
-them, and draws the scene ([the command line](cli.md#open)). The scene's name is
-`<stem>_<10 hex digits>`: the stem is the file's own, its folder's when the file is called
-`scene`; the digits begin the file's key, the BLAKE2b digest of the bytes of the file, of
-its sidecar and the sidecar's instance table when they are there, of the converter's
-version (`opened.CONVERTER`) and of `--camera`. The mesh and materials files are written
-as below; the entry goes into `<data>/opened_scenes.json`, which the table reads whenever
-it exists (`$PRISM_SCENES_EXTRA` is not needed). An open whose key is already in that file
-with its files present converts nothing. When the preset takes the lights and the scene
-has none, the lighting file is first written with every vertex's sky visibility 1, so the
-first lit picture comes before the bake; the bake (`--bake background`, the default) runs
-as a process of its own and replaces the file when it ends, and the next open finds the
-lights baked. The three commands below are the parts it is made of.
+converts the file once and keeps it, makes the lights when the preset takes them and the
+scene has none, and draws `--frames` frames (16) as threads, the last written as
+`<folder>/<name>_camera_lit_threads.png` ([the command line](cli.md#open)). The record
+(one JSON line) names the scene `<stem>_<10 hex digits>`: the stem is the file's own, its
+folder's when the file is called `scene`; the digits begin the file's key, the BLAKE2b
+digest of the name, size and bytes of the file, of its sidecar and the sidecar's instance
+table when they are there, of the converter's version (`opened.CONVERTER`) and of
+`--camera`. The mesh and materials files are written as below; the entry goes into
+`<data>/opened_scenes.json`, which the table reads whenever it exists. An open whose key
+is already in that file with its mesh and materials present converts nothing.
 
-## The parts
+When the preset takes the lights (the lit and `gi` presets) and the scene has none, the
+lighting file is first written with every vertex's sky visibility 1 and the sun's shadow
+map left to the card, so the first lit picture comes before the bake; the bake
+(`--bake background`, the default) runs as a process of its own and replaces the file
+when it ends, and the next open finds the lights baked.
+
+From then on the scene is opened by its name with the view `camera`.
+
+## 2. Draw it from the command line
+
+```
+python -m prism_cli run --pipeline lit_threads --scene <name> --view camera \
+    --size 1920 1080 --frames 64 --path forward --card C
+```
+
+64 frames with the eye moving forward; exit 0 when every frame's code is 0. The record's
+`codes`, `reloads` and `frames_reloaded` say whether a frame needed a reload, `retries`
+whether one was recovered in the live run (a layer's lists grown for the camera).
+`--resize W H AT` changes the size from frame AT on; `--check 0` compares frame 0 with the
+reference made on the host.
+
+## 3. Choose it in the viewer
+
+```
+python -m prism_viewer.server --host 127.0.0.1 --port P --token TOKEN \
+    --pipeline lit_threads --scene <name> --view camera --card C
+```
+
+The catalog lists every preset that renders a view and every scene of the data root with
+its views, the opened ones included; the scene menu shows the opened scene's source file,
+its triangles drawn and stored, its objects and instances ([the viewer](viewer.md)). The
+viewer's check runs the same on a threads' preset:
+
+```
+python -m prism_viewer.server.check --pipeline lit_threads --scene <name> --view camera \
+    --card C [--no-reference]
+```
+
+The preset's `REFERENCE` and `JUDGE` are the reference's frames on the host, whose time
+grows with the scene's triangles; on a scene of millions of triangles `--no-reference`
+leaves them out (they only report numbers; every pass or fail of the check stays).
+
+## The indirect light
+
+`gi` and `gi_threads` also read the scene's indirect file and its transport set
+(`SCENE_FILES`), which neither `open` nor the conversion makes. After the lights:
+
+```
+python scripts/data/public_scenes.py indirect <name>
+```
+
+([indirect light](../concepts/scenes.md#indirect-light)). Without them the viewer's
+catalog refuses both presets on the scene with the reason ("no indirect data; no
+transport set").
+
+## The conversion alone
 
 ```
 export PRISM_DATA=<data root>
@@ -51,10 +104,11 @@ description's coverage alone (`scene.description.report.text`).
 
 ## What is written
 
-- `<data>/public/<name>.npz`: the mesh, as `scene.public.mesh.convert` writes it.
-  Every drawn mesh node (instances included) is flattened to world space
-  (`scene.description.flatten`, at most `--most-triangles`, 4,000,000 by default; over it
-  the conversion stops). No ground is added. A triangle's flat colour is its material's
+- `<data>/public/<name>.npz`: the mesh in the public scenes' layout (`positions`,
+  `colors`, `indices`, `counts`). Every drawn mesh node (instances included) is flattened
+  to world space (`scene.description.flatten`, at most `--most-triangles`: 4,000,000 by
+  default for `gltf_scene.py convert`, no limit for `prism_cli open` without the option;
+  over it the conversion stops before any array is made). No ground is added. A triangle's flat colour is its material's
   `base_color` rgb times, when it has a base-colour texture, the linear mean of that
   texture (its 1 x 1 mip level, the bytes through the standard sRGB transfer); without a
   material it is the readers' default grey. Vertices are split by colour
@@ -106,7 +160,8 @@ the occlusion texture, an emissive material's base-colour texture, a normal text
 kind that draws none, the normal scale, a second UV set (texture uses naming it, and
 drawn primitives carrying `uv1`), a texture transform on any texture but the base
 colour, `double_sided`, `unlit`, every carried material extension but transmission, the
-camera's roll, a spot light's cone and area lights.
+camera's roll, the camera's lens shift (`camera shift`), a spot light's cone (drawn as a
+point light) and area lights.
 
 ## The view
 
@@ -139,11 +194,15 @@ lamps are found among the emissive triangles, as for a public scene.
 
 ## Lights, then a preset
 
+A scene converted by `gltf_scene.py convert` has no lights until they are made:
+
 ```
 python scripts/data/public_scenes.py lighting NAME     # environment, visibility bake, shadow map
-python scripts/run/preset.py --pipeline lit --scene NAME --view camera
+python -m prism_cli run --pipeline lit_threads --scene NAME --view camera --card C
 ```
 
 The lighting command is the public scenes' own: it downloads the environment map once,
-bakes the visibility with the host's tracer and writes `<data>/public/NAME_lighting.npz`.
-Both read the entry through `$PRISM_SCENES_EXTRA`, which must stay set.
+bakes the visibility with the host's tracer and writes `<data>/public/NAME_lighting.npz`
+(`--visibility open` and `--shadow card` as `open` makes them:
+[scenes](../concepts/scenes.md#lighting)). Both read the entry through
+`$PRISM_SCENES_EXTRA`, which must stay set.
