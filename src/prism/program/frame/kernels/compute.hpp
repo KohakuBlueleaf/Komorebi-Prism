@@ -115,7 +115,10 @@ namespace prism_frame {
         compute_mail::Waits at_page = mail;
         at_page.stops.where_front = FW_C_PAGE;
         page = front_of(at_page, kFieldFramePage);
-        memory = get_local_cb_interface(kFieldFrameMemory).fifo_rd_ptr << 4;
+        memory = (
+            (get_local_cb_interface(kFieldCommandSpace).fifo_rd_ptr << 4) +
+            PRISM_SPACE_FRAME_MEMORY_AT
+        );
         to_both(page);
         to_both(memory);
 #else

@@ -59,10 +59,11 @@
 #define FL_CHUNK_BLOCKS 2u
 #define FL_HALF_BLOCKS 2u
 
-/* The handler's memory (the field frame_memory): the movers' shared line, then the
- * kept state, then the working planes. In the shared line: mover B's command, its
- * threads ended, the time each ended (FM_RING a ring by the thread's place); mover A's
- * scratch for a record and its slice's words. */
+/* The handler's memory (the command space's part frame_memory): the movers' shared
+ * line, then from the kept state's first byte the tile thread's part (the steps' kept
+ * state, then the working planes) and each kind's kept state over the same bytes. In
+ * the shared line: mover B's command, its threads ended, the time each ended (FM_RING a
+ * ring by the thread's place); mover A's scratch for a record and its slice's words. */
 #define FM_SHARED_BYTES 256u
 #define FM_B_SEQUENCE 0u
 #define FM_B_DONE 1u

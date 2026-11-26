@@ -112,7 +112,7 @@ namespace prism_frame {
         km::Movement& movement;
         const km_command_t& command;
         const volatile tt_l1_ptr uint32_t* page;
-        uint32_t memory;  // frame_memory's L1 address
+        uint32_t memory;  // the command space's part frame_memory: its L1 address
         uint32_t bank;    // the X280 thread's regions' bank
         uint32_t rank;
         uint32_t cores;

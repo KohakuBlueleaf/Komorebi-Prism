@@ -7,6 +7,7 @@ import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
+from prism.core import fields
 from prism.core.headers import INCLUDE, defined
 from prism.core.thread.module import ListPass
 from prism_common.formats import format_of
@@ -23,6 +24,7 @@ TF_STEP_AT = TF["TF_LAYER_AT"] + TR["TR_LAYERS"] * TF["TF_LAYER_WORDS"]
 PULLS = {TA["TP_COUNT"]: "count", TA["TP_PLACE"]: "place"}
 ALIGN = FRAME["FM_ALIGN"]
 WORD = 4
+MEMORY, OWNER = "frame_memory", "frame"  # the command space's part, its user
 # the handler's own rings: name, (pages, page bytes, pushing CPU) by the composition
 FIXED = ("page", "jobs", "jobs_b", "list_a", "list_b", "asks_a", "asks_b")
 
@@ -68,6 +70,7 @@ class Composition:
     outputs: tuple
     rings: dict
     geometry: tuple
+    planes_at: int
     memory_bytes: int
 
     def held_codes(self):
@@ -78,7 +81,7 @@ class Composition:
 
     def common(self):
         """The common fields (prism.core.fields) the steps and kinds name, in order."""
-        names = []
+        names = [fields.SPACE]
         for owner in (*self.thread.steps, *self.kinds):
             names += [n for n in owner.fields if n not in names]
         return tuple(names)
@@ -94,15 +97,30 @@ def plane_places(planes):
     return places, at
 
 
-def kept_places(owners, held):
-    """{(owner, name): (byte, bytes)} of every step's and kind's kept state."""
-    places, at = {}, 0
+def kept_places(owners, held, places=None):
+    """{(owner, name): (byte, bytes)} of the owners' kept state end to end from byte 0
+    (added to `places`), and the bytes they take."""
+    places = {} if places is None else places
+    at = 0
     for owner in owners:
         for name, value in owner.keeps.items():
             bytes_ = sized(value, held)
             places[owner.name, name] = (at, bytes_)
             at = aligned(at + bytes_)
     return places, at
+
+
+def memory_of(thread, kinds, held):
+    """The handler's memory past its shared line: the tile thread's part (the steps'
+    kept state, then the planes) and each kind's kept state over the same bytes. The
+    kept state {(owner, name): (byte, bytes)}, the planes' first byte, the bytes of
+    the largest part."""
+    kept, steps_bytes = kept_places(thread.steps, held)
+    _, planes_bytes = plane_places(thread.planes)
+    largest = steps_bytes + planes_bytes
+    for kind in kinds:
+        largest = max(largest, kept_places((kind,), held, kept)[1])
+    return kept, steps_bytes, largest
 
 
 def pass_layers(steps, layers):
@@ -145,9 +163,17 @@ def lists_geometry(steps):
     return page_records, record_bytes * page_records, block_records // page_records
 
 
-def rings_of(thread, kinds, outputs, geometry, memory_bytes):
+def kind_field(kinds, kind, name):
+    """The field of `kind`'s ring `name`: kind_<name>, one for every kind declaring
+    the ring with the same shape and pusher, when another does; else <kind>_<name>."""
+    shape = kind.buffers[name]
+    alike = [other for other in kinds if other.buffers.get(name) == shape]
+    return f"kind_{name}" if len(alike) > 1 else f"{kind.name}_{name}"
+
+
+def rings_of(thread, kinds, outputs, geometry):
     """{field: (pages, page bytes, pusher)} of the handler's rings, each output's
-    pair, each step's and kind's own rings, and its memory (no pusher)."""
+    pair, each step's own rings, each kind's (one field for a ring kinds share)."""
     _, page_bytes, block_pages = geometry
     rings = {
         "frame_page": (2, TF["TF_WORDS"] * WORD, "mover_a"),
@@ -167,7 +193,6 @@ def rings_of(thread, kinds, outputs, geometry, memory_bytes):
         "frame_asks_b": (FRAME["FA_PAGES"], FRAME["FA_BYTES"], "pack"),
         "frame_dones_a": (FRAME["FN_PAGES"], FRAME["FN_BYTES"], "mover_a"),
         "frame_dones_b": (FRAME["FN_PAGES"], FRAME["FN_BYTES"], "mover_b"),
-        "frame_memory": (1, memory_bytes, None),
     }
     for _, output in outputs:
         if output.block_bytes <= FRAME["FO_HEADER_BYTES"] or output.block_bytes % 16:
@@ -181,12 +206,19 @@ def rings_of(thread, kinds, outputs, geometry, memory_bytes):
                 output.block_bytes,
                 "pack",
             )
+    shared = set()
     for owner in (*thread.steps, *kinds):
         for name, (pages, page_bytes, pusher) in owner.buffers.items():
             field = f"{owner.name}_{name}"
+            if owner in kinds:
+                field = kind_field(kinds, owner, name)
+            if field in shared:
+                continue
             if field in rings:
                 raise ValueError(f"frame program: ring {field!r} declared twice")
             rings[field] = (int(pages), int(page_bytes), pusher)
+            if owner in kinds and field == f"kind_{name}":
+                shared.add(field)
     return rings
 
 
@@ -212,17 +244,17 @@ def compose(thread, kinds, layers, held=None):
     if len(set(out_names)) != len(out_names):
         raise ValueError(f"frame program: an output named twice ({out_names})")
     words = thread.words(TF_STEP_AT, TF["TF_WORDS"])
-    planes, planes_bytes = plane_places(thread.planes)
-    kept, kept_bytes = kept_places((*thread.steps, *kinds), held)
+    planes, _ = plane_places(thread.planes)
+    kept, steps_bytes, largest = memory_of(thread, kinds, held)
     passes = pass_layers(thread.steps, tuple(layers))
     streams = {
         TF["TV_COLOUR"]: sum((sum(passes[s.name], ()) for s in thread.colour()), ()),
         TF["TV_DEPTH"]: sum((sum(passes[s.name], ()) for s in thread.depth()), ()),
     }
     geometry = lists_geometry(thread.steps)
-    memory = FRAME["FM_SHARED_BYTES"] + kept_bytes + planes_bytes
-    memory = aligned(max(memory, ALIGN))
-    rings = rings_of(thread, kinds, outputs, geometry, memory)
+    memory = aligned(FRAME["FM_SHARED_BYTES"] + largest)
+    rings = rings_of(thread, kinds, outputs, geometry)
+    fields.need(MEMORY, OWNER, lambda held, bytes_=memory: bytes_)
     return Composition(
         thread,
         kinds,
@@ -235,6 +267,7 @@ def compose(thread, kinds, layers, held=None):
         outputs,
         rings,
         geometry,
+        aligned(FRAME["FM_SHARED_BYTES"] + steps_bytes),
         memory,
     )
 
@@ -246,8 +279,7 @@ def kept_at(composition):
 
 def planes_at(composition):
     """The working planes' first byte in the handler's memory."""
-    ends = [at + bytes_ for at, bytes_ in composition.kept.values()]
-    return aligned(kept_at(composition) + max(ends, default=0))
+    return composition.planes_at
 
 
 def array(name, values):
@@ -343,7 +375,7 @@ def buffers_text(composition):
         lines += [f"    struct {camel(kind.name)}Buffers {{"]
         lines += [
             f"        static constexpr uint32_t {identifier(name)} = "
-            f"kField{camel(identifier(f'{kind.name}_{name}'))};"
+            f"kField{camel(identifier(kind_field(composition.kinds, kind, name)))};"
             for name in kind.buffers
         ]
         lines += ["    };", ""]

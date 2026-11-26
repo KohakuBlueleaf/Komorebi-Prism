@@ -54,6 +54,9 @@ LAYOUTS = {
     "raster": ("raster_counters", "kept_hist"),
     # SHOW's converted pages, profile page and buckets, within its command
     "show": ("show_scratch",),
+    # WORK's memory (the movers' shared line, the kept state, the planes), within its
+    # command: a pull's commands each fill it before they read it
+    "frame": ("frame_memory",),
 }
 PARTS = {part: stage for stage, parts in LAYOUTS.items() for part in parts}
 PART_ALIGN = 64

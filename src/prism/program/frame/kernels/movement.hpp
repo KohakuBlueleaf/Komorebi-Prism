@@ -342,7 +342,7 @@ namespace prism_frame {
             movement,
             command,
             block.words,
-            get_write_ptr(kFieldFrameMemory),
+            get_write_ptr(kFieldCommandSpace) + PRISM_SPACE_FRAME_MEMORY_AT,
             block.words == nullptr ? 0u : bank_word(block.words[TF_GRID]) - 1u,
             movement.me() - km::first(command),
             km::count(command)

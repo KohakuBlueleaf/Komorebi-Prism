@@ -1,6 +1,7 @@
 """The handler `work` on every core: a class made for one Composition, its hand kernels
 the generated program (one file for both movers and the compute CPUs), its fields the
-loop's rings, the outputs' pairs, the steps' and kinds' rings and the handler's memory.
+loop's rings, the outputs' pairs, the steps' and kinds' rings and the common fields (its
+memory a part of the command space).
 """
 
 import types
