@@ -61,3 +61,9 @@ namespace depth_out_step {
 #endif
 
 }  // namespace depth_out_step
+
+// The loop calls a step's functions unqualified.
+using depth_out_step::depth_out_compute;
+#if !defined(COMPILE_FOR_TRISC)
+using depth_out_step::depth_out_convert;
+#endif

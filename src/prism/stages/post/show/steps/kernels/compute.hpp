@@ -32,3 +32,6 @@ namespace post_step {
     }
 
 }  // namespace post_step
+
+// The loop calls a step's functions unqualified.
+using post_step::post_compute;

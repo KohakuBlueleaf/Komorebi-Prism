@@ -21,5 +21,6 @@ DEPTH_OUT = Step(
     keeps={"scratch": PS["kPostScratchBytes"]},
     words=("pages",),
     thread=f"{STAGE}/thread/depth_out_frame_words.c",
+    colour=False,
     depth=True,
 )

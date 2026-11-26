@@ -57,9 +57,9 @@ class Step:
     `buffers`: rings of its own ({name: (pages, page bytes, the CPU that pushes)});
     `words`: its words of the frame's page, filled by `<name>_frame_words` of `thread`
     (a C file from src/prism/); `codes`: its variants by code (0 the resident one);
-    `depth`: whether a DEPTH view's tile thread runs it; `begin`: whether the header
-    gives `<name>_begin(ctx)`, run once a command on the data-movement CPU that takes
-    the command first, before its first thread. A keep's bytes: an int or a function of
+    `colour`, `depth`: whether a COLOUR and a DEPTH view's tile thread runs it;
+    `begin`: whether the header gives `<name>_begin(ctx)`, run once a command on the
+    data-movement CPU that takes the command first, before its first thread. A keep's bytes: an int or a function of
     the capacity held. `fields`: the common fields (prism.core.fields) its code uses."""
 
     name: str
@@ -74,6 +74,7 @@ class Step:
     words: tuple = ()
     thread: str | None = None
     codes: dict = field(default_factory=dict)
+    colour: bool = True
     depth: bool = False
     begin: bool = False
     fields: tuple = ()
@@ -152,6 +153,10 @@ class TileThread:
     def passes(self):
         """(step, pass) of every list pass, in the order the stream carries them."""
         return [(step, one) for step in self.steps for one in step.passes]
+
+    def colour(self):
+        """The steps a COLOUR view's tile thread runs."""
+        return tuple(step for step in self.steps if step.colour)
 
     def depth(self):
         """The steps a DEPTH view's tile thread runs."""
