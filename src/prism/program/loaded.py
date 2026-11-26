@@ -1,13 +1,14 @@
 """An assembled program loaded on a session: its handlers called by implementation; with
-a thread, its regions, numbers and layers written by name, its FRAME command, its times.
-"""
+threads, their regions, numbers and layers written by name (on the cluster of the unit
+that owns the name), its FRAME command, thread commands waited for or submitted beside
+the frames, the frame thread's times."""
 
 import komorebi as km
 import numpy as np
 from komorebi.program import thread as km_thread
 
 from prism.core.implementation import hosted
-from prism.core.resources import FRAME_COMMAND, TIMES_ROWS
+from prism.core.resources import DIRECTOR, FRAME_COMMAND, TIMES_ROWS
 from prism.program.director.thread import CLUSTER
 
 TIMEOUT = 60.0  # seconds a call waits for its event
@@ -24,33 +25,32 @@ def words_of(value):
 
 class Loaded:
     """A run of an assembled program: `call` submits a handler and waits for it; with a
-    thread, `frame` its FRAME command."""
+    thread, `frame` its FRAME command; `threads` and `layouts` by work cluster."""
 
     def __init__(self, assembled, session, run):
         self.assembled = assembled
         self.session = session
         self.run = run
         self.layout = assembled.layout
+        self.layouts = dict(assembled.layouts)
+        self.threads = {}
         self.rows = None
         self.served = 0
         self.result = None
         if self.layout is not None:
-            self.thread = run.threads[CLUSTER]
+            self.threads = {cluster: run.threads[cluster] for cluster in self.layouts}
+            self.thread = self.threads[CLUSTER]
             self.rows = np.zeros(
                 (self.layout.regions["layers"][3] // 4 // self.layout.layer_words,)
                 + (self.layout.layer_words,),
                 dtype=np.uint32,
             )
             cores = assembled.options.get("cores") or session.ranks
-            bank, _ = self.thread.regions.address("numbers")
-            self.numbers(
-                {
-                    "cores": cores,
-                    "workers": cores,
-                    "bank": bank,
-                    "layers": self.layout.layers,
-                }
-            )
+            for cluster, layout in self.layouts.items():
+                bank, _ = self.threads[cluster].regions.address("numbers")
+                numbers = {"cores": cores, "workers": cores, "bank": bank}
+                numbers["layers"] = layout.layers
+                self.numbers(numbers, cluster)
 
     @property
     def hosts(self):
@@ -71,10 +71,26 @@ class Loaded:
             raise km.KomorebiError(f"{implementation}.{handler}: {event}")
         return event
 
-    def write(self, name, data, at=0):
+    def cluster_of(self, table, name, cluster=None):
+        """The work cluster whose layout's `table` (regions, numbers, commands) holds
+        `name`: `cluster` when given, else the one where a unit owns it, else the
+        frame's."""
+        if cluster is not None:
+            return cluster
+        for one, layout in self.layouts.items():
+            entry = getattr(layout, table).get(name)
+            if entry is None:
+                continue
+            owner = entry.owner if table == "numbers" else entry[0]
+            if owner != DIRECTOR:
+                return one
+        return CLUSTER
+
+    def write(self, name, data, at=0, cluster=None):
         """`data`'s words into the thread region `name` from byte `at` (a shared
         region's from its place in the numbers region)."""
-        owner, _, offset, bytes_, _ = self.layout.regions[name]
+        cluster = self.cluster_of("regions", name, cluster)
+        owner, _, offset, bytes_, _ = self.layouts[cluster].regions[name]
         words = words_of(data)
         if at + 4 * len(words) > bytes_:
             raise ValueError(
@@ -82,23 +98,24 @@ class Loaded:
                 f"{bytes_}"
             )
         region = "numbers" if offset else name
-        self.thread.write(region, words, offset + at)
+        self.threads[cluster].write(region, words, offset + at)
 
-    def number(self, name, value):
+    def number(self, name, value, cluster=None):
         """The number `name` (its words: a camera's 16) set to `value`."""
-        place = self.layout.numbers[name]
+        cluster = self.cluster_of("numbers", name, cluster)
+        place = self.layouts[cluster].numbers[name]
         words = words_of(value)
         if len(words) != place.words:
             raise ValueError(
                 f"{place.owner}'s number {name!r} takes {place.words} words, given "
                 f"{len(words)}"
             )
-        self.thread.write("numbers", words, 4 * place.word)
+        self.threads[cluster].write("numbers", words, 4 * place.word)
 
-    def numbers(self, values):
+    def numbers(self, values, cluster=None):
         """Each number of the dict `values` set."""
         for name, value in values.items():
-            self.number(name, value)
+            self.number(name, value, cluster)
 
     def layer(self, index, view=None, **columns):
         """Layer `index`'s row of the view `view` (None: of every view): each column
@@ -124,20 +141,66 @@ class Loaded:
         """The thread command `command` (a unit's) with the words `args`, waited for:
         its result code; `row`: it writes a times row (it runs views), counted as one.
         """
-        handle = self.run.submit(command, cluster=CLUSTER, args=list(args), result=True)
-        event = self.run.wait(handle, timeout=TIMEOUT)
+        event = self.run.wait(self.submit(command, args), timeout=TIMEOUT)
         if event.kind != "done":
             raise km.KomorebiError(f"{command}: {event}")
         self.served += bool(row)
         return int(event.result)
 
-    def region(self, name):
+    def submit(self, command, args=()):
+        """The thread command `command` (a unit's) with the words `args` submitted to
+        its unit's cluster, not waited for: its handle."""
+        cluster = self.cluster_of("commands", command)
+        return self.run.submit(command, cluster=cluster, args=list(args), result=True)
+
+    def arrived(self, handle):
+        """The result code of the submitted thread command `handle` once its event has
+        come (never waits), else None; KomorebiError for an event that is not done."""
+        self.run.store()
+        event = self.run.event(handle)
+        if event is None:
+            return None
+        self.run.forget([handle])
+        if event.kind != "done":
+            raise km.KomorebiError(f"thread command {handle}: {event}")
+        return int(event.result)
+
+    def answer(self, handle):
+        """The result code of the submitted thread command `handle`, waited for."""
+        event = self.run.wait(handle, timeout=TIMEOUT)
+        if event.kind != "done":
+            raise km.KomorebiError(f"thread command {handle}: {event}")
+        return int(event.result)
+
+    def region(self, name, cluster=None):
         """The thread region `name`'s bytes (a shared one's part of the numbers
         region), read after the stop."""
-        _, _, at, bytes_, region = self.layout.regions[name]
+        cluster = self.cluster_of("regions", name, cluster)
+        _, _, at, bytes_, region = self.layouts[cluster].regions[name]
         shared = region is not None and not region.own
-        raw = np.frombuffer(self.thread.read("numbers" if shared else name), np.uint8)
+        raw = self.threads[cluster].read("numbers" if shared else name)
+        raw = np.frombuffer(raw, np.uint8)
         return raw[at : at + bytes_].copy() if shared else raw[:bytes_].copy()
+
+    def steps(self, cluster):
+        """The core steps cluster `cluster`'s units had the director run, read after
+        the stop (the last TIMES_ROWS): each its round trip and the director's time in
+        microseconds, its code, in order."""
+        layout = self.layouts[cluster]
+        words = layout.times_words
+        raw = np.frombuffer(self.threads[cluster].read("times"), dtype=np.uint32)
+        rows = raw[: TIMES_ROWS * words].reshape(TIMES_ROWS, words)
+        taken = [row for row in rows if row[layout.times["frame"].word]]
+        taken.sort(key=lambda row: int(row[layout.results["number"].word]))
+        return [
+            {
+                "round_us": float(row[layout.times["frame"].word]) * MICROSECONDS,
+                "director_us": float(row[layout.times["core_step"].word])
+                * MICROSECONDS,
+                "code": int(row[layout.results["code"].word]),
+            }
+            for row in taken
+        ]
 
     def times(self):
         """The times rows of the frames served (the last TIMES_ROWS), in order, read

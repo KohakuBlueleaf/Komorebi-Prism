@@ -5,6 +5,7 @@ import hashlib
 from pathlib import Path
 
 from prism.core.resources import (
+    CORE_STEP_COMMAND,
     DIRECTOR,
     FRAME_COMMAND,
     function_prefix,
@@ -105,12 +106,15 @@ def view_text(units):
 
 
 def program_text(layout):
-    """kmx_program: the FRAME command, then each unit's served commands."""
+    """kmx_program: the FRAME command, then each unit's served commands (and the
+    director's core_step, when it serves another cluster's core steps)."""
     cases = []
     for name, (owner, _, _) in layout.commands.items():
         macro = f"{macro_prefix(owner)}_COMMAND_{name.upper()}"
         if name == FRAME_COMMAND and owner == DIRECTOR:
             call = "dr_serve_frame(frame)"
+        elif name == CORE_STEP_COMMAND and owner == DIRECTOR:
+            call = "dr_serve_core_step(frame, command)"
         else:
             call = f"{function_prefix(owner)}_unit_{name}(frame, command)"
         cases += [

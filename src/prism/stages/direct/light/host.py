@@ -78,7 +78,9 @@ class LightHost(Host):
     stage sizes the frame, from size, cores, capacity, recount), name (the scene's,
     for its lights when `lights` is not given), materials, terms, tone, sun (azimuth,
     elevation), shadow_side (refused unless the lights' map has it), glass (a second surface sharing the table and pages; else whether the
-    materials have a glass layer), light_shows (mover B converts for display)."""
+    materials have a glass layer), light_shows (mover B converts for display),
+    update_beside (the field's pages twice: the half LIGHT reads and the half the
+    update writes)."""
 
     def __init__(self, session, scene, options):
         self.session = session
@@ -123,6 +125,8 @@ class LightHost(Host):
             self.held = held_of({**self.options, "cores": self.cores}, size)
             directory = self.tensor(np.zeros((self.cores, DIRECTORY_WORDS)))
         self.field = field_of(self.lights) if self.indirect else None
+        if self.field is not None and self.options.get("update_beside"):
+            self.field = {**self.field, "halves": 2, "half": 0}
         pages, _ = light_pages(self.lights, self.field)
         self.pages = self.tensor(pages)
         self.own = {"opaque": self.light_tensors()}  # by the surface's first layer
@@ -231,11 +235,13 @@ class LightHost(Host):
 
     def commands(self, loaded):
         """None; the table written again when the loop's sun moved or the field was
-        updated since (its scale and units from the update's), for the next frame."""
+        updated since (its scale, units and half of the pages from the update's), for
+        the next frame."""
         scaled = self.scale is not None and self.field is not None
         if scaled and self.scale["updates"] != self.updates:
             self.updates = self.scale["updates"]
-            self.field = {**self.field, "scale": self.scale["scale"]}
+            half = self.scale.get("half", 0)
+            self.field = {**self.field, "scale": self.scale["scale"], "half": half}
             self.write_region()
         elif loaded.options.get("sun") != self.sun:
             self.write_region()

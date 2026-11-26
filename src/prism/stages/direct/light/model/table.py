@@ -17,8 +17,9 @@ from prism_reference.raster.fill import BACKGROUND
 def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
     """LIGHT's table (shade.h kLt*): the sky, ambient, sun, exposure, terms, lamps,
     shadow, turn, maps' pages, tone (saturation 1 and curve 0 when the lights lack
-    them), each lamp; with the term `indirect` the field's words (`field`: field_of),
-    `indirect` False clearing kTermIndirect."""
+    them), each lamp; with the term `indirect` the field's words (`field`: field_of,
+    its pages from its `half` of its `halves`, 0 of 1 when absent), `indirect` False
+    clearing kTermIndirect."""
     words = np.zeros(LH["kLightTableBytes"] // 4, dtype=np.uint32)
 
     def put(at, values):
@@ -84,8 +85,9 @@ def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
     if "indirect" in terms:
         if field is None:
             raise ValueError("the term indirect needs the field (light.field_of)")
-        field_words(words, field, pages)
-        pages += field_layout(field["model"])[1]
+        count = field_layout(field["model"])[1]
+        field_words(words, field, pages + field.get("half", 0) * count)
+        pages += field.get("halves", 1) * count
     words[LH["kLtPages"]] = pages
     # the glass's reflection: its share, F0 and 1 - F0
     put(LH["kLtReflection"], lights.get("reflection", 0.0))

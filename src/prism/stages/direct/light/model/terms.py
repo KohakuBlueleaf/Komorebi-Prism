@@ -37,8 +37,9 @@ def map_pages(values):
 
 def light_pages(lights, field=None):
     """LIGHT's pages: the shadow map's 1/z, then the background map's red, green and
-    blue planes, each a map_pages; with `field` (field_of) its pages after them; and
-    each part's first page."""
+    blue planes, each a map_pages; with `field` (field_of) its pages after them (its
+    `halves`, 1 when absent: the pages again, zero, for each half after the first);
+    and each part's first page."""
     shadow = lights["shadow_map"].astype(F32)
     octa = lights["octahedral"].astype(F32)
     if shadow.shape[0] % PAGE or octa.shape[0] % PAGE:
@@ -48,6 +49,7 @@ def light_pages(lights, field=None):
     if field is not None:
         first["field"] = sum(len(part) for part in parts)
         parts.append(field["pages"])
+        parts += [np.zeros_like(field["pages"])] * (field.get("halves", 1) - 1)
     return np.concatenate(parts), first
 
 

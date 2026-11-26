@@ -8,12 +8,15 @@ from dataclasses import dataclass
 import numpy as np
 from komorebi.program import thread as km_thread
 
+from prism.core.unit import FRAMES
+
 PAGE = km_thread.PAGE  # a region is whole pages
 LINE = 64  # a shared region's offset, and a row's words, on whole lines
 LINE_WORDS = LINE // 4
 REGIONS_MAX = km_thread.layout()["KMX_REGIONS_MAX"]
 TIMES_ROWS = 256  # the times region: a row a frame, the last ones
 FRAME_COMMAND = "frame"  # the director's thread command, number 1
+CORE_STEP_COMMAND = "core_step"  # the director's command a step of another cluster's
 # the director's own numbers (name, words; the camera first, its words on a line), its
 # columns and its row words (times, then results)
 DIRECTOR_NUMBERS = (
@@ -27,7 +30,20 @@ DIRECTOR_NUMBERS = (
 )
 DIRECTOR_COLUMNS = ("depth",)  # whether the layer takes part in a DEPTH view
 DIRECTOR_TIMES = ("frame",)
-DIRECTOR_RESULTS = ("code", "number", "view", "layer")
+# on another cluster a times row a core step: its round trip, the director's part
+STEP_TIMES = ("frame", "core_step")
+# `resubmits`, `wake_ticks`: core commands submitted again after a busy rejection and
+# the ticks waited for the wake before them, since the load; `wake_most`: the row's
+# longest such wait
+DIRECTOR_RESULTS = (
+    "code",
+    "number",
+    "view",
+    "layer",
+    "resubmits",
+    "wake_ticks",
+    "wake_most",
+)
 DIRECTOR_REGIONS = ("numbers", "layers", "times")
 DIRECTOR = "dr"
 
@@ -89,11 +105,19 @@ class Place:
 
 class Layout:
     """The thread's resources for `units`, a list of (implementation name, Unit, host)
-    in the pipeline's order, `writes` {implementation name: the slots it writes};
+    in the pipeline's order, `writes` {implementation name: the slots it writes}, on
+    the work cluster `cluster`; `core_step`: on the frame's cluster, whether the
+    director serves other clusters' core steps, on another the number of that command;
     ValueError with the names and numbers when they do not fit."""
 
-    def __init__(self, units, writes=None):
+    def __init__(self, units, writes=None, cluster=FRAMES, core_step=None):
         self.units = list(units)
+        self.cluster = cluster
+        self.core_step = core_step
+        if cluster != FRAMES and not core_step:
+            raise ValueError(
+                f"thread layout: cluster {cluster} without the director's core_step"
+            )
         self.layers = layers_of(self.units)
         self.views = views_of(self.units)
         self.areas = self.layers * self.views  # a (view, layer) each: a layers row
@@ -143,7 +167,8 @@ class Layout:
                 self.named(self.columns, name, Place(owner, word), "column")
                 word += 1
         self.layer_words = lines(word)
-        rows = [(DIRECTOR, DIRECTOR_TIMES, DIRECTOR_RESULTS, False)]
+        director = DIRECTOR_TIMES if self.cluster == FRAMES else STEP_TIMES
+        rows = [(DIRECTOR, director, DIRECTOR_RESULTS, False)]
         rows += [
             (owner, unit.times, unit.results, unit.layer)
             for owner, unit, _ in self.units
@@ -247,7 +272,8 @@ class Layout:
                 )
 
     def place_commands(self):
-        """The thread commands: `frame` 1, then each unit's served ones in order."""
+        """The thread commands: `frame` 1, then each unit's served ones in order; on
+        the frame's cluster serving core steps, the director's core_step last."""
         number = 2
         for owner, unit, _ in self.units:
             for name in unit.serves:
@@ -258,6 +284,13 @@ class Layout:
                     )
                 self.commands[name] = (owner, None, number)
                 number += 1
+        if self.cluster == FRAMES and self.core_step:
+            if CORE_STEP_COMMAND in self.commands:
+                raise ValueError(
+                    f"thread layout: command {CORE_STEP_COMMAND!r} served by "
+                    f"{self.commands[CORE_STEP_COMMAND][0]} and by the director"
+                )
+            self.commands[CORE_STEP_COMMAND] = (DIRECTOR, None, number)
 
     def sharer_of(self, slot):
         """(the unit, its Unit) that shares `slot`'s columns and whose implementation
@@ -401,6 +434,10 @@ class Layout:
             out[macro], out[f"{macro}_AT"], out[f"{macro}_BYTES"] = index, at, bytes_
         for name, (owner, _, number) in self.commands.items():
             out[f"{macro_prefix(owner)}_COMMAND_{name.upper()}"] = number
+        if self.cluster != FRAMES:
+            out["DR_CLUSTER"] = self.cluster
+            out["DR_CORE_STEP_CLUSTER"] = FRAMES
+            out["DR_CORE_STEP"] = int(self.core_step)
         return out
 
     def header(self):

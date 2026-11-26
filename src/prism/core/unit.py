@@ -8,6 +8,9 @@ from prism_common.slots import SLOTS
 
 KINDS = ("numbers", "columns", "times", "results", "serves", "takes")
 ROLES = ("setup", "layer", "frame")
+FRAMES = 1  # the work cluster of the frame's thread, the director's
+BESIDE = 2  # the work cluster beside it, for work at its own cadence
+CLUSTERS = (FRAMES, BESIDE)
 
 
 @dataclass(frozen=True)
@@ -38,7 +41,8 @@ class Unit:
     once; `takes`: the slots it has produced by the unit that gives them, or reads from
     the columns its writer shares; `shares`: {slot: its own columns that carry it});
     what it asks for (a layer unit's times and results once a layer); `defines`: a
-    function of the host giving its build-time {name: value}."""
+    function of the host giving its build-time {name: value}; `cluster`: the work
+    cluster its thread runs on, an int or a function of the host."""
 
     sources: tuple = ()
     includes: tuple = ()
@@ -55,6 +59,7 @@ class Unit:
     times: tuple = ()
     results: tuple = ()
     defines: Callable | None = None
+    cluster: int | Callable = FRAMES
 
     def __post_init__(self):
         for kind in KINDS:
@@ -96,6 +101,14 @@ class Unit:
         """{slot: C function name} of the slots it gives, for the function prefix
         `prefix` of its implementation."""
         return {slot: f"{prefix}_unit_{name}" for slot, name in self.gives.items()}
+
+    def cluster_of(self, host):
+        """The work cluster of its thread for `host`; ValueError for one that is not
+        of CLUSTERS."""
+        cluster = self.cluster(host) if callable(self.cluster) else self.cluster
+        if cluster not in CLUSTERS:
+            raise ValueError(f"unit: cluster {cluster!r}, not one of {CLUSTERS}")
+        return int(cluster)
 
     def build_defines(self, host):
         """The -D definitions its C needs for `host`: {name: text}."""

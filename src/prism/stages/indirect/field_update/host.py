@@ -10,6 +10,7 @@ from komorebi import formats
 
 from prism.core.control import Control
 from prism.core.implementation import Command
+from prism.core.unit import BESIDE, FRAMES
 from prism.program.assemble import MissingSlot
 from prism.stages.direct.light.model.sun import scene_box, sun_lights
 from prism.stages.direct.light.model.terms import light_pages
@@ -62,7 +63,9 @@ class FieldUpdateHost:
     the option `name`) on `session`: after `prepare()`, the lights, the field model and
     the regions' contents; after `connect()`, the light pages tensor. In a loop, an
     update after each change of the option `sun` (azimuth, elevation) or of the
-    bounces (the option `bounces`, a control)."""
+    bounces (the option `bounces`, a control). Option `update_beside`: its unit on the
+    cluster beside the frames', the update submitted beside them, the field's pages
+    twice (the half LIGHT reads, the half the update writes)."""
 
     def __init__(self, session, scene, options):
         self.session = session
@@ -71,10 +74,16 @@ class FieldUpdateHost:
         self.cores = options.get("cores") or session.ranks
         self.sun = options.get("sun")
         self.bounces = bounce_count(options.get("bounces", BOUNCES))
+        self.beside = bool(options.get("update_beside", False))
+        self.cluster = BESIDE if self.beside else FRAMES
+        self.halves = 2 if self.beside else 1  # the field's pages in the light pages
+        self.half = 0  # the half that holds the last field made
+        self.running = False  # an update beside the frames sent, not served yet
         # (sun, bounces) the light pages' field is of (sun None: the files'): prepare()
         self.made = None
         self.asked = None  # (sun, bounces) of the update sent
-        self.given = {"updates": 0, "scale": None}  # slot light.field_scale
+        # slot light.field_scale (half: the half of the field's pages it is in)
+        self.given = {"updates": 0, "scale": None, "half": 0}
         self.sent_at = None  # when the update sent was asked for
         self.last_ms = None  # the last update's round trip on the host, ms
 
@@ -113,7 +122,7 @@ class FieldUpdateHost:
         except MissingSlot:
             self.pages = self.session.tensor(self.own, "uint32")
         self.own = None
-        end = self.first["field"] + self.counts["pages"]
+        end = self.first["field"] + self.halves * self.counts["pages"]
         if self.pages.pages != end:
             raise ValueError(
                 f"the light pages hold {self.pages.pages} pages, the update's layout "
@@ -140,11 +149,20 @@ class FieldUpdateHost:
                 "update_shadow": self.pages.address,
                 "update_shadow_first": self.first["shadow"],
                 "update_field": self.pages.address,
-                "update_field_first": self.first["field"],
+                "update_field_first": self.field_first(self.written()),
                 "update_x": self.x.address,
                 "update_y": self.y.address,
             }
         )
+
+    def written(self):
+        """The half of the field's pages the next update writes: the other one beside
+        the frames, else the one."""
+        return 1 - self.half if self.beside else 0
+
+    def field_first(self, half):
+        """The light page the field's half `half` begins at."""
+        return self.first["field"] + half * self.counts["pages"]
 
     def set_sun(self, lights, bounces):
         """The sun's words of `lights` and `bounces` into the live header region, and
@@ -159,7 +177,10 @@ class FieldUpdateHost:
     def commands(self, loaded):
         """The whole update, when the loop's sun or the bounces are not those the
         field was made for: the sun's words of the lights at it (the shadow map the
-        card's) and the bounces written first."""
+        card's), the bounces and the half it writes given first; beside the frames,
+        none while the one sent runs."""
+        if self.running:
+            return []
         sun = loaded.options.get("sun")
         sun = None if sun is None else tuple(float(n) for n in sun)
         if (sun, self.bounces) == self.made:
@@ -169,16 +190,24 @@ class FieldUpdateHost:
             lights = sun_lights(self.own_lights, self.box, *sun)
         self.lights, self.asked = lights, (sun, self.bounces)
         loaded.write("field_header", sun_words(lights, self.bounces), 4 * SUN_FIRST)
+        loaded.number("update_field_first", self.field_first(self.written()))
         self.sent_at = time.perf_counter()
-        return [Command(COMMAND, (STEPS["all"],), row=False)]
+        self.running = self.beside
+        return [Command(COMMAND, (STEPS["all"],), row=False, beside=self.beside)]
 
     def served(self, loaded, command, code):
-        """An update that came back 0: its sun and bounces kept, its round trip, its
-        scale asked for (the command field_scale) and given; none otherwise."""
-        if command != COMMAND or code != 0:
+        """An update that came back 0: its sun and bounces kept, its round trip, the
+        half it wrote, its scale asked for (the command field_scale) and given; none
+        otherwise."""
+        if command != COMMAND:
+            return
+        self.running = False
+        if code != 0:
             return
         self.last_ms = (time.perf_counter() - self.sent_at) * MS
         self.made = self.asked
+        self.half = self.written()
+        self.given["half"] = self.half
         bits = loaded.serve(SCALE_COMMAND)
         self.given["scale"] = np.array([bits], np.uint32).view(F32)[0]
         self.given["updates"] += 1
@@ -281,7 +310,7 @@ class FieldUpdateHost:
     def field_pages(self):
         """The field's pages read from the light pages while the run is loaded."""
         (raw,) = self.session.read(
-            self.pages, first=self.first["field"], pages=self.counts["pages"]
+            self.pages, first=self.field_first(self.half), pages=self.counts["pages"]
         )
         return np.ascontiguousarray(raw).view(np.uint32).reshape(-1, PAGE_TEXELS)
 

@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 import komorebi as km
 
 from prism.core.implementation import hosted
-from prism.core.resources import Layout
+from prism.core.resources import CORE_STEP_COMMAND, Layout
+from prism.core.unit import FRAMES
 from prism.program.director import thread
 
 
@@ -48,7 +49,8 @@ def connected(assembled):
 @dataclass
 class Assembled:
     """The one program, each implementation's host and made class by name, the options
-    it was assembled with, and its thread's layout (None without a unit)."""
+    it was assembled with, and its frame thread's layout (None without a unit); the
+    layout of each work cluster with units, by cluster."""
 
     pipeline: object
     program: object
@@ -57,6 +59,7 @@ class Assembled:
     options: dict
     layout: Layout | None = None
     slots: dict = field(default_factory=dict)  # slot: (implementation, tensor)
+    layouts: dict = field(default_factory=dict)  # cluster: Layout
 
     def slot(self, name):
         """The tensor of slot `name`, as the host holding it gives it; MissingSlot
@@ -75,10 +78,28 @@ class Assembled:
         return getattr(self.made[name], handler)
 
 
+def layouts_of(units, writes):
+    """{cluster: Layout} of `units` (name, Unit, host, cluster) by their clusters, the
+    frame's first; a cluster other than the frame's has its core steps run by the
+    frame's director, so the frame's cluster has a layout whenever another does."""
+    clusters = sorted({cluster for *_, cluster in units} | {FRAMES})
+    others = len(clusters) > 1
+    out = {}
+    for cluster in clusters:
+        own = [(name, unit, host) for name, unit, host, c in units if c == cluster]
+        if cluster == FRAMES:
+            out[cluster] = Layout(own, writes, cluster, core_step=others)
+            continue
+        step = out[FRAMES].commands[CORE_STEP_COMMAND][2]
+        out[cluster] = Layout(own, writes, cluster, core_step=step)
+    return out
+
+
 def assemble(pipeline, session, scene, options):
     """Each implementation's host prepared and its class made; the program the class
     itself for one implementation, `km.merge` of the made classes for several; then,
-    when an implementation has a unit, the thread's layout and the thread. An
+    when an implementation has a unit, a layout and a thread a work cluster with
+    units (each unit's cluster resolved for its host). An
     implementation without a class (`device` None) has its host and unit only; a
     pipeline with no class at all is refused. After every host's prepare(), the
     slots the hosts give are held and each host connected."""
@@ -100,12 +121,14 @@ def assemble(pipeline, session, scene, options):
     assembled.slots = held_slots(pipeline, hosts)
     connected(assembled)
     units = [
-        (implementation.name, implementation.thread, hosts[implementation.name])
-        for implementation in pipeline.implementations
-        if implementation.thread is not None
+        (i.name, i.thread, hosts[i.name], i.thread.cluster_of(hosts[i.name]))
+        for i in pipeline.implementations
+        if i.thread is not None
     ]
     if units:
         writes = {i.name: i.writes for i in pipeline.implementations}
-        assembled.layout = Layout(units, writes)
-        thread.declare(assembled, assembled.layout)
+        assembled.layouts = layouts_of(units, writes)
+        assembled.layout = assembled.layouts[FRAMES]
+        for layout in assembled.layouts.values():
+            thread.declare(assembled, layout)
     return assembled

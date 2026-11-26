@@ -1,6 +1,6 @@
 """The field update's thread unit: its C, the commands it serves (update, field_scale),
 the slot it takes (a pass's apply), its regions from the host's model and lights, its
-numbers, its defines (the header's word places)."""
+numbers, its defines (the header's word places), its cluster the host's."""
 
 import numpy as np
 
@@ -40,4 +40,5 @@ UNIT = Unit(
     },
     numbers=NUMBERS,
     defines=lambda host: header_defines(),
+    cluster=lambda host: host.cluster,
 )

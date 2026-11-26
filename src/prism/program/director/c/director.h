@@ -16,6 +16,19 @@
 
 #define DR_WAIT_TICKS KMX_TICKS_PER_SECOND /* a submit's and a wait's give-up */
 
+/* A core step: on a cluster other than the frame's (DR_CORE_STEP, its number of the
+ * frame cluster's command core_step), dr_submit sends a core command to the director
+ * as core_step's words: a0 its header, a1 its group, a2 to a9 its a0 to a7 (its a8 and
+ * a9 must be 0); the director runs it (dr_run) between two commands and answers its
+ * code in the low DR_STEP_CODE_BITS, its own ticks for it above them; dr_wait writes a
+ * times row a step: `frame` the round trip, `core_step` the director's ticks, `code` */
+#define DR_STEP_CODE_BITS 8u
+#define DR_STEP_CODE_MASK 0xFFu
+#define DR_STEP_TICKS_MOST 0xFFFFFFu
+#define DR_STEPS_HELD 8u /* core steps in flight at once on a cluster */
+/* core commands in flight at once that are submitted again after a busy rejection */
+#define DR_LINES_HELD 8u
+
 /* A view's kind: COLOUR (the eye's: every unit does its work) or DEPTH (its product the
  * nearest surface's 1/z, into its target) */
 #define DR_VIEW_COLOUR 0u
@@ -57,10 +70,16 @@ typedef struct {
 #define DR_ADDRESS(name) dr_address(name, name##_AT)
 
 /* Submits `command` (again while the ring is full, for DR_WAIT_TICKS at most): 0 with
- * its handle, or DR_RING. */
+ * its handle, or DR_RING; on another cluster as a core step (DR_BAD_ARGS for words a8
+ * or a9, DR_RING with DR_STEPS_HELD in flight). */
 uint32_t dr_submit(const km_command_t* command, uint32_t* handle);
 
-/* Waits for a submitted command's event: 0, DR_RING or DR_COMMAND. */
+/* Waits for a submitted command's event: 0, DR_RING or DR_COMMAND; a command rejected
+ * busy (another source's command held the slot) is submitted again at the dispatcher's
+ * next wake, within DR_WAIT_TICKS of its first submit (the times row's `resubmits` and
+ * `wake_ticks` count them and the ticks waited since the load, `wake_most` the longest
+ * wait in the row). On another cluster a core step's: the director's code, DR_RING or
+ * DR_COMMAND. */
 uint32_t dr_wait(uint32_t handle);
 
 /* dr_submit, then dr_wait. */
@@ -127,6 +146,12 @@ uint32_t dr_row_end(dr_frame_t* frame, uint32_t code, uint64_t started);
 
 /* The FRAME command: the eye's view from the numbers, dr_view, the times row. */
 uint32_t dr_serve_frame(dr_frame_t* frame);
+
+#ifdef DR_COMMAND_CORE_STEP
+/* The command core_step: another cluster's core command run (dr_run); its code and
+ * the ticks it took, as DR_STEP_CODE_BITS says. */
+uint32_t dr_serve_core_step(dr_frame_t* frame, const km_command_t* command);
+#endif
 
 /* The runtime's frame state. */
 dr_frame_t* dr_state(void);

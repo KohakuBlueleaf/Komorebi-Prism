@@ -1,5 +1,5 @@
 """The transport's thread unit: its C, the slot it gives (one apply), the command it
-serves, its number (the group's cores) and its results region."""
+serves, its number (the group's cores), its results region, its cluster the host's."""
 
 from pathlib import Path
 
@@ -16,4 +16,5 @@ UNIT = Unit(
     gives={"elements.irradiance": "pass"},
     regions={"transport_results": Region(4 * R["TRANSPORT_R_WORDS"], own=False)},
     numbers=("transport_cores",),
+    cluster=lambda host: host.cluster,
 )

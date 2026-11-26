@@ -10,12 +10,18 @@ from prism_common.slots import SLOTS
 
 @dataclass(frozen=True)
 class Command:
-    """A thread command a host asks the loop for: its name, its words, and whether it
-    runs views (writing a times row)."""
+    """A thread command a host asks the loop for: its name, its words, whether it
+    runs views (writing a times row), and whether it runs beside the frames (submitted
+    to its unit's cluster and not waited for; it runs no views)."""
 
     name: str
     args: tuple = ()
     row: bool = True
+    beside: bool = False
+
+    def __post_init__(self):
+        if self.beside and self.row:
+            raise ValueError(f"command {self.name!r}: beside the frames, it runs views")
 
 
 def command_of(asked):
@@ -59,11 +65,13 @@ class Host:
     def commands(self, loaded):
         """The thread commands of its unit the loop sends after the views and before
         the next FRAME, in order: each a Command, or a name (a command that runs views
-        and writes a times row); none. Asked after the earlier hosts' were served."""
+        and writes a times row); none. Asked after the earlier hosts' were served. A
+        command beside the frames is submitted and the loop goes on."""
         return []
 
     def served(self, loaded, command, code):
-        """`command` of commands() came back with `code`."""
+        """`command` of commands() came back with `code` (one beside the frames: its
+        event seen before a frame, its following commands then sent before it)."""
 
     def recover(self, loaded, code):
         """For a frame's `code` that is this host's: "retry" (its tables changed in

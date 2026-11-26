@@ -1,16 +1,18 @@
-"""The thread of an assembled program: the runtime, the generated sequence and every
-unit's C, with the layout's regions and commands, declared on the program."""
+"""The threads of an assembled program, one a work cluster that has units: the runtime,
+the generated sequence and that cluster's units' C, with its layout's regions and
+commands, declared on the program."""
 
 import inspect
 from pathlib import Path
 
 from prism.core.headers import INCLUDE
 from prism.core.resources import function_prefix
+from prism.core.unit import FRAMES
 from prism.program.director import generate
 from prism_common.paths import build_root
 
 RUNTIME = Path(__file__).resolve().parent / "c"
-CLUSTER = 1  # the work cluster the thread runs on
+CLUSTER = FRAMES  # the work cluster the frame's thread runs on
 DEADLINE = 10.0  # seconds kmx_main may take
 
 
@@ -49,9 +51,11 @@ def builders(assembled):
 
 
 def declare(assembled, layout):
-    """program.thread(...) of the assembled program for `layout`; the thread."""
+    """program.thread(...) of the assembled program for `layout`, on its cluster with
+    its units; the thread."""
     program = assembled.program
-    with_unit = [i for i in assembled.pipeline.implementations if i.thread is not None]
+    owners = {owner for owner, _, _ in layout.units}
+    with_unit = [i for i in assembled.pipeline.implementations if i.name in owners]
     sources, includes = [], []
     for implementation in with_unit:
         unit_sources, unit_includes = unit_files(implementation)
@@ -69,7 +73,7 @@ def declare(assembled, layout):
         build_root() / "thread" / name,
     )
     return program.thread(
-        cluster=CLUSTER,
+        cluster=layout.cluster,
         sources=[RUNTIME / "director.c", generated / generate.SOURCE, *sources],
         includes=[RUNTIME, generated, INCLUDE, *includes],
         regions=layout.region_values(),

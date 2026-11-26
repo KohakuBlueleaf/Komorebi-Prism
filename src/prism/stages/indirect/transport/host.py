@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from prism.core.unit import BESIDE, FRAMES
 from prism.stages.indirect.transport.plan.deal import deal
 from prism.stages.indirect.transport.plan.emulate import x_tiles
 from prism.stages.indirect.transport.plan.set import load
@@ -74,13 +75,15 @@ class TransportHost:
         the option `name`) on `session`: after `prepare()`, the set, its tables, its sizes,
         w's bytes, x and the tensors by name. Option `compute`: the compute set of the
         program the class joins (None: its own); with it, the frame's capacity (`held`) from
-    the options, as the raster stage's."""
+    the options, as the raster stage's. Option `update_beside`: its unit on the cluster
+    beside the frames'."""
 
     def __init__(self, session, scene, options):
         self.session = session
         self.scene = scene
         self.cores = options.get("cores") or session.ranks  # every core, unless told
         self.block = BLOCK
+        self.cluster = BESIDE if options.get("update_beside") else FRAMES
         self.folder = set_folder(scene_name(scene, options))
         self.compute = options.get("compute")  # the program's compute set; None: own
         size = options.get(

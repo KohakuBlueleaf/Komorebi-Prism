@@ -37,6 +37,7 @@ class Loop:
         self.held = None
         self.loaded = self.stopped = None
         self.rows = []  # the times rows of the loads before this one
+        self.beside = []  # (host, Command, handle) submitted beside the frames
         self.reloads, self.retries, self.sizes = [], 0, [self.size]
         self.load()
         self.held = capacity.held_of(capacity.needs(self.hosts(), self.size))
@@ -73,6 +74,7 @@ class Loop:
         loaded = self.loaded
         if self.stopped is loaded:
             return
+        self.collect(wait=True)
         result, self.stopped = loaded.stop(), loaded
         rows = loaded.times()
         self.rows += [None] * (loaded.served - len(rows)) + rows
@@ -96,14 +98,40 @@ class Loop:
             }
         )
 
+    def collect(self, wait=False):
+        """The commands beside the frames whose events have come (`wait`: each one,
+        waited for), each served to its host in turn: the first code that is not 0."""
+        first = 0
+        for entry in list(self.beside):
+            host, command, handle = entry
+            if wait:
+                code = self.loaded.answer(handle)
+            else:
+                code = self.loaded.arrived(handle)
+            if code is None:
+                continue
+            self.beside.remove(entry)
+            hosted(host, "served")(self.loaded, command.name, code)
+            first = first or code
+        return first
+
     def attempt(self, camera):
-        """The hosts' views in order, the commands they ask for (the first code that is
-        not 0 ends the attempt with it), then the FRAME command: its code."""
+        """The hosts' views in order, the commands beside the frames that came back
+        served, the commands the hosts ask for (one beside the frames submitted; the
+        first code that is not 0 ends the attempt with it), then the FRAME command:
+        its code."""
         for host in self.hosts():
             hosted(host, "view")(self.loaded, camera, self.size)
+        code = self.collect()
+        if code:
+            return code
         for host in self.hosts():
             for asked in hosted(host, "commands")(self.loaded):
                 command = command_of(asked)
+                if command.beside:
+                    handle = self.loaded.submit(command.name, command.args)
+                    self.beside.append((host, command, handle))
+                    continue
                 code = self.loaded.serve(command.name, command.args, command.row)
                 hosted(host, "served")(self.loaded, command.name, code)
                 if code:

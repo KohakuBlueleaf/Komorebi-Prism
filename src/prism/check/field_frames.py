@@ -1,12 +1,19 @@
 """Frames of a pipeline with the field's update by a Loop: each sun of the options set
-in turn (the loop sends the sun's pass, then the update, before the next frame), the
-field the card wrote against the reference's for the card's shadow map, the first and
-last pictures against the reference's lit frame at that sun; after the stop the scale
-words and the times."""
+in turn (the loop sends the sun's pass, then the update, before the next frame; or the
+update beside the frames, swapped in between two), the field the card wrote against the
+reference's for the card's shadow map, the first and last pictures and the first after
+the update against the reference's lit frame at that sun; the frames drawn during the
+update, the gaps between frames' ends on the host; after the stop the scale words, the
+times and the core steps."""
+
+import hashlib
+import time
 
 import numpy as np
 
+from prism.core.unit import BESIDE
 from prism.loop.report import medians
+from prism.program.loaded import MICROSECONDS
 from prism.stages.direct.light.check.thread_frame import PARTS, lit
 from prism.stages.indirect.field_update.check import field_numbers, update_times
 from prism.stages.indirect.field_update.check import verdict as field_verdict
@@ -25,6 +32,8 @@ CONTROL = f"{SUN}.sun"
 SUNS = ((120.0, 40.0), (200.0, 30.0))  # the suns set, unless the options say
 FRAMES = 16  # frames a sun, unless the options say
 TIMED = 32  # the last frames whose times rows give the medians
+MS = 1e3
+TICK_MS = MICROSECONDS / MS  # a timer tick's
 
 
 def units_of(scale):
@@ -52,28 +61,76 @@ def field_now(loop):
     }
 
 
-def at_sun(loop, sun, frames, scene):
-    """The sun set, `frames` frames: their codes and rows, the field after the
-    first, the first and last pictures judged."""
+def digest(picture):
+    """A picture's bytes' sha256, hex."""
+    return hashlib.sha256(np.ascontiguousarray(picture).tobytes()).hexdigest()
+
+
+def apart(one, other):
+    """Two pictures' difference: bytes and pixels that differ, the largest byte
+    difference; None without both."""
+    if one is None or other is None:
+        return None
+    gap = np.abs(one.astype(np.int16) - other.astype(np.int16))
+    return {
+        "bytes_different": int(np.count_nonzero(gap)),
+        "pixels_different": int(
+            np.count_nonzero(gap.reshape(-1, gap.shape[-1]).any(1))
+        ),
+        "largest": int(gap.max(initial=0)),
+    }
+
+
+def at_sun(loop, sun, frames, scene, before=None):
+    """The sun set, `frames` frames: their codes and rows, whether each was drawn
+    before the update's field was in (and the gap since the frame before on the host,
+    with and without the reads of pictures between), the field and the picture of the
+    first frame after it, the first and last pictures judged; the first frame drawn
+    during the update against `before` (the last picture at the sun before) and the
+    first after. The last picture besides. Judged after the frames."""
+    started = time.perf_counter()
     loop.set(CONTROL, sun)
-    judge = lit(loop, scene)
     host = loop.loaded.hosts[UPDATE]
-    out = {"sun": list(sun), "codes": [], "pictures": {}}
-    rows, first = [], None
+    made = host.given["updates"]
+    out = {"sun": list(sun), "codes": [], "pictures": {}, "frames": []}
+    rows, kept, read, during, swap = [], {}, 0.0, None, None
     for number in range(frames):
-        frame = loop.frame(scene["camera"], picture=number in (0, frames - 1))
+        frame = loop.frame(scene["camera"])
+        ended = time.perf_counter()
         out["codes"].append(frame.code)
         rows.append(frame.row)
         if frame.code:
             break
-        if number == 0:
-            out |= field_now(loop)
-            out["updates"] = host.given["updates"]
-        if frame.picture is not None:
-            out["pictures"][number + 1] = judge(frame.picture)
-            first = frame.picture if first is None else first
-            out["same_picture"] = bool(np.array_equal(first, frame.picture))
-    return out, rows
+        old = host.given["updates"] == made
+        gap = (ended - started) * MS
+        out["frames"].append(
+            {"row": frame.row, "during": old, "gap_ms": gap, "net_ms": gap - read}
+        )
+        read, started = 0.0, ended
+        if not old and swap is None:
+            swap = number
+            out["host_ms"] = host.last_ms
+        if number in (0, frames - 1) or number == swap or (old and during is None):
+            kept[number] = loop.picture().copy()
+            read = (time.perf_counter() - ended) * MS
+            during = number if old and during is None else during
+    judge = lit(loop, scene)
+    for number in (0, frames - 1):
+        if number in kept:
+            picture = kept[number]
+            out["pictures"][number + 1] = judge(picture) | {"sha256": digest(picture)}
+            out["same_picture"] = bool(np.array_equal(kept[0], picture))
+    if swap is not None:
+        out["swap_frame"] = swap + 1
+        out["swap_picture"] = digest(kept[swap])
+        out |= field_now(loop)
+        out["updates"] = host.given["updates"]
+        held = kept.get(during)
+        out["during_against"] = {
+            "before": apart(held, before),
+            "after": apart(held, kept[swap]),
+        }
+    return out, rows, kept.get(frames - 1)
 
 
 def scale_words(rows, suns):
@@ -98,19 +155,57 @@ def scale_words(rows, suns):
     return out
 
 
+def frame_times(loop, suns):
+    """Each sun's frames given their card time, the director's resubmits (core
+    commands submitted again after a busy rejection) and the time waited for the wake
+    before them since the frame before, and the frame's longest such wait, from their
+    times rows (ms); the frames drawn during the update apart: their count, card times,
+    resubmits and waits, against the steady frame's (the frames after the update)."""
+    times = loop.times()
+    kept = {"resubmits": 0, "wake_ticks": 0}
+    for one in suns:
+        for frame in one["frames"]:
+            row = times[frame["row"]] if frame["row"] < len(times) else None
+            frame["card_ms"] = None if row is None else row["frame"] / MS
+            frame["wake_most_ms"] = 0.0 if row is None else row["wake_most"] * TICK_MS
+            for name, total in kept.items():
+                now = total if row is None else row[name]
+                frame[name], kept[name] = now - total, now
+            frame["wake_ms"] = frame.pop("wake_ticks") * TICK_MS
+        during = [f for f in one["frames"] if f["during"]]
+        after = [f for f in one["frames"][1:] if not f["during"]]
+        steady = [f["card_ms"] for f in after]
+        steady_gaps = [f["net_ms"] for f in after]
+        one["during"] = {
+            "frames": len(during),
+            "card_ms": [f["card_ms"] for f in during],
+            "resubmits": sum(f["resubmits"] for f in during),
+            "resubmits_after": sum(f["resubmits"] for f in after),
+            "wake_ms": sum(f["wake_ms"] for f in during),
+            "wake_most_ms": max((f["wake_most_ms"] for f in during), default=0.0),
+            "longest_gap_ms": max((f["gap_ms"] for f in during), default=None),
+            "longest_net_ms": max((f["net_ms"] for f in during), default=None),
+            "steady_card_ms": float(np.median(steady)) if steady else None,
+            "steady_gap_ms": float(np.median(steady_gaps)) if steady_gaps else None,
+        }
+
+
 def check(loop):
     """Each sun of the options' `suns` in turn (its frames, the field, the pictures);
-    after the stop the update's codes and scale words, the times' medians."""
+    after the stop the update's codes and scale words, the frames' card times, the
+    times' medians and the core steps of a cluster beside the frames'."""
     frames = int(loop.options.get("frames", FRAMES))
     scene = with_size(loop.scene, loop.size)
-    suns, rows = [], []
+    suns, rows, last = [], [], None
     for sun in loop.options.get("suns") or SUNS:
-        one, more = at_sun(loop, tuple(sun), frames, scene)
+        one, more, last = at_sun(loop, tuple(sun), frames, scene, last)
         suns.append(one)
         rows += more
         if any(one["codes"]):
             break
     loop.stop()
+    frame_times(loop, suns)
+    steps = loop.loaded.steps(BESIDE) if BESIDE in loop.loaded.layouts else None
     host = loop.loaded.hosts[UPDATE]
     updates = times(loop.loaded.region("field_times"))
     for one, row in zip(suns, updates, strict=False):
@@ -134,4 +229,5 @@ def check(loop):
         "sun_passes": loop.loaded.hosts[SUN].passes,
         "sun_times": loop.loaded.hosts[SUN].times(loop.loaded),
         "ms": medians(timed, PARTS, RESULTS) if timed else {},
+        "core_steps": steps,
     }

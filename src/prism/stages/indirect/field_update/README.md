@@ -67,6 +67,35 @@ writes nothing into another unit's region (`FU_T_TABLE` stays 0). The scale and 
 units are still in the times row (`FU_T_SCALE`, `FU_T_UNIT`) for the record after the
 stop. A failed update sends nothing, and the table stays as it was.
 
+## Beside the frames (the option `update_beside`)
+
+With the build option `update_beside` (the preset `gi_tile`) this unit and
+`indirect.transport`'s run on work cluster 2 (`prism.core.unit.BESIDE`), a thread of
+their own with the director's runtime, their regions and numbers in that cluster's
+bank, written by their hosts as on cluster 1. Frames go on while the update runs:
+
+- The host marks `update` `beside=True`: the loop submits it to cluster 2 and does not
+  wait; before each frame it looks for its event (never waiting), and once it came the
+  host's `served` sends `field_scale` and the light host writes LIGHT's table, before
+  that frame. A sun change while an update runs is taken when the running one is served.
+- Only the frame's director (cluster 1) submits commands to the cores: the program's
+  depth is 1, and the raster keeps a part of the command space between two of its
+  commands of one layer, so a core command of another source must not land between
+  them. On cluster 2 `dr_submit` sends the core command as the director's command
+  `core_step` (its header, group and words a0 to a7); the director runs it between two
+  commands and answers its code and its own time. Each such step is a row of cluster 2's
+  times region (`Loaded.steps`). `kmx_fetch` and `kmx_store` are the exception: they
+  copy through the run's transfer buffer, touch no field of the program, and must be
+  called by the thread whose region they move, so cluster 2 calls them itself. While
+  one holds the program's one slot, the director's next core command is rejected busy:
+  the director submits it again at the dispatcher's wake, within its wait limit, and
+  counts it in the times row's `resubmits`.
+- The light pages hold the field's pages twice: the half LIGHT reads and the half the
+  update writes (`update_field_first`, the other half). The light host's table write
+  with the new scale, units and the new half's first page (`kLtFieldFirst`) is the
+  swap; the halves then change roles. The first field, made at load, is in the first
+  half.
+
 ## Running
 
 ```bash
