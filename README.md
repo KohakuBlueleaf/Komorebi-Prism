@@ -52,7 +52,7 @@ tree, `ttnn` or `torch` is needed.
 
 | Package | What it brings |
 |---|---|
-| `komorebi-tt` 0.5.3 or later | Komorebi, the framework the card's programs are written in, and its command `kmr`. 0.5.3 is the first release whose merged program leaves `gi` the stack it needs on every scene |
+| `komorebi-tt` 0.6.0 or later | Komorebi, the framework the card's programs are written in, and its command `kmr`. 0.6.0 is the first release in which a graph's command settles a merged program's handler as a submit does and a class's build folders are in the cache directory, both of which the renderer as threads relies on |
 | `komorebi-runtime` 0.81.1.4, through `komorebi-tt`'s extra `runtime` | Tenstorrent's tt-metal v0.81.1, built and pinned: its libraries, the cores' runtime, the X280 runtime, and the locator for the RISC-V compiler |
 | `numpy` | every array on the host |
 | `pillow` (the extras `viewer` and `scenes`) | the viewer's JPEG frames; decoding the public scenes' textures |

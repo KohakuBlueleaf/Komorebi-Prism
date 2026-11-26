@@ -10,7 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.13"
 # komorebi-tt's runtime extra is the pinned tt-metal build a card run needs.
-dependencies = ["numpy", "komorebi-tt[runtime]>=0.5.3"]
+dependencies = ["numpy", "komorebi-tt[runtime]>=0.6.0"]
 
 [project.urls]
 Homepage = "https://github.com/KohakuBlueleaf/Komorebi-Prism"
