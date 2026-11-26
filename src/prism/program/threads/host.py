@@ -32,6 +32,7 @@ POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
 LEAST = "list_slots_least"  # the option: a layer's least list slots
+NEED = dispatch.NEED  # the need page's words (dispatch.h DP_NEED_*)
 UNIT_CODE = re.compile(r"#define\s+(DP_\w+)\s+\(DR_UNIT_CODES \+ (\d+)u\)")
 # the dispatcher's codes (dispatch.h) as a view returns them
 CODES = {
@@ -102,7 +103,6 @@ class ThreadsHost(Host):
         self.depth_views = ()  # another host's DEPTH views
         self.loaded = None  # the run whose numbers and rows are written
         self.written = None  # the size whose grid is written
-        self.depth_size = None  # the DEPTH views' frame size, when a host gives them
         self.grown = {}  # what the last recover grew live (Loop's record)
 
     def tensor(self, rows):
@@ -163,7 +163,7 @@ class ThreadsHost(Host):
             views = None
         if views:
             self.depth_views = tuple(views["views"])
-            size = self.depth_size = tuple(views["size"])
+            size = tuple(views["size"])
             sizes.append(size)
             for camera in views["cameras"]:
                 scenes = {
@@ -189,13 +189,19 @@ class ThreadsHost(Host):
         return dispatch.Capacity(ranges, slices, account=bool(self.account))
 
     def made_tensors(self):
-        """The records (a 64-byte page each), each layer's counts, row histograms and
-        positions (a page a core)."""
+        """The records (a 64-byte page each), the need page, each layer's counts, row
+        histograms and positions (a page a core)."""
         cap, tiles = self.capacity, self.held.tiles
         words = layout.RECORD_BYTES // 4
         self.records = self.tensor(
             np.zeros((cap.slices * cap.slice_records, words), dtype=np.uint32)
         )
+        self.need = self.tensor(np.zeros((1, NEED["DP_NEED_WORDS"]), dtype=np.uint32))
+        if self.need.aligned_page_bytes != NEED["DP_NEED_BYTES"]:
+            raise ValueError(
+                f"threads: the need page takes {self.need.aligned_page_bytes} B, "
+                f"DP_NEED_BYTES {NEED['DP_NEED_BYTES']}"
+            )
         if self.account:
             page = FRAME["FX_RECORDS_AT"] + FRAME["FX_RECORD_WORDS"] * self.account
             self.account_pages = self.tensor(
@@ -219,7 +225,7 @@ class ThreadsHost(Host):
 
     def numbers(self):
         """The dispatcher's numbers: the policy, near, heavy, range blocks, the
-        records' and the display's addresses."""
+        records', the display's, the account's and the need page's addresses."""
         return dispatch.numbers(
             self.policy,
             self.near,
@@ -229,6 +235,7 @@ class ThreadsHost(Host):
             self.display.address,
             0 if self.account_pages is None else self.account_pages.address,
             self.account,
+            self.need.address,
         )
 
     def columns(self, name):
@@ -267,30 +274,35 @@ class ThreadsHost(Host):
             loaded.numbers({"grid": grid, "tiles": across * down})
             self.written = self.size
 
-    def entries(self, loaded):
-        """{layer: list slots} the last view placed: each layer's counts (a page a
-        core, a word a tile; read while the run is loaded) summed over the cores, the
-        tiles of the eye's grid or the DEPTH views' (the larger), cut tiles' bands."""
-        sizes = [self.size] + ([self.depth_size] if self.depth_size else [])
-        tiles = max(math.prod(frame_grid(size)) for size in sizes)
-        totals = {}
-        for name, one in self.layers.items():
-            pages = loaded.session.read(one["counts"])[0].view(np.uint32)
-            totals[name] = pages[:, :tiles].astype(np.int64).sum(axis=0)
-        bands = band_count(sum(totals.values()), self.heavy)
-        return {name: int((one * bands).sum()) for name, one in totals.items()}
+    def needed(self, loaded):
+        """The need page the dispatcher wrote when its view stopped with
+        DP_LISTS_SMALL (read while the run is loaded): (view index, kind, {layer:
+        entries placed}); None when it holds another code."""
+        words = loaded.session.read(self.need)[0].view(np.uint32).reshape(-1)
+        if int(words[NEED["DP_NEED_CODE"]]) != CODES["DP_LISTS_SMALL"]:
+            return None
+        at = NEED["DP_NEED_ENTRIES"]
+        entries = {
+            name: int(words[at + index]) for index, name in enumerate(self.layers)
+        }
+        kind = "depth" if words[NEED["DP_NEED_KIND"]] else "colour"
+        return int(words[NEED["DP_NEED_VIEW"]]), kind, entries
 
     def recover(self, loaded, code):
         """A view's slices or ranges past the capacity: a reload. A layer's lists too
-        small: each layer past its slots given lists of its entries and LIST_MARGIN
-        more, made while the run stays loaded, its row written again (the slots also
-        kept in the option LEAST for a later load), a retry; None when none is past."""
+        small: each layer past its slots in the dispatcher's need page given lists of
+        its entries and LIST_MARGIN more, made while the run stays loaded, its row
+        written again in every view (the slots also kept in the option LEAST for a
+        later load), a retry; None when none is past."""
         self.grown = {}
         if code == CODES["DP_TOO_MANY"]:
             return "reload"
         if code != CODES["DP_LISTS_SMALL"]:
             return None
-        needed = self.entries(loaded)
+        found = self.needed(loaded)
+        if found is None:
+            return None
+        view, kind, needed = found
         least = loaded.options.get(LEAST) or {}
         if not isinstance(least, dict):
             least = {name: least for name in self.layers}
@@ -313,10 +325,12 @@ class ThreadsHost(Host):
             return None
         loaded.options[LEAST] = least
         self.least = least
-        self.grown = {"name": "DP_LISTS_SMALL", "grown": grown}
+        self.grown = {"name": "DP_LISTS_SMALL", "view": view, "kind": kind}
+        self.grown["grown"] = grown
         return "retry"
 
     def recovered(self):
-        """What the last recover changed in the live run: the code's name, each layer
-        grown (its entries, its slots before and after); {} none."""
+        """What the last recover changed in the live run: the code's name, the view
+        that stopped (index, kind), each layer grown (its entries, its slots before and
+        after); {} none."""
         return dict(self.grown)
