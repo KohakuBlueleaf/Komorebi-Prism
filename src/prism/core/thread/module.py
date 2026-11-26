@@ -59,8 +59,10 @@ class Step:
     (a C file from src/prism/); `codes`: its variants by code (0 the resident one);
     `colour`, `depth`: whether a COLOUR and a DEPTH view's tile thread runs it;
     `begin`: whether the header gives `<name>_begin(ctx)`, run once a command on the
-    data-movement CPU that takes the command first, before its first thread. A keep's bytes: an int or a function of
-    the capacity held. `fields`: the common fields (prism.core.fields) its code uses."""
+    data-movement CPU that takes the command first, before its first thread. A keep's
+    bytes: an int or a function of the capacity held. `fields`: the common fields
+    (prism.core.fields) its code uses. `streams`: the rings of `buffers` Komorebi's
+    movers move (a stream's halves: among a core's first 32 buffers)."""
 
     name: str
     header: str
@@ -78,6 +80,7 @@ class Step:
     depth: bool = False
     begin: bool = False
     fields: tuple = ()
+    streams: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -94,6 +97,7 @@ class Kind:
     keeps: dict = field(default_factory=dict)
     buffers: dict = field(default_factory=dict)
     fields: tuple = ()
+    streams: tuple = ()
 
 
 @dataclass(frozen=True)
