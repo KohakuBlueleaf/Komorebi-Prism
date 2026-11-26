@@ -3,6 +3,8 @@ the generated program (one file for both movers and the compute CPUs), its field
 loop's rings, the outputs' pairs, the steps' and kinds' rings and the handler's memory.
 """
 
+import types
+
 import komorebi as km
 
 from prism.core import fields
@@ -37,20 +39,25 @@ def frame_class(composition, program_file):
         if fields.varying(name) is not None
     }
 
-    class FrameWork(km.Program, compute=FRAME_COMPUTE):
-        """WORK on every core of a view's pull: each core takes threads from its X280
-        core, hands each to its compute CPUs and both movers, and runs it to its end."""
+    def body(namespace):
+        """The class body: its annotations, fields, constants and the handler."""
+        namespace["__doc__"] = (
+            "WORK on every core of a view's pull: each core takes threads from its "
+            "X280 core, hands each to its compute CPUs and both movers, and runs it "
+            "to its end."
+        )
+        namespace["__annotations__"] = annotations  # the rings and the common fields
+        namespace |= owns | constants
+        namespace["work"] = km.handler(
+            km.kernel(movement=program_file, compute=program_file, entry=ENTRY)
+        )(work)
 
-        __annotations__.update(annotations)  # the rings and the common fields
-        vars().update(owns)
-        vars().update(constants)
+    return types.new_class("FrameWork", (km.Program,), {"compute": FRAME_COMPUTE}, body)
 
-        @km.handler(km.kernel(movement=program_file, compute=program_file, entry=ENTRY))
-        def work(self):
-            """WORK: the threads of the command's pull (the block: the frame's
-            page), each run where it was taken."""
 
-    return FrameWork
+def work(self):
+    """WORK: the threads of the command's pull (the block: the frame's page), each run
+    where it was taken."""
 
 
 def made(host, composition, defines):

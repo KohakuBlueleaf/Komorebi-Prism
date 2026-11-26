@@ -1,6 +1,6 @@
-// What a thread in the handler `work` is given: its descriptor decoded (a tile's record,
-// a range of triangle blocks), a layer's list span, and the context of the CPU that runs
-// it. Included by the generated program after its constants (kFrame*).
+// What a thread in the handler `work` is given: its descriptor decoded (a tile's
+// record, a range of triangle blocks), a layer's list span, and the context of the CPU
+// that runs it. Included by the generated program after its constants (kFrame*).
 #pragma once
 
 #include <stdint.h>
@@ -37,7 +37,8 @@ namespace prism_frame {
     };
 
     // A layer's part of a list pass: its pages [first_page, first_page + pages) of the
-    // layer's list, `skip` slots before the tile's first, `blocks` blocks of the stream.
+    // layer's list, `skip` slots before the tile's first, `blocks` blocks of the
+    // stream.
     struct ListSpan {
         uint32_t first_page, pages, skip, entries, blocks;
     };
@@ -47,8 +48,9 @@ namespace prism_frame {
             return {0, 0, 0, 0, 0};
         }
         const uint32_t skip = slot % kFrameSlotsPerPage;
-        const uint32_t pages = (skip + entries + kFrameSlotsPerPage - 1) /
-                               kFrameSlotsPerPage;
+        const uint32_t pages = (
+            (skip + entries + kFrameSlotsPerPage - 1) / kFrameSlotsPerPage
+        );
         return {
             slot / kFrameSlotsPerPage,
             pages,

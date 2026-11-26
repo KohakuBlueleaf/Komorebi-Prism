@@ -103,7 +103,8 @@ namespace prism_frame {
             .bank_base_address = ask[FA_BASE], .page_size = ask[FA_PAGE_BYTES]
         };
         for (uint32_t entry = 0; entry < count; entry++) {
-            volatile tt_l1_ptr uint32_t* one = ask + FA_ENTRY_AT + FA_ENTRY_WORDS * entry;
+            volatile tt_l1_ptr uint32_t*
+                one = (ask + FA_ENTRY_AT + FA_ENTRY_WORDS * entry);
             noc_async_read(pages.get_noc_addr(one[0]), one[1], ask[FA_PAGE_BYTES]);
         }
         const bool landed = ctx.movement.wait(

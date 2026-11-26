@@ -216,7 +216,7 @@ def compose(thread, kinds, layers, held=None):
     kept, kept_bytes = kept_places((*thread.steps, *kinds), held)
     passes = pass_layers(thread.steps, tuple(layers))
     streams = {
-        TF["TV_COLOUR"]: sum((sum(passes[s.name], ()) for s in thread.steps), ()),
+        TF["TV_COLOUR"]: sum((sum(passes[s.name], ()) for s in thread.colour()), ()),
         TF["TV_DEPTH"]: sum((sum(passes[s.name], ()) for s in thread.depth()), ()),
     }
     geometry = lists_geometry(thread.steps)
@@ -292,6 +292,8 @@ def constants_text(composition):
             f"    constexpr uint32_t {stem} = {at};",
             f"    constexpr uint32_t {stem}Bytes = {bytes_};",
         ]
+    for index, (_, out) in enumerate(composition.outputs):
+        lines += [f"    constexpr uint32_t kFrameOut{camel(out.name)} = {index};"]
     for step, passes in composition.passes.items():
         for index, layers in enumerate(passes):
             lines += array(f"k{camel(step)}Pass{index}Layers", layers)
@@ -377,7 +379,7 @@ def compute_text(composition):
         "        if (view_kind(ctx.page) == TV_DEPTH) {",
         *step_calls(thread.depth(), 12),
         "        } else {",
-        *step_calls(thread.steps, 12),
+        *step_calls(thread.colour(), 12),
         "        }",
         "        static_cast<void>(planes);",
         "        static_cast<void>(tile);",

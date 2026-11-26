@@ -13,12 +13,14 @@ namespace prism_frame {
     // A compute CPU's waits at `where`: the limit FW_WAIT_CYCLES, a bad item at FW_BAD.
     inline compute_mail::Waits waits_at(const ComputeContext& ctx, uint32_t where) {
         return {
-            {ctx.compute.control(),
-             km::kGaveLimit,
-             km::kGaveBadItem,
-             where,
-             where,
-             FW_BAD},
+            {
+                ctx.compute.control(),
+                km::kGaveLimit,
+                km::kGaveBadItem,
+                where,
+                where,
+                FW_BAD
+            },
             FW_WAIT_CYCLES
         };
     }
@@ -45,8 +47,10 @@ namespace prism_frame {
 
     // Entry `index` (below FA_ENTRIES) of the ask at `ask`: page `page` into L1 `to`.
     inline void ask_entry(uint32_t ask, uint32_t index, uint32_t page, uint32_t to) {
-        volatile uint32_t* entry = reinterpret_cast<volatile uint32_t*>(ask) +
-                                   FA_ENTRY_AT + FA_ENTRY_WORDS * index;
+        volatile uint32_t* entry = (
+            reinterpret_cast<volatile uint32_t*>(ask) + FA_ENTRY_AT +
+            FA_ENTRY_WORDS * index
+        );
         entry[0] = page;
         entry[1] = to;
     }
@@ -65,8 +69,10 @@ namespace prism_frame {
     // service of pack's mails (compute_mail::serve_mails). False: gave up.
     inline bool ask_wait(ComputeContext& ctx, uint32_t half) {
         const compute_mail::Waits waits = waits_at(ctx, FW_C_DONE);
-        return compute_mail::front(waits, kDoneRings[half], 1) != 0 &&
-               compute_mail::pop(waits, kDoneRings[half], 1);
+        return (
+            compute_mail::front(waits, kDoneRings[half], 1) != 0 &&
+            compute_mail::pop(waits, kDoneRings[half], 1)
+        );
     }
 
     // An output block of output `output` reserved in the half whose turn it is: its L1

@@ -28,7 +28,8 @@
 /* A request ring's page (the compute side's ask of one mover): FA_COUNT the pages
  * asked, each read from the tensor at bank address FA_BASE in pages of FA_PAGE_BYTES
  * into L1; an entry is (page, L1 address) from FA_ENTRY_AT. FA_COUNT FA_THREAD_END:
- * the running thread ended, FA_OUTPUTS output blocks pushed into this mover's halves. */
+ * the running thread ended, FA_OUTPUTS output blocks pushed into this mover's halves.
+ */
 #define FA_BYTES 512u
 #define FA_PAGES 2u
 #define FA_COUNT 0u
@@ -72,21 +73,21 @@
 #define FM_ALIGN 64u
 
 /* The places of the loop's waits and give-ups (the gave-up word's where). */
-#define FW_PAGE 112u           /* mover A: room for the frame's page */
+#define FW_PAGE 112u            /* mover A: room for the frame's page */
 #define FW_DESCRIPTOR_ROOM 113u /* mover A: room in a descriptor ring */
-#define FW_DESCRIPTOR 114u     /* mover B: its next descriptor */
-#define FW_AHEAD 115u          /* mover A: the thread before the one taken ahead */
-#define FW_LIST_ROOM 116u      /* a mover: room in its list half */
-#define FW_REQUEST 117u        /* a mover: a request's reads landed */
-#define FW_OUTPUT 118u         /* a mover: an output block's writes left */
-#define FW_DRAIN 119u          /* a mover: the threads it took ended */
-#define FW_RECORD 120u         /* mover A: a record and its slice's words landed */
-#define FW_C_PAGE 121u         /* unpack: the frame's page */
-#define FW_C_DESCRIPTOR 122u   /* unpack: a descriptor */
-#define FW_C_MAIL 123u         /* a compute CPU: a word of another */
-#define FW_C_ASK 124u          /* pack: room in a request ring */
-#define FW_C_DONE 125u         /* pack: an ask served */
-#define FW_C_OUT 126u          /* pack: room in an output half */
-#define FW_BAD 127u            /* a bad block, descriptor, request or pull */
+#define FW_DESCRIPTOR 114u      /* mover B: its next descriptor */
+#define FW_AHEAD 115u           /* mover A: the thread before the one taken ahead */
+#define FW_LIST_ROOM 116u       /* a mover: room in its list half */
+#define FW_REQUEST 117u         /* a mover: a request's reads landed */
+#define FW_OUTPUT 118u          /* a mover: an output block's writes left */
+#define FW_DRAIN 119u           /* a mover: the threads it took ended */
+#define FW_RECORD 120u          /* mover A: a record and its slice's words landed */
+#define FW_C_PAGE 121u          /* unpack: the frame's page */
+#define FW_C_DESCRIPTOR 122u    /* unpack: a descriptor */
+#define FW_C_MAIL 123u          /* a compute CPU: a word of another */
+#define FW_C_ASK 124u           /* pack: room in a request ring */
+#define FW_C_DONE 125u          /* pack: an ask served */
+#define FW_C_OUT 126u           /* pack: room in an output half */
+#define FW_BAD 127u             /* a bad block, descriptor, request or pull */
 /* Compute's waits give up after FW_WAIT_CYCLES cycles. */
 #define FW_WAIT_CYCLES 0x40000000u

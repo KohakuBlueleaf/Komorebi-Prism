@@ -22,9 +22,9 @@ namespace prism_frame {
             waits.stops,
             waits.cycles,
             [&] {
-                const uint16_t received = (reg_read(
-                    reinterpret_cast<uint32_t>(get_cb_tiles_received_ptr(cb))
-                ));
+                const uint16_t received = (
+                    reg_read(reinterpret_cast<uint32_t>(get_cb_tiles_received_ptr(cb)))
+                );
                 const uint16_t acked = get_local_cb_interface(cb).tiles_acked;
                 return static_cast<uint16_t>(received - acked) >= 1;
             },
@@ -45,8 +45,10 @@ namespace prism_frame {
 
     // A word of math and one of pack (each a confirmation). False: gave up.
     inline bool from_both(const compute_mail::Waits& waits) {
-        for (const auto thread :
-             {ckernel::ThreadId::MathThreadId, ckernel::ThreadId::PackThreadId}) {
+        for (
+            const auto thread :
+            {ckernel::ThreadId::MathThreadId, ckernel::ThreadId::PackThreadId}
+        ) {
             if (!waits.mail_from(thread)) {
                 return false;
             }
@@ -99,12 +101,14 @@ namespace prism_frame {
     inline void work_compute(km::Compute& compute, const km_command_t& command) {
         uint32_t page = 0, memory = 0;
         const compute_mail::Waits mail = {
-            {compute.control(),
-             km::kGaveLimit,
-             km::kGaveBadItem,
-             FW_C_MAIL,
-             FW_C_MAIL,
-             FW_BAD},
+            {
+                compute.control(),
+                km::kGaveLimit,
+                km::kGaveBadItem,
+                FW_C_MAIL,
+                FW_C_MAIL,
+                FW_BAD
+            },
             FW_WAIT_CYCLES
         };
 #if defined(TRISC_UNPACK)
