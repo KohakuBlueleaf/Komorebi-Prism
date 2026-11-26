@@ -63,8 +63,12 @@
  * line, then from the kept state's first byte the tile thread's part (the steps' kept
  * state, then the working planes) and each kind's kept state over the same bytes. In
  * the shared line: mover B's command, its threads ended, the time each ended (FM_RING a
- * ring by the thread's place); mover A's scratch for a record and its slice's words. */
-#define FM_SHARED_BYTES 256u
+ * ring by the thread's place); mover A's scratch for a record and its slice's words;
+ * from FM_COMPUTE_AT each compute CPU's part (FM_COMPUTE_BYTES a CPU, unpack, math,
+ * pack): its context, the descriptor it took, the descriptor's tile. */
+#define FM_SHARED_BYTES 1216u
+#define FM_COMPUTE_AT 256u
+#define FM_COMPUTE_BYTES 320u
 #define FM_B_SEQUENCE 0u
 #define FM_B_DONE 1u
 #define FM_B_ENDS 4u

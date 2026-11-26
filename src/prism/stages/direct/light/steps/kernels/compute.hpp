@@ -1,10 +1,11 @@
 // The light step on the compute CPUs: the pack CPU lights the tile's rows a quarter at
 // a time from its surface and visibility planes into the first layer's colour planes
 // (the displayed form, or with glass the linear then the glass form), its pages asked
-// through the loop's request rings; the unpack CPU serves its mails; the math CPU has
-// no part.
+// through the loop's request rings, its pass state in the keep `pass`; the unpack CPU
+// serves its mails; the math CPU has no part.
 #pragma once
 
+#include <new>
 #include <stdint.h>
 
 #include "../../../../../core/include/compute_mail.hpp"
@@ -81,6 +82,11 @@ namespace light_step {
         return true;
     }
 
+    // The keep `pass`: the form's LitPass, then its profile words.
+    constexpr uint32_t kPassValuesAt = (sizeof(LitPass) + 3u) & ~3u;
+    static_assert(alignof(LitPass) <= 4);
+    static_assert(kPassValuesAt + 4 * kLightStepProfileWords <= kLightStepPassBytes);
+
     // The tile's rows in one form (`mode`: 0 displayed, kLightLinear, kLightGlass)
     // from `from` into the first layer's colour planes. False: gave up.
     template <typename Ctx, typename Tile>
@@ -102,7 +108,8 @@ namespace light_step {
         // the lit material step's page cache, lent for the light's passes
         const uint32_t cache = ctx.kept(kKeptMaterialLitCache);
         const bool glass = mode == kLightGlass;
-        LitPass lit = {
+        const uint32_t held = ctx.kept(kKeptLightPass);
+        LitPass& lit = *new (reinterpret_cast<void*>(held)) LitPass{
             {waits, 0, 0, table, {table, 0, 0, 0, mode, false}},
             {&ctx,
              ctx.page[PRISM_TF_LIGHT_PAGES],
@@ -138,7 +145,10 @@ namespace light_step {
         }
         pass.pages.place(reinterpret_cast<uint32_t*>(ctx.kept(kKeptLightPages)));
         uint32_t* work = reinterpret_cast<uint32_t*>(ctx.kept(kKeptLightWork));
-        uint32_t values[kLightStepProfileWords] = {};
+        uint32_t* values = reinterpret_cast<uint32_t*>(held + kPassValuesAt);
+        for (uint32_t w = 0; w < kLightStepProfileWords; ++w) {
+            values[w] = 0;
+        }
         pass.values = values;
         pass.index = work + kLwIndex;
         pass.field_index = work + kLwField;

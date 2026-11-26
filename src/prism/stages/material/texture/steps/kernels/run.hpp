@@ -21,6 +21,10 @@ namespace material_step {
     // The page cache's bytes: kShadeSlots pages and the white texel's.
     constexpr uint32_t kCacheBytes = (kShadeSlots + 1) * kTexPageBytes;
 
+    // The step's keep `run`: the pack CPU's Run of a tile thread, then its Order, then
+    // the ListStream of the layer it shades (material.hpp).
+    constexpr uint32_t kRunBytes = 512;
+
     // The pack CPU's state of one tile thread.
     struct Run {
         compute_mail::Waits waits;
@@ -68,5 +72,7 @@ namespace material_step {
             return false;
         }
     };
+
+    static_assert(sizeof(Run) <= kRunBytes && alignof(Run) <= 4);
 
 }  // namespace material_step

@@ -17,8 +17,10 @@ namespace light_step {
     // ask list (the pages, from word 1).
     constexpr uint32_t kLightStepPagesBytes = 2560;
     constexpr uint32_t kLightStepAskedBytes = 576;
-    // The profile words a tile (light.h kLightProf*), on the pack CPU's stack.
+    // The profile words a tile (light.h kLightProf*).
     constexpr uint32_t kLightStepProfileWords = 25;
+    // A form's pass state on the pack CPU (colour.hpp LitPass), then its profile words.
+    constexpr uint32_t kLightStepPassBytes = 512;
 
     // Give-up places (the writer's word): a bad table or record, the unpack CPU's mail,
     // a buffer's front or room, the table's and the camera's reads (begin).

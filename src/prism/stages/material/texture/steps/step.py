@@ -13,6 +13,7 @@ from prism.stages.raster.steps.step import VISIBILITY
 
 KERNELS = Path(__file__).resolve().parent / "kernels"
 LIT = constexpr(KERNELS / "lit" / "lit.hpp")
+RUN = constexpr(KERNELS / "run.hpp")
 WORD = 4  # bytes a word
 SURFACE_PLANE = Plane(
     "frame.surface", "fp32", tiles=SURFACE["kSurfacePlanes"] * LIT["kSurfaces"]
@@ -36,6 +37,7 @@ CACHE_BYTES = (PAGES["kShadeSlots"] + 1) * SURFACE["kTexPageBytes"]  # and the w
 KEEPS = {
     "work": SH["kShadeWorkBytes"],
     "cache": CACHE_BYTES,
+    "run": RUN["kRunBytes"],  # the pack CPU's state of a tile thread
 }
 LIT_KEEPS = {
     "lit_work": LH["kLightWorkBytes"],

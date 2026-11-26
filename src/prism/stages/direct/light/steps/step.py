@@ -32,6 +32,7 @@ LIGHT = Step(
         "table": LS["kLightStepTableBytes"],
         "work": LS["kLightStepWorkBytes"],
         "pages": LS["kLightStepPagesBytes"] + LS["kLightStepAskedBytes"],
+        "pass": LS["kLightStepPassBytes"],
     },
     words=("table", "pages", "glass", *FIELD_WORDS),
     thread=f"{STAGE}/thread/light_frame_words.c",

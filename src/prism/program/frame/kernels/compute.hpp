@@ -3,11 +3,32 @@
 // steps, a range's kind) until the end descriptor; then the kind's end.
 #pragma once
 
+#include <new>
 #include <stdint.h>
 
 #include "pack.hpp"
 
 namespace prism_frame {
+
+    // This compute CPU's part of the handler's memory (frame.h FM_COMPUTE_AT): its
+    // context, then the descriptor it took, then the descriptor's tile.
+#if defined(TRISC_UNPACK)
+    constexpr uint32_t kComputeCpu = 0;
+#elif defined(TRISC_MATH)
+    constexpr uint32_t kComputeCpu = 1;
+#else
+    constexpr uint32_t kComputeCpu = 2;
+#endif
+    constexpr uint32_t kPartWordsAt = (sizeof(ComputeContext) + 3u) & ~3u;
+    constexpr uint32_t kPartTileAt = kPartWordsAt + 4u * FD_WORDS;
+    static_assert(alignof(ComputeContext) <= 4u && alignof(Tile) <= 4u);
+    static_assert(kPartTileAt + sizeof(Tile) <= FM_COMPUTE_BYTES);
+    static_assert(FM_COMPUTE_AT + 3u * FM_COMPUTE_BYTES <= FM_SHARED_BYTES);
+
+    // The first byte of this CPU's part of the handler's memory at `memory`.
+    inline uint32_t part_of(uint32_t memory) {
+        return memory + FM_COMPUTE_AT + kComputeCpu * FM_COMPUTE_BYTES;
+    }
 
     // The generated program's parts on the compute CPUs.
     // Each false: a give-up already recorded, the command ends.
@@ -128,7 +149,8 @@ namespace prism_frame {
         if (page == 0) {
             return;
         }
-        ComputeContext ctx = {
+        const uint32_t part = part_of(memory);
+        ComputeContext& ctx = *new (reinterpret_cast<void*>(part)) ComputeContext{
             compute,
             command,
             reinterpret_cast<const volatile uint32_t*>(page),
@@ -139,8 +161,8 @@ namespace prism_frame {
             {},
             {0, 0}
         };
+        uint32_t* d = reinterpret_cast<uint32_t*>(part + kPartWordsAt);
         for (;;) {
-            uint32_t d[FD_WORDS];
             if (!take(ctx, d)) {
                 return;
             }
@@ -148,7 +170,9 @@ namespace prism_frame {
                 break;
             }
             if (d[FD_KIND] == TP_TILE) {
-                if (!tile_compute(ctx, tile_of(d))) {
+                void* tile_at = reinterpret_cast<void*>(part + kPartTileAt);
+                const Tile& tile = *new (tile_at) Tile(tile_of(d));
+                if (!tile_compute(ctx, tile)) {
                     return;
                 }
 #if defined(TRISC_PACK)

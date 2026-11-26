@@ -5,9 +5,10 @@
 // material_lit_begin) reads the table and, lit, the camera once a command; then the
 // layers in the step's order as its list pass streams them: the pack CPU shades, the
 // unpack CPU hands the blocks on and serves the pack CPU's mails (its requests'
-// answers), the math CPU waits.
+// answers), the math CPU waits. The pack CPU's state of the tile is in the keep `run`.
 #pragma once
 
+#include <new>
 #include <stdint.h>
 
 #include "../../../../raster/steps/kernels/lists.hpp"
@@ -39,6 +40,13 @@ namespace material_step {
     constexpr uint32_t layer_planes(uint32_t visibility, uint32_t layer) {
         return visibility + layer * fill_k::kPlanes * fill_k::kOutPageBytes;
     }
+
+#if defined(TRISC_PACK)
+    // The keep `run` on the pack CPU: the Run, the Order, a layer's ListStream.
+    constexpr uint32_t kOrderAt = (sizeof(Run) + 3u) & ~3u;
+    constexpr uint32_t kListAt = (kOrderAt + sizeof(Order) + 3u) & ~3u;
+    static_assert(alignof(Order) <= 4);
+#endif
 
     // A window of the pack CPU's mails: on pack `body()` then the end of the unpack
     // CPU's service, on unpack the service. False: the body gave up.
@@ -75,7 +83,17 @@ namespace material_step {
             if (entries == 0) {
                 continue;
             }
+#if defined(TRISC_PACK)
+            using Stream = list_step::ListStream<Ctx>;
+            static_assert(
+                kListAt + sizeof(Stream) <= kRunBytes && alignof(Stream) <= 4
+            );
+            Stream& list = *new (
+                reinterpret_cast<void*>(ctx.kept(MATERIAL_KEPT(Run)) + kListAt)
+            ) Stream(ctx, tile.slot[layer], entries);
+#else
             list_step::ListStream<Ctx> list(ctx, tile.slot[layer], entries);
+#endif
             const bool used = use(i);
 #if defined(TRISC_PACK)
             if (used) {
@@ -117,13 +135,19 @@ bool material_step_compute(
     uint32_t textures
 ) {
     using namespace material_step;
+#if defined(TRISC_PACK)
+    const uint32_t held = ctx.kept(MATERIAL_KEPT(Run));
+    void* order_at = reinterpret_cast<void*>(held + kOrderAt);
+    const Order& order = *new (order_at) Order(ctx.page, ctx.page[layers]);
+#else
     const Order order(ctx.page, ctx.page[layers]);
+#endif
     const bool depth_view = prism_frame::view_kind(ctx.page) == TV_DEPTH;
     bool ready = true;
 #if defined(TRISC_PACK)
     const uint32_t table_at = compute_mail::write_ptr(kFieldFrameTable);
     pack_sfpu::setup();
-    Run run;
+    Run& run = *new (reinterpret_cast<void*>(held)) Run;
     ready = ready &&
         run.start(
             ctx,
