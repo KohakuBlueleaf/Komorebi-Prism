@@ -7,9 +7,10 @@
 #define TR_LAYERS 4u /* the layers a record holds at most */
 
 /* An item is a tile, or a band of the rows of a tile whose weight over every layer
- * passes the frame's TF_HEAVY; items are shared by all layers. A slice's items are in
- * tile order; inside an item's list the cores' entries follow each other by rank, a
- * core's own in the order of its ranges. A list holds records only.
+ * passes the frame's TF_HEAVY; items are shared by all layers. A slice's records are
+ * in order of weight (then tile, then first row), and its lists lie in that order from
+ * the slice's place; inside an item's list the cores' entries follow each other by
+ * rank, a core's own in the order of its ranges. A list holds records only.
  *
  * A record: TR_WORDS words.
  * word 0: tile | first_row << 16 | end_row << 24 (a whole tile: rows 0 to 32)
@@ -44,5 +45,3 @@
 #define TS_WEIGHT 1u
 #define TS_ENTRIES(layer) (2u + (layer))
 #define TS_PLACE(layer) (2u + TR_LAYERS + (layer))
-#define TS_FIRST (2u + 2u * TR_LAYERS) /* its first item's index among the view's items
-                                          (the frame's thread's running sum of TS_RECORDS) */

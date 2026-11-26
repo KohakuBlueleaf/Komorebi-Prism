@@ -20,10 +20,6 @@
 #define TF_RANGE_BLOCKS 11u /* the triangle blocks a count range holds */
 #define TF_PAGE_FIRST 12u  /* a tile's page in the target: TF_PAGE_FIRST + (tile / across) */
 #define TF_PAGE_ACROSS 13u /*   * TF_PAGE_ACROSS + tile % across (the display: 0, across) */
-#define TF_ITEMS 14u       /* the items' blocks: their tensor's address, a block a slice:
-                              TF_SLICE_TILES words (a tile: its first item in the slice |
-                              its items << 16), then TR_SLICE_RECORDS half-words (an
-                              item's rows: first | end << 8) */
 
 /* A view's kind */
 #define TV_COLOUR 0u
@@ -41,9 +37,12 @@
 #define TF_L_ROWS 6u        /* its row histograms: a page a core, 64 bytes a tile (16
                                counts of entries starting in a 2-row group, then 16 of
                                entries ending in one, uint16) */
-#define TF_L_POSITIONS 7u   /* each core's first position in each item's list, from the
-                               slice's place: a block a (slice, core), TR_SLICE_RECORDS
-                               words, the slice's items in tile order */
+#define TF_L_POSITIONS 7u   /* each core's positions: a page a core. A word a tile of a
+                               slice (32 a slice): a whole tile's first position, from
+                               its slice's place, or 0x80000000 | bands << 24 | its
+                               first band entry; then 2 words a band entry
+                               (TR_SLICE_RECORDS a slice): rows first | end << 8, and
+                               its first position */
 
 /* A step's own words follow, one a name of its `words`, assigned by prism.core as the
  * defines PRISM_TF_<STEP>_<WORD> from TF_STEP_AT, filled a view by the step's function
