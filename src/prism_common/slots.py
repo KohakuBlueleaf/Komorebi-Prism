@@ -79,7 +79,8 @@ slot(
     "frame.visibility",
     "fp32",
     "page",
-    "per tile the five planes: depth (1/z), red, green, blue, the triangle number",
+    "per tile the five planes: depth (1/z), red, green, blue, the triangle's word "
+    "(the float of bits 0x3F800000 + n; -1 where empty)",
 )
 slot(
     "frame.lists",

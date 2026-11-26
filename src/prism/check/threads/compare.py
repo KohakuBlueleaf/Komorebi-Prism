@@ -83,9 +83,9 @@ def sorted_rows(rows):
 
 
 def triangles(slots):
-    """The triangle numbers of list slots (kRecTri, a float), as a set of ints."""
-    column = np.ascontiguousarray(slots[:, K["kRecTri"]]).view(np.float32)
-    return set(column.astype(np.int64).tolist())
+    """The triangle numbers of list slots (kRecTri's word), as a set of ints."""
+    column = slots[:, K["kRecTri"]].astype(np.int64) - K["kTriBase"]
+    return set(column.tolist())
 
 
 def lists(laid, layer, got):

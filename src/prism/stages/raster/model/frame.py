@@ -4,6 +4,7 @@ import numpy as np
 
 from prism.stages.raster.model.cost import as_item
 from prism.stages.raster.model.numbers import TILES, K
+from prism.stages.raster.model.records import triangle_numbers, triangle_words
 from prism_reference.raster.fill import TILES_X, TILES_Y
 from prism_reference.scene.frame import HEIGHT, WIDTH
 
@@ -24,9 +25,7 @@ def decode_frame(frame):
     pixels = planes[:, :, TILE_ORDER].view(np.float32)  # (tiles, plane, 32, 32)
     pixels = pixels.reshape(TILES_Y, TILES_X, K["kPlanes"], 32, 32)
     image = pixels.transpose(2, 0, 3, 1, 4).reshape(K["kPlanes"], HEIGHT, WIDTH)
-    triangle = image[4].astype(np.int64)
-    if not np.array_equal(triangle.astype(np.float32), image[4]):
-        raise ValueError("a triangle number in the frame is not an integer")
+    triangle = triangle_numbers(image[4].view(np.uint32))
     return {
         "colour": np.ascontiguousarray(np.stack(image[1:4], axis=2)),
         "depth": np.ascontiguousarray(image[0]),
@@ -46,7 +45,11 @@ def decoded(words, across, down):
 def frame_of(images):
     """The frame pages the card would write for these images (inverse of decode)."""
     image = np.stack(
-        [images["depth"], *np.moveaxis(images["colour"], 2, 0), images["tri"]]
+        [
+            images["depth"],
+            *np.moveaxis(images["colour"], 2, 0),
+            triangle_words(images["tri"]).view(np.float32),
+        ]
     ).astype(np.float32)
     pixels = image.reshape(K["kPlanes"], TILES_Y, 32, TILES_X, 32)
     pixels = pixels.transpose(1, 3, 0, 2, 4).reshape(TILES, K["kPlanes"], 32, 32)

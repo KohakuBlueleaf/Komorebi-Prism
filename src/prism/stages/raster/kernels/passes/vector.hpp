@@ -45,7 +45,7 @@ namespace setup_k {
         constexpr uint32_t kSlotArea = 106;
         constexpr uint32_t kSlotInverseArea = 107;
         // finish_lanes: per lane 1 kept, 2 crossing the near distance, else 0; the
-        // box's columns as integers; the lane number as a float (written once by the
+        // box's columns as integers; the lane number as an integer (written once by the
         // pack thread)
         constexpr uint32_t kSlotFlags = 108;
         constexpr uint32_t kSlotFirstColumn = 109;

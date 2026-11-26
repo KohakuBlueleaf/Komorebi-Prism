@@ -55,7 +55,7 @@ namespace setup_k {
         }
 
         // The camera's page (L1): each number to every lane of its slot, each lane's
-        // number as a float for finish_lanes.
+        // number as an integer for finish_lanes.
         void camera(uint32_t camera_page) {
             mail += km::wall() - last;
             const uint32_t* camera_words = reinterpret_cast<const uint32_t*>(
@@ -70,7 +70,7 @@ namespace setup_k {
             );
             const uint32_t lane_numbers = setup_pass::word(setup_pass::kSlotLaneNumber);
             for (uint32_t lane = 0; lane < 32; ++lane) {
-                setup_pass::window()[lane_numbers + 2 * lane] = float_bits(lane);
+                setup_pass::window()[lane_numbers + 2 * lane] = lane;
             }
             setup_pass::order(lane_numbers + 62);
             last = km::wall();
@@ -93,7 +93,7 @@ namespace setup_k {
                 );
                 const uint32_t first_triangle = 32 * (first_block + page);
                 setup_pass::finish_lanes(
-                    pass.handler == kHandlerSetup, float_bits(first_triangle)
+                    pass.handler == kHandlerSetup, fill_k::kTriBase + first_triangle
                 );
                 ckernel::tensix_sync();
                 const uint32_t scalar_started = km::wall();

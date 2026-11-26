@@ -181,7 +181,7 @@ namespace setup_k {
 #endif
         words[26] = box.first_row;
         words[27] = box.last_row;
-        words[28] = float_bits(triangle);
+        words[28] = fill_k::kTriBase + triangle;
         words[29] = 0;
         words[30] = 0;
         words[31] = 0;
