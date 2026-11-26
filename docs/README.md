@@ -10,6 +10,8 @@
 
 - [concepts/scenes.md](concepts/scenes.md): the generated and public scenes, their
   credits, conversion, materials and lighting
+- [concepts/scene_description.md](concepts/scene_description.md): the scene description,
+  the glTF importer, its sidecar and its check
 - [guides/cli.md](guides/cli.md): the presets, the command line and the preset runner
 - [guides/environment.md](guides/environment.md): the environment variables the code
   reads, and Komorebi's that a run on a card reads
