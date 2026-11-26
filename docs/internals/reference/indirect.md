@@ -60,8 +60,11 @@ python scripts/data/public_scenes.py indirect sponza      # <scene>_indirect.npz
    equal solid angle over the upper hemisphere (4 bands x 8 sectors), was measured first
    and did worse (table below): it is not used.
 5. **The field.** Voxels of side `h` = the element spacing `sqrt(A / N)`, six directions
-   (+-x, +-y, +-z). (voxel, d) = `sum w E / sum w` over the elements within `R = 1.5 h` of
-   its centre, `w = max(0, n.d) (1 - (r/R)^2)^2`, a fixed sparse matrix from the elements
+   (+-x, +-y, +-z). (voxel, d) = `sum w E / sum w` over the elements within `R = 2 h` of
+   its centre that the centre sees (one any-hit ray from the centre to `p + eps n`: an
+   element under a floor, past a corner or behind a picture has `E` near 0 and would
+   darken the visible surface beside it), `w = max(0, n.d) (1 - (r/R)^2)^2`, a fixed
+   sparse matrix from the elements
    to the (voxel, d) values. A (voxel, d) with no element takes the row of the nearest
    voxel (centre distance at most 2 voxels; ties by offset order) whose d has one, else
    none. What it holds: `E` of item 3 plus the element's own sky irradiance.

@@ -16,7 +16,7 @@ from prism_reference.indirect.elements import (
     sample_elements,
     subset,
 )
-from prism_reference.indirect.field.build import build_field, field_counts
+from prism_reference.indirect.field.build import build_field, field_counts, sight
 from prism_reference.indirect.files import write
 from prism_reference.indirect.form_factors import dense_form_factors
 from prism_reference.indirect.hmatrix.apply import apply
@@ -112,7 +112,9 @@ def build(name, data, log=print):
     model = elements | {"real": real, "blocks": blocks, "weights": weights}
     model["transfer"] = np.where(real[:, None], transfer(tree, elements, eps), F(0))
     step("transfer")
-    model |= build_field(elements["position"][real], elements["normal"][real], spacing)
+    position, normal = elements["position"][real], elements["normal"][real]
+    seen = sight(tree, eps, position, normal)
+    model |= build_field(position, normal, spacing, seen=seen)
     model["field_columns"] = np.nonzero(real)[0][model["field_columns"]].astype(
         np.int32
     )

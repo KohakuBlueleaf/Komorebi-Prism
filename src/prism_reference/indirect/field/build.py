@@ -1,11 +1,14 @@
 """The field's build: voxels around the elements, the weights from elements to (voxel,
-direction) values, empty directions filled from a neighbour."""
+direction) values (only the elements a voxel's centre sees), empty directions filled
+from a neighbour."""
 
 import numpy as np
 
+from prism_reference.trace.batch import trace
+
 F = np.float32
 # Radius in voxels, reach of the fill of empty directions, the six directions.
-FIELD_RADIUS = 1.5
+FIELD_RADIUS = 2.0
 FILL_REACH = 2.0
 DIRECTIONS = np.array(
     [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]], dtype=F
@@ -19,9 +22,25 @@ def voxel_keys(ijk, dims):
     return np.where(inside, key, -1)
 
 
-def build_field(position, normal, spacing, chunk=2000):
+def sight(tree, eps, position, normal):
+    """seen(centres (n, 3), columns (n,)) for `build_field`: one any-hit ray from the
+    voxel's centre to the element's point moved eps along its normal; an element hidden
+    from the centre (under a floor, past a corner, behind a picture) does not count."""
+
+    def seen(centre, column):
+        end = position[column].astype(np.float64)
+        end = end + normal[column].astype(np.float64) * eps
+        _, tri, _, _ = trace(tree, centre.astype(F), (end - centre).astype(F), 1.0, True)
+        return tri < 0
+
+    return seen
+
+
+def build_field(position, normal, spacing, chunk=2000, seen=None):
     """The sparse field of voxels of side h = spacing: (voxel, d) = sum w E / sum w over
-    the elements within 1.5 h; rows (voxel x 6 + d), columns, weights; keys, has, grid.
+    the elements within FIELD_RADIUS h; rows (voxel x 6 + d), columns, weights; keys,
+    has, grid. `seen(centres (n, 3), columns (n,))`: the (voxel, element) pairs that
+    count (`sight`; None: all).
     """
     h = float(spacing)
     radius = FIELD_RADIUS * h
@@ -52,6 +71,10 @@ def build_field(position, normal, spacing, chunk=2000):
         np.concatenate(weights),
     )
     some = (w.sum(1) > 0) & (key >= 0)
+    if seen is not None:
+        at = np.nonzero(some)[0]
+        ijk = np.stack(np.unravel_index(key[at], tuple(dims)), -1)
+        some[at] = seen(origin + (ijk + 0.5) * h, column[at])
     voxels, voxel = np.unique(key[some], return_inverse=True)
     rows = (voxel[:, None] * 6 + np.arange(6)).ravel()
     column, w = np.repeat(column[some], 6), w[some].ravel()
