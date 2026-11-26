@@ -1,5 +1,6 @@
 """Runs every case on `tiny`, `s10k` (its triangles in three layers) and Sponza's
-overview at 1,920 x 1,080; exit 1 on a difference."""
+overview at 1,920 x 1,080, then Sponza with bands that fill slices and another target's
+pages; exit 1 on a difference."""
 
 import json
 import sys
@@ -16,8 +17,9 @@ from prism_reference.raster.setup import boxes, grid
 from prism_reference.scene.generated import make_preset
 from prism_reference.scene.public.views import make_view
 
-SLICE_TILES = 8
 HEAVY_PERCENTILE = 95  # of the tiles with entries: the weight past which a tile is cut
+FULL_PERCENTILE = 30  # a weight low enough that bands fill a slice
+HELD = 400  # RASTER_SLICES above the view's slices, in the last run
 
 
 def in_layers(scene, layers):
@@ -32,12 +34,12 @@ def in_layers(scene, layers):
     ]
 
 
-def heavy_of(scene):
-    """The HEAVY_PERCENTILE-th weight of the tiles with entries, from the reference's
+def heavy_of(scene, percentile=HEAVY_PERCENTILE):
+    """The `percentile`-th weight of the tiles with entries, from the reference's
     counts over every layer."""
     named = [("scene", scene)] if isinstance(scene, dict) else scene
     weight = sum(tile_counts(boxes(one), *grid(one)) for _, one in named)
-    return max(1, int(np.percentile(weight[weight > 0], HEAVY_PERCENTILE)))
+    return max(1, int(np.percentile(weight[weight > 0], percentile)))
 
 
 def main():
@@ -53,11 +55,21 @@ def main():
     for name, scene, view in scenes:
         sized = scene if view is None else {**scene, **view}
         heavy = heavy_of(sized)
-        laid = layout(scene, view, None, SLICE_TILES, heavy)
+        laid = layout(scene, view, None, heavy=heavy)
         cases.binning_case(name, laid)
-        cases.bands_case(name, laid, heavy)
-        cases.places_case(name, laid)
-        cases.random_log_case(name, scene, view, laid, SLICE_TILES, heavy)
+        cases.bands_case(name, laid, heavy, full=False)
+        cases.places_case(name, laid, view)
+        cases.positions_case(name, laid)
+        cases.random_log_case(name, scene, view, laid, heavy)
+    name, scene, view = scenes[-1]
+    heavy = heavy_of({**scene, **view}, FULL_PERCENTILE)
+    target = {**view, "page_first": 7, "page_across": 64}
+    laid = layout(scene, target, None, heavy=heavy, held=HELD)
+    name = f"{name}, slices filled, another target"
+    cases.binning_case(name, laid)
+    cases.bands_case(name, laid, heavy, full=True)
+    cases.places_case(name, laid, target)
+    cases.positions_case(name, laid)
     different = [r["case"] for r in RESULTS if not r["equal"]]
     seconds = round(time.perf_counter() - started, 1)
     print(

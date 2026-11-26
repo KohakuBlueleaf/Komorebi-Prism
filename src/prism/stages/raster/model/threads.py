@@ -7,9 +7,10 @@ import re
 import numpy as np
 
 from prism.core.headers import INCLUDE, defined
-from prism.stages.raster.model.bands import band_count, cuts
-from prism.stages.raster.model.numbers import GROUPS, LANES, MAX_BANDS
+from prism.stages.raster.model.bands import band_count, cover_of
+from prism.stages.raster.model.numbers import GROUPS, LANES
 from prism.stages.raster.model.records import pack_records
+from prism.stages.raster.threads.layout import SLICE_RECORDS, SLICE_TILES, G
 from prism_reference.raster.setup import grid, setup
 from prism_reference.scene.frame import TILE
 
@@ -127,32 +128,72 @@ def counted(table, cores, tiles):
     return counts, starts.reshape(shape), ends.reshape(shape)
 
 
-def items_of(counts, starts, ends, heavy):
-    """The items in tile order (tile, first_row, end_row) and each item's entries a
-    layer and core (items, layers, cores): a tile whose entries over every layer pass
-    `heavy` (None: none) cut into min(MAX_BANDS, ceil(weight / heavy)) bands by
-    `bands.cuts` over every core's and layer's row histograms."""
+def bands_of(weight, heavy, room):
+    """The bands of a tile of `weight` entries (geometry's `bands_of`): ceil(weight /
+    heavy) past `heavy` (None or 0: never cut), at most kBandsMost and `room`; 1 whole.
+    """
+    if not heavy or weight <= heavy:
+        return 1
+    bands = min(-(-int(weight) // int(heavy)), G["kBandsMost"], int(room))
+    return 1 if bands < 2 else bands
+
+
+def cut_rows(starts, ends, bands):
+    """The bounds (0, ..., 32, even) of a tile cut into `bands` bands of about equal
+    cover, the entries reaching each 2-row group, from `starts`, `ends` (GROUPS,)
+    summed over the cores and the layers (geometry's `cut_rows`)."""
+    cumulative = np.cumsum(cover_of(starts, ends)).astype(np.int64)
+    groups = np.searchsorted(bands * cumulative, cumulative[-1] * np.arange(1, bands))
+    rows = [row for row in 2 * (groups + 1) if row < ROWS]
+    return np.unique(np.concatenate([[0], rows, [ROWS]])).astype(np.int64)
+
+
+def items_of(counts, starts, ends, heavy, sliced, slice_records):
+    """The items in tile order (tile, first_row, end_row, band entry: its place among
+    the slice's band entries, -1 for a whole tile) and each item's entries a layer and
+    core (items, layers, cores): a slice's tiles cut as `bands_of` with its room."""
     weight = sum(layer.sum(0) for layer in counts)
     items, per = [], []
-    for tile in range(len(weight)):
-        if heavy is None or weight[tile] <= heavy:
-            items.append((tile, 0, ROWS))
-            per.append(np.stack([layer[:, tile] for layer in counts]))
-            continue
-        tile_starts = np.stack([layer[:, tile] for layer in starts])
-        tile_ends = np.stack([layer[:, tile] for layer in ends])
-        bands = min(MAX_BANDS, -(-int(weight[tile]) // int(heavy)))
-        bounds = cuts(tile_starts.sum((0, 1)), tile_ends.sum((0, 1)), bands)
-        for first_row, end_row in itertools.pairwise(bounds):
-            items.append((tile, int(first_row), int(end_row)))
-            per.append(band_count(tile_starts, tile_ends, first_row, end_row))
+    for run in sliced["tiles"]:
+        held, entry = 0, 0
+        for column, tile in enumerate(run):
+            room = slice_records - held - (len(run) - 1 - column)
+            bands = bands_of(weight[tile], heavy, room)
+            bounds = np.array([0, ROWS])
+            if bands > 1:
+                tile_starts = np.stack([layer[:, tile] for layer in starts])
+                tile_ends = np.stack([layer[:, tile] for layer in ends])
+                bounds = cut_rows(tile_starts.sum((0, 1)), tile_ends.sum((0, 1)), bands)
+            cut = len(bounds) > 2
+            for first_row, end_row in itertools.pairwise(bounds):
+                items.append((tile, int(first_row), int(end_row), entry if cut else -1))
+                if cut:
+                    per.append(band_count(tile_starts, tile_ends, first_row, end_row))
+                    entry += 1
+                else:
+                    per.append(np.stack([layer[:, tile] for layer in counts]))
+            held += bands
     return np.asarray(items, dtype=np.int64), np.stack(per).astype(np.int64)
 
 
-def summed(items, per, sliced, slice_records, page):
+def order_of(items, weight):
+    """The items' order in a slice (geometry's `before`): the heavier first, then the
+    lower tile, then the lower first row."""
+    return np.lexsort((items[:, 1], items[:, 0], -weight))
+
+
+def page_of(tile, across, view):
+    """A tile's page in the target (frame.h): TF_PAGE_FIRST + (tile / across) *
+    TF_PAGE_ACROSS + tile % across, from the view's `page_first`, `page_across`."""
+    first = int((view or {}).get("page_first", 0))
+    each_row = int((view or {}).get("page_across", across))
+    return first + (int(tile) // across) * each_row + int(tile) % across
+
+
+def summed(items, per, sliced, slice_records, across, view):
     """What the sums write: each core's first position in each item's list, from its
-    slice's place (layers, cores, items); the records a slice in order of weight
-    (slices * slice_records, TR_WORDS); the slices' words without their places."""
+    slice's place (layers, cores, items); the records a slice in record order (slices
+    * slice_records, TR_WORDS), their lists in that order; the slices' words."""
     count = len(sliced["tiles"])
     number = macros(RECORD_H, TR_SLICE_RECORDS=slice_records)["TR_NUMBER"]
     layers, cores = per.shape[1], per.shape[2]
@@ -168,25 +209,55 @@ def summed(items, per, sliced, slice_records, page):
             raise ValueError(
                 f"sums: slice {s} has {len(own)} records; it holds {slice_records}"
             )
-        start = np.cumsum(entries[own], axis=0) - entries[own]  # (own, layers)
-        before = np.cumsum(per[own], axis=2) - per[own]  # (own, layers, cores)
-        positions[:, :, own] = (start[:, :, None] + before).transpose(1, 2, 0)
-        for place, mine in enumerate(np.argsort(-weight[own], kind="stable")):
-            item = own[mine]
-            tile, first_row, end_row = items[item]
+        ordered = own[order_of(items[own], weight[own])]
+        start = np.cumsum(entries[ordered], axis=0) - entries[ordered]
+        before = np.cumsum(per[ordered], axis=2) - per[ordered]
+        positions[:, :, ordered] = (start[:, :, None] + before).transpose(1, 2, 0)
+        for place, item in enumerate(ordered):
+            tile, first_row, end_row, _ = items[item]
             row = records[number(s, place)]
             row[0] = word0(tile, first_row, end_row)
             row[1] = weight[item]
             row[2] = sum(1 << layer for layer in range(layers) if entries[item, layer])
-            row[3] = page + tile
+            row[3] = page_of(tile, across, view)
             for layer in range(layers):
-                row[M["TR_LAYER_SLOT"](layer)] = start[mine, layer]
+                row[M["TR_LAYER_SLOT"](layer)] = start[place, layer]
                 row[M["TR_LAYER_ENTRIES"](layer)] = entries[item, layer]
         words[s, R["TS_RECORDS"]] = len(own)
         words[s, R["TS_WEIGHT"]] = weight[own].sum()
         for layer in range(layers):
             words[s, M["TS_ENTRIES"](layer)] = entries[own, layer].sum()
     return positions, records, words
+
+
+def positions_page(positions, items, sliced, slice_records, held=None):
+    """Each core's positions page of a layer as the sums write it (frame.h
+    TF_L_POSITIONS, geometry.h) for `held` slices (RASTER_SLICES; None: the view's):
+    (cores, words) uint32 of `positions` (cores, items)."""
+    most, pair = G["kSliceTilesMost"], G["kBandWords"]
+    count = len(sliced["tiles"]) if held is None else int(held)
+    if count < len(sliced["tiles"]):
+        raise ValueError(f"positions: {len(sliced['tiles'])} slices; {count} held")
+    tile_words = most * count
+    page = np.zeros((len(positions), tile_words + pair * slice_records * count))
+    page = page.astype(np.uint32)
+    first, _ = item_index(items, len(sliced["of"]))
+    for s, run in enumerate(sliced["tiles"]):
+        for column, tile in enumerate(run):
+            item = first[tile]
+            word = s * most + column
+            if items[item, 3] < 0:
+                page[:, word] = positions[:, item]
+                continue
+            bands = int((items[:, 0] == tile).sum())
+            entry = s * slice_records + int(items[item, 3])
+            page[:, word] = G["kPosCut"] | bands << G["kPosBandsShift"] | entry
+            for band in range(item, item + bands):
+                at = tile_words + pair * (s * slice_records + items[band, 3])
+                rows = items[band, 1] | items[band, 2] << G["kBandRowsEndShift"]
+                page[:, at] = rows
+                page[:, at + 1] = positions[:, band]
+    return page
 
 
 def placed(words, layers):
@@ -240,16 +311,22 @@ def layout(
     scene,
     view,
     log,
-    slice_tiles,
-    heavy,
+    slice_tiles=SLICE_TILES,
+    heavy=None,
     range_blocks=RANGE_BLOCKS,
     cores=None,
-    slice_records=None,
+    slice_records=SLICE_RECORDS,
+    held=None,
 ):
-    """A view's layout: `scene` one scene or its layers; `view` {camera, size, page:
-    the target's first page}; `log` the core that counted each range (None: one core);
-    a tile past `heavy` entries cut into bands; `slice_records` TR_SLICE_RECORDS (None:
-    the most a slice has). The lists, positions, items, records and slices' words."""
+    """A view's layout: `scene` one scene or its layers; `view` {camera, size,
+    page_first, page_across}; `log` the core that counted each range (None: one core);
+    a tile past `heavy` entries cut into bands; `held` RASTER_SLICES. The lists,
+    positions and their pages, items, records and slices' words."""
+    if not 0 < slice_tiles <= min(slice_records, G["kSliceTilesMost"]):
+        raise ValueError(
+            f"layout: {slice_tiles} tiles a slice; 1 to {slice_records} records a "
+            f"slice and {G['kSliceTilesMost']} (geometry.h kSliceTilesMost)"
+        )
     named = layers_of(scene, view)
     across, down = grid(named[0][1])
     tiles = across * down
@@ -268,12 +345,9 @@ def layout(
         starts.append(layer_starts)
         ends.append(layer_ends)
     sliced = slices((across, down), slice_tiles)
-    items, per = items_of(counts, starts, ends, heavy)
+    items, per = items_of(counts, starts, ends, heavy, sliced, slice_records)
     item_first, item_count = item_index(items, tiles)
-    most = int(np.bincount(sliced["of"][items[:, 0]]).max())
-    slice_records = most if slice_records is None else int(slice_records)
-    page = int((view or {}).get("page", 0))
-    positions, records, words = summed(items, per, sliced, slice_records, page)
+    positions, records, words = summed(items, per, sliced, slice_records, across, view)
     words, places = placed(words, len(named))
     lists = []
     for layer, one in enumerate(pieces):
@@ -303,23 +377,14 @@ def layout(
         "item_count": item_count,
         "item_entries": per,
         "positions": positions,
+        "positions_pages": [
+            positions_page(layer, items, sliced, slice_records, held)
+            for layer in positions
+        ],
         "slice_records": slice_records,
+        "held": held,
         "records": records,
         "slice_words": words,
         "places": places,
         "lists": lists,
     }
-
-
-def item_table(laid):
-    """The items' table the place kind reads: per tile its first item | its items
-    << 16, then per item its rows first_row | end_row << 8 (tiles + items,) uint32."""
-    rows = laid["items"][:, 1] | laid["items"][:, 2] << 8
-    head = laid["item_first"] | laid["item_count"] << 16
-    return np.concatenate([head, rows]).astype(np.uint32)
-
-
-def positions_words(laid):
-    """Each core's first positions a layer, from its slice's place: a row of the items
-    a core (layers, cores, items) uint32."""
-    return laid["positions"].astype(np.uint32)
