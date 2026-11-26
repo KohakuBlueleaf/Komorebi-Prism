@@ -168,6 +168,23 @@ no voxel has data, the ambient.
   the dims, the blocks a row and a layer (x, x z), the first page plus one, a channel's
   unit `scale / (2^b - 1)^2`, the scale, int the field's pages.
 
+## In a tile thread
+
+The threads' form lights a tile with the same table, pages and field as the light step
+(`steps/step.py`, [steps, kinds and the tile thread](../program/steps.md)): after the lit
+material step, on the planes left in the core's memory (`frame.surface` and the first
+layer's `frame.visibility`), a quarter tile at a time, into the first layer's colour
+planes (the displayed form, or with glass the linear then the glass form). Its begin
+reads LIGHT's table with the view's camera into its kept table page once a command, and
+the field's version the frame's thread gave. Its light pages are asked through the loop's
+request rings. Its words of the frame's page (`light_frame_words.c`): the table (the sun
+region's, through slot `light.shadow_map`), the light pages, the glass layer, and with the
+job thread (`direct.light.threads_field`) the field's version from the slots
+`light.field` and `light.field_scale`: 1 + its first page for the half of the field's
+pages the last update wrote, a channel's unit times the scale, the scale; 0 before the
+first update, when the table's own field words hold. So a new field is taken between two
+frames, never inside one.
+
 ## The checks
 
 All take arrays: the card's planes or picture as the host reads them, decoded.

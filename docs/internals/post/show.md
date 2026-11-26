@@ -50,6 +50,20 @@ in `textured`), so it shows the colour the last of them left in the first layer'
   region `show_push`, the frame's key XORed into the nonce word. Its times are `show` and
   `push`.
 
+## In a tile thread
+
+The threads' form converts on the movers as the post step (`steps/step.py`,
+[steps, kinds and the tile thread](../program/steps.md)): pack copies the band's rows of
+the first layer's three colour planes, kept in the core's memory, into a block of the
+output `display` (a 16-byte header, then 12,288 bytes); the mover that takes the block
+converts it in place by this stage's rule (`post_convert`, `kernels/convert.hpp`) and
+writes the rows to the tile's display page. The step's begin, on mover A once a command,
+reads the thresholds from the region `show_table` (the step's word `table`) and makes the
+kept thresholds and buckets. No SHOW or PUSH command is sent (`push` false in the
+threads' presets); the host is `ShowThreadsHost`, which gives the display as slot
+`display.picture` and reads its pages back for the picture. A DEPTH view's `depth_out`
+step writes its 1/z plane row-major to the target the same way.
+
 ## The host
 
 `ShowHost` holds the display tensor (a page a tile of the capacity, as the raster stage's

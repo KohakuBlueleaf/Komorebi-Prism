@@ -9,8 +9,9 @@ they cannot drift apart; numpy is written separately.
 
 ## The algorithm
 
-Opaque triangles, depth-tested, 1024 x 1024 pixels, tiles of 32 x 32 pixels (a 32 x 32
-grid of tiles), float32 arithmetic in the order written in `prism_reference.raster`, no fused
+Opaque triangles, depth-tested, tiles of 32 x 32 pixels; the frame is 1,024 x 1,024
+pixels (a 32 x 32 grid of tiles) unless the scene's `size` entry gives another
+(`scene.frame`: `ceil(W / 32)` by `ceil(H / 32)` tiles), float32 arithmetic in the order written in `prism_reference.raster`, no fused
 multiply-add.
 
 1. **Setup**, one triangle at a time (no triangle depends on another). The three
@@ -38,7 +39,7 @@ multiply-add.
    the result does not depend on the order of the list. Empty pixels keep the background
    colour and depth 0.
 
-Outputs of both versions (the arrays a comparison reads): `colour`
+Outputs of both versions at the default size (the arrays a comparison reads): `colour`
 (1024, 1024, 3) float32, `depth` (the stored `1/z`; 0 where empty) (1024, 1024) float32,
 `tri` (the index of the visible triangle, -1 where empty) (1024, 1024) int32 and
 `tile_counts` (the list sizes) (32, 32) int32.

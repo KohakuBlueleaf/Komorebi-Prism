@@ -2,8 +2,9 @@
 
 `prism.stages.raster.model` holds, in numpy, what the raster stage's card program reads
 and writes: the triangle records, the list pages and the directory, the counters COUNT
-leaves, the bands of heavy tiles, the middle pass between COUNT and SETUP, and the frame's
-pages. `prism.core.capacity` and `prism.stages.raster.capacity` give the sizes a load is
+leaves, the bands of heavy tiles, the middle pass between COUNT and SETUP, the frame's
+pages, and the threads' form's layout (`model.threads`: what its count and place pulls
+and its sums leave). `prism.core.capacity` and `prism.stages.raster.capacity` give the sizes a load is
 built for. The thread's middle pass is plain C in `stages/raster/thread/`
 (`raster_middle.c` the parts the thread calls, `raster_middle_whole.c` the whole step in
 turn); `python -m checks.raster_model` runs it on the host against `model.middle`.
@@ -132,6 +133,33 @@ The C does the same in parts the thread spreads over its four cores: `rm_costs`
 `rm_compact`, `rm_base`. Its arrays are laid one after another for the frame's tiles
 (`rm_lay`), so a frame's walks over them do not depend on the capacity. `rm_heavy` and
 `rm_middle` run the whole step in turn, for the host check.
+
+## The threads' form's layout
+
+In the threads' form the same records and lists are made by the count and place pulls and
+the sums ([the dispatcher](../program/dispatch.md)), not by COUNT, the middle pass and
+SETUP. `model.threads.layout` is that view's layout in numpy, in `record.h`'s words: the
+slices of the grid (`slices`: runs of 16 tiles along a row), each range's counting core
+from the count pull's log (`range_cores`), each core's entries a tile and its row
+histograms (`entries`, `counted`), the items (`items_of`: a tile, or its bands when its
+weight passes `heavy`, `ceil(weight / heavy)` of them, at most `kBandsMost` (16) and what
+the slice has room for, cut by `cut_rows` where the entries' cover is shared equally), a
+slice's records in order of weight, then tile, then first row (`order_of`), each core's
+first position in each item's list and the slices' words (`summed`, `positions_page`),
+and the lists themselves (`place_layer`). Inside an item's list the cores' entries follow
+each other by rank, a core's own in the order of its ranges; a list holds records only
+(no header or end slot: the record names its slots and entries).
+
+The heavy rule differs in kind from the middle pass's: a fixed weight (the option
+`heavy`, 0 by default: no tile cut) against a cost relative to the frame's mean. A tile's
+pages in the target follow the frame's page (`page_of`: `TF_PAGE_FIRST` and
+`TF_PAGE_ACROSS`, the display's or a DEPTH view's target's).
+
+`python -m checks.thread_model` checks it on `tiny`, `s10k` in three layers and Sponza's
+overview at 1,920 x 1,080: every item's list as a multiset against the reference's
+binning, every slot written once, a random log of 120 cores giving the same items and
+multisets, a heavy tile's bands covering its rows once, the places a running sum.
+`checks/threads_frame geometry` compares the card's pulls with it.
 
 ## The frame's pages
 
