@@ -1,1 +1,1 @@
-"""Scenes made by artists in Blender: their table, downloads and files."""
+"""Scenes made by artists: their register, and their conversion from a scene description."""
