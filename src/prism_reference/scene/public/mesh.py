@@ -33,13 +33,45 @@ def ground(lo, hi, extent):
     return pos, faces, np.concatenate([tint, tint])
 
 
+def colour_ranks(colour):
+    """Per triangle the rank of its colour (T, 3) among the distinct colours in
+    lexicographic order, and their count; equal neighbours are ranked once."""
+    if len(colour) == 0:
+        return np.zeros(0, dtype=np.int64), 0
+    starts = np.flatnonzero(np.any(colour[1:] != colour[:-1], axis=1)) + 1
+    starts = np.concatenate([[0], starts])
+    distinct, inverse = np.unique(colour[starts], axis=0, return_inverse=True)
+    sizes = np.diff(np.append(starts, len(colour)))
+    return np.repeat(inverse.reshape(-1), sizes), len(distinct)
+
+
 def shared_vertices(positions, faces, colour):
-    """Vertices split by (vertex, colour), so each triangle keeps its flat colour."""
-    keys = np.concatenate([faces.reshape(-1, 1), np.repeat(colour, 3, axis=0)], axis=1)
-    unique, inverse = np.unique(keys, axis=0, return_inverse=True)
+    """Vertices split by (vertex, colour), so each triangle keeps its flat colour: the
+    distinct (vertex, colour rank) pairs in order, each triangle's corners among them.
+    """
+    rank, count = colour_ranks(colour)
+    vertex = faces.reshape(-1).astype(np.int64)
+    corner_rank = np.repeat(rank, 3)
+    low = np.full(len(positions), count, dtype=np.int64)
+    high = np.full(len(positions), -1, dtype=np.int64)
+    np.minimum.at(low, vertex, corner_rank)
+    np.maximum.at(high, vertex, corner_rank)
+    mixed = (high >= 0) & (low != high)
+    pick = mixed[vertex]
+    keys = vertex[pick] * count + corner_rank[pick]
+    pairs = np.unique(keys)
+    per = (high >= 0).astype(np.int64)
+    per[mixed] = 0
+    np.add.at(per, pairs // max(count, 1), 1)
+    first = np.cumsum(per) - per
+    inverse = first[vertex]
+    own = vertex[pick] * count
+    inverse[pick] += np.searchsorted(pairs, keys) - np.searchsorted(pairs, own)
+    corner = np.empty(int(per.sum()), dtype=np.int64)
+    corner[inverse] = np.arange(len(inverse))
     return (
-        positions[unique[:, 0].astype(np.int64)],
-        unique[:, 1:],
+        positions[np.repeat(np.arange(len(positions)), per)],
+        colour[corner // 3].astype(np.float64),
         inverse.reshape(-1, 3),
     )
 

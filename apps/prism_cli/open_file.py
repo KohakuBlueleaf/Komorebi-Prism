@@ -114,7 +114,8 @@ def open_command(args):
     """The command `open`: 0, 1 on a frame code that is not 0, 2 when the card refused
     the load (its text in the record)."""
     account, data = Account(), data_root()
-    name, scene = open_scene(args.file, data, args.camera, args.most_triangles)
+    workers = min(len(os.sched_getaffinity(0)), MOST_WORKERS)
+    name, scene = open_scene(args.file, data, args.camera, args.most_triangles, workers)
     if scene["converted"]:
         account.convert_peak = account.peak_mib()
     account.add("digest", scene.pop("digest_seconds"))

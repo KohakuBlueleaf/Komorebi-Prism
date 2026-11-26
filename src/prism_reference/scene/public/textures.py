@@ -43,8 +43,10 @@ def halve(image):
     height, width = image.shape[:2]
     rows, columns = (2 if height > 1 else 1), (2 if width > 1 else 1)
     h, w = height // rows, width // columns
-    block = image[: h * rows, : w * columns].astype(np.uint32)
-    total = block.reshape(h, rows, w, columns, 4).sum(axis=(1, 3))
+    total = np.zeros((h, w, 4), dtype=np.uint16)
+    for row in range(rows):
+        for column in range(columns):
+            total += image[row : h * rows : rows, column : w * columns : columns]
     n = rows * columns
     return ((total + n // 2) // n).astype(np.uint8)
 

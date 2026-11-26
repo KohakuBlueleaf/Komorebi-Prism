@@ -1,26 +1,26 @@
 """The entries a tile of a scene's pieces' boxes in a grid, made once for a scene, its
 camera, its size and the grid, and kept under the cache root."""
 
-import hashlib
 import json
 import os
 
 import numpy as np
 
+from prism_common.digest import Digest
 from prism_common.paths import cache_root
 from prism_reference.raster.fill import tile_counts
 from prism_reference.raster.setup import boxes
 from prism_reference.scene.frame import frame_size
 
-VERSION = 1  # of what is kept: another value keys every scene anew
+VERSION = 2  # of what is kept: another value keys every scene anew
 NAME_DIGITS = 16  # of the digest, naming the file
 MADE = {}  # by digest: what this process has made or loaded
 
 
 def digest(scene, across, down):
-    """The BLAKE2b hex digest of the version, the positions, the indices, the camera
+    """The hex digest (`Digest`) of the version, the positions, the indices, the camera
     (each its dtype, shape and bytes), the frame's size and the grid."""
-    hasher = hashlib.blake2b()
+    hasher = Digest()
     hasher.update(f"{VERSION}".encode())
     for key in ("positions", "indices", "camera"):
         array = np.ascontiguousarray(scene[key])

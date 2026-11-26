@@ -1,6 +1,9 @@
 """Projection and triangle setup: camera space, the clip at the near distance, the
 per-triangle records of edge functions, planes and pixel boxes."""
 
+import concurrent.futures
+import os
+
 import numpy as np
 
 from prism_reference.scene.frame import TILE, frame_grid, frame_size
@@ -61,12 +64,14 @@ def clip_corners(corners, near):
     return out
 
 
-def screen_pieces(scene):
+def screen_pieces(scene, recipes=True, space=None):
     """Screen x, y, 1/z (R, 3) per corner of every piece, its triangle, and each
-    corner's recipe: the triangle's corners from, to (R, 3) and t (R, 3) float32."""
+    corner's recipe: the triangle's corners from, to (R, 3) and t (R, 3) float32 (None
+    without `recipes`); `space` the vertices' `camera_space` when already made."""
     cam, idx = scene["camera"], scene["indices"]
-    xc, yc, zc = camera_space(scene)
-    beyond = (zc > cam[15])[idx].sum(axis=1)
+    xc, yc, zc = camera_space(scene) if space is None else space
+    inside = (zc > cam[15])[idx]
+    beyond = inside[:, 0].astype(np.int8) + inside[:, 1] + inside[:, 2]
     whole = np.nonzero(beyond == 3)[0]
     pos = np.stack([xc, yc, zc], axis=1)
     kept = np.broadcast_to(np.arange(3, dtype=np.int8), (len(whole), 3))
@@ -81,10 +86,15 @@ def screen_pieces(scene):
             tos.append(np.array([[p[2] for p in points]], dtype=np.int8))
             ts.append(np.array([[p[3] for p in points]], dtype=np.float32))
             src.append([t])
-    pos, src = np.concatenate(pieces), np.concatenate(src)
-    order = np.argsort(src, kind="stable")
-    pos, src = pos[order], src[order]
-    recipe = tuple(np.concatenate(parts)[order] for parts in (froms, tos, ts))
+    recipe = (kept, kept, ts[0]) if recipes else None
+    if len(src) == 1:
+        pos, src = pieces[0], whole
+    else:
+        pos, src = np.concatenate(pieces), np.concatenate(src)
+        order = np.argsort(src, kind="stable")
+        pos, src = pos[order], src[order]
+        if recipes:
+            recipe = tuple(np.concatenate(p)[order] for p in (froms, tos, ts))
     x, y, w = to_screen(cam, pos[..., 0], pos[..., 1], pos[..., 2])
     return x, y, w, src.astype(np.int64), recipe
 
@@ -145,11 +155,19 @@ def pixel_bounds(scene, x, y):
 
 def boxes(scene):
     """The pixel boxes (R, 4) int32 x0, x1, y0, y1 of the records `setup(scene)` keeps,
-    from the pieces' positions alone."""
-    x, y, _, _, _ = screen_pieces(scene)
-    ix0, ix1, iy0, iy1 = pixel_bounds(scene, x, y)
-    keep = (doubled_area(x, y) != 0) & (ix0 <= ix1) & (iy0 <= iy1)
-    return np.stack([ix0, ix1, iy0, iy1], axis=1)[keep].astype(np.int32)
+    from the pieces' positions alone; runs of triangles on the process's CPUs."""
+    space, idx = camera_space(scene), scene["indices"]
+
+    def run(first, end):
+        part = {**scene, "indices": idx[first:end]}
+        x, y, _, _, _ = screen_pieces(part, recipes=False, space=space)
+        ix0, ix1, iy0, iy1 = pixel_bounds(scene, x, y)
+        keep = (doubled_area(x, y) != 0) & (ix0 <= ix1) & (iy0 <= iy1)
+        return np.stack([ix0, ix1, iy0, iy1], axis=1)[keep].astype(np.int32)
+
+    cuts = np.linspace(0, len(idx), len(os.sched_getaffinity(0)) + 1).astype(np.int64)
+    with concurrent.futures.ThreadPoolExecutor(len(cuts) - 1) as pool:
+        return np.concatenate(list(pool.map(run, cuts[:-1], cuts[1:])))
 
 
 def setup(scene, extra=None):

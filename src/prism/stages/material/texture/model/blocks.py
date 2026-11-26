@@ -1,29 +1,50 @@
 """Each layer of a shaded frame (opaque, masked, glass): its scene, mesh and shade blocks,
 made once for a scene and its materials and kept under the cache root."""
 
-import hashlib
+import concurrent.futures
+import itertools
 import json
 import os
 
 import numpy as np
 
 from prism.stages.material.texture.model.triangles import mesh_blocks
+from prism.stages.raster.model.numbers import LANES
+from prism_common.digest import Digest
 from prism_common.paths import cache_root
 from prism_reference.material.kinds import LIT, MASKED, TEXTURED, TRANSPARENT
 
-VERSION = 1  # of what is kept: another value keys every scene anew
+VERSION = 2  # of what is kept: another value keys every scene anew
 SCENE_KEYS = ("positions", "indices", "colors")
 MATERIAL_KEYS = ("uv", "light", "material", "kind", "textures", "mip", "levels")
 ARRAYS = ("indices", "blocks", "shade_blocks")  # a layer's files
+PER_TRIANGLE = ("uv", "light", "material")  # the materials' arrays a triangle each
 NAME_DIGITS = 16  # of the digest, naming the folder
 MADE = {}  # by digest: what this process has made or loaded
 
 
 def layer(scene, materials, keep):
-    """The scene and the materials of the triangles `keep` (a bool per triangle), in
-    their order: a layer's mesh."""
-    per_triangle = {name: materials[name][keep] for name in ("uv", "light", "material")}
+    """The scene and the materials of the triangles `keep` (a bool per triangle, or a
+    slice), in their order: a layer's mesh."""
+    per_triangle = {name: materials[name][keep] for name in PER_TRIANGLE}
     return {**scene, "indices": scene["indices"][keep]}, {**materials, **per_triangle}
+
+
+def blocks_of(scene, materials, lit):
+    """`mesh_blocks` of runs of whole blocks on the process's CPUs, joined in order."""
+    count = len(scene["indices"])
+    runs = -(-count // LANES)
+    cuts = LANES * np.linspace(0, runs, len(os.sched_getaffinity(0)) + 1).astype(int)
+    spans = [(a, min(b, count)) for a, b in itertools.pairwise(cuts) if a < b]
+    if len(spans) < 2:
+        return mesh_blocks(scene, materials, lit)
+
+    def run(span):
+        return mesh_blocks(*layer(scene, materials, slice(*span)), lit)
+
+    with concurrent.futures.ThreadPoolExecutor(len(spans)) as pool:
+        made = list(pool.map(run, spans))
+    return tuple(np.concatenate(part) for part in zip(*made))
 
 
 def as_shaded(materials):
@@ -43,9 +64,9 @@ def entering(materials, lights, indices):
 
 
 def digest(scene, materials, lit):
-    """The BLAKE2b hex digest of the version, the lit flag and every array entering
+    """The hex digest (`Digest`) of the version, the lit flag and every array entering
     the blocks (its dtype, shape and bytes)."""
-    hasher = hashlib.blake2b()
+    hasher = Digest()
     hasher.update(f"{VERSION} {int(lit)}".encode())
     arrays = [scene[k] for k in SCENE_KEYS] + [materials[k] for k in MATERIAL_KEYS]
     for array in arrays:
@@ -72,7 +93,7 @@ def computed(scene, materials, lit):
             layer_scene, layer_materials = scene, materials
         else:
             layer_scene, layer_materials = layer(scene, materials, keep)
-        blocks, shade_blocks = mesh_blocks(layer_scene, layer_materials, lit)
+        blocks, shade_blocks = blocks_of(layer_scene, layer_materials, lit)
         own = None if keep.all() else layer_scene["indices"]
         made[name] = (own, blocks, shade_blocks)
     return made

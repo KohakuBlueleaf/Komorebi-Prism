@@ -70,10 +70,10 @@ def mesh_blocks(scene):
     colours = np.zeros((blocks * LANES, 3, 3), dtype=np.float32)
     positions[:triangles] = scene["positions"][indices]
     colours[:triangles] = scene["colors"][indices]
-    # vectors (block, slot, lane): slot 3 k + i is coordinate i of corner k
+    # vectors (block, lane, slot): slot 3 k + i is coordinate i of corner k
     vectors = np.concatenate(
         [positions.reshape(blocks, LANES, 9), colours.reshape(blocks, LANES, 9)], axis=2
-    ).transpose(0, 2, 1)
-    block_words = np.zeros((blocks, BLOCK_WORDS), dtype=np.uint32)
-    block_words[:, window_words(BLOCK_SLOTS)] = vectors.view(np.uint32)
-    return block_words
+    ).view(np.uint32)
+    # window word 64 (slot // 2) + 2 lane + slot % 2 (window_words) as a reshape
+    pairs = vectors.reshape(blocks, LANES, BLOCK_SLOTS // 2, 2).transpose(0, 2, 1, 3)
+    return np.ascontiguousarray(pairs).reshape(blocks, BLOCK_WORDS)

@@ -1,6 +1,8 @@
 """A binary box tree over triangles (8-word nodes): its build (median or SAH cut), its
 cut into treelets, saving and loading."""
 
+import concurrent.futures
+import os
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +25,30 @@ def triangle_arrays(scene):
     return p, tris, centroid
 
 
+def sort_key(key, owner):
+    """Per element a uint64 ordered as (owner, key): the owner above the float32 key's
+    bits made monotonic (-0 as 0), so a stable sort of it is `np.lexsort((key, owner))`.
+    """
+    bits = (key.astype(np.float32) + F(0)).view(np.uint32)
+    bits = np.where(bits >> 31 == 1, ~bits, bits | np.uint32(0x80000000))
+    return owner.astype(np.uint64) << np.uint64(32) | bits
+
+
+def segment_order(key, owner, first):
+    """`np.lexsort((key, owner))` of segments starting at `first` (owner ascending),
+    sorted as runs of whole segments on the process's CPUs."""
+    runs = min(len(os.sched_getaffinity(0)), len(first))
+    cuts = np.searchsorted(first, np.linspace(0, len(key), runs + 1)[1:-1])
+    inner = first[np.minimum(cuts, len(first) - 1)]
+    edges = np.unique(np.concatenate([[0], inner, [len(key)]]))
+
+    def run(a, b):
+        return np.argsort(sort_key(key[a:b], owner[a:b]), kind="stable") + a
+
+    with concurrent.futures.ThreadPoolExecutor(len(edges) - 1) as pool:
+        return np.concatenate(list(pool.map(run, edges[:-1], edges[1:])))
+
+
 def split_levels(centroid):
     """Levels of (first node, handler starts, counts) and the final triangle order."""
     n = len(centroid)
@@ -39,7 +65,7 @@ def split_levels(centroid):
         hi = np.maximum.reduceat(c, first, axis=0)
         axis = np.argmax(hi - lo, axis=1)
         key = c[np.arange(len(pos)), axis[owner]]
-        perm[pos] = perm[pos][np.lexsort((key, owner))]
+        perm[pos] = perm[pos][segment_order(key, owner, first)]
         inner = count > 1
         left = (count[inner] + 1) // 2
         start = np.stack([start[inner], start[inner] + left], axis=1).ravel()
