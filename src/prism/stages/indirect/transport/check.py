@@ -30,10 +30,12 @@ def errors(got, want, lit):
 
 
 def lit_of(host):
-    """The elements counted in the errors: exact luminance above LIT, not padding."""
-    lit = host.set.vector("y_exact.npy") @ LUMA > LIT
+    """The elements counted in the errors: luminance above LIT in y_exact.npy (y_float.npy
+    when the set has no y_exact.npy), not padding; and the file judged against."""
+    judged = "y_exact.npy" if (host.folder / "y_exact.npy").exists() else "y_float.npy"
+    lit = host.set.vector(judged) @ LUMA > LIT
     lit[np.load(host.folder / "perm.npy") < 0] = False
-    return lit
+    return lit, judged
 
 
 def y_of(session, y, tiles):
@@ -71,7 +73,7 @@ def check(loaded):
     time_ = timed(loaded, host, loaded.options["calls"])
     last = y_of(loaded.session, y, s.tiles)
     emulated = emulate(s, decode_weights(host.raw), host.x)
-    lit = lit_of(host)
+    lit, judged = lit_of(host)
     y_float = s.vector("y_float.npy")
     return {
         "scene": host.scene,
@@ -81,6 +83,7 @@ def check(loaded):
             "y_float": errors(got, y_float, lit),
             "emulated_vs_y_float": errors(emulated, y_float, lit),
             "lit": int(lit.sum()),
+            "lit_from": judged,
         },
         "time": time_,
         "last_equals_first": bool(np.array_equal(got, last)),
