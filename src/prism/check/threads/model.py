@@ -26,10 +26,12 @@ def view_of(scene):
     }
 
 
-def laid_out(layers, view, capacity, heavy, range_blocks, log=None, cores=None):
+def laid_out(
+    layers, view, capacity, heavy, range_blocks, log=None, cores=None, wide=False
+):
     """The model's layout of `layers` ([(name, flat scene, shade rows or None)]) for
     the dispatcher's `capacity`, each layer's list slots the card's records (`log`:
-    the core of each range, None one core)."""
+    the core of each range, None one core; `wide`: a wide build's box columns)."""
     laid = threads.layout(
         [(name, one) for name, one, _ in layers],
         view,
@@ -42,7 +44,7 @@ def laid_out(layers, view, capacity, heavy, range_blocks, log=None, cores=None):
         held=capacity.slices,
     )
     for layer, (name, one, shade) in enumerate(layers):
-        pieces, packed = card_records(one, shade)
+        pieces, packed = card_records(one, shade, wide)
         if not np.array_equal(pieces["tri"], laid["pieces"][layer]["tri"]):
             raise ValueError(f"layer {name}: the card's pieces are not the model's")
         written = laid["lists"][layer]["pieces"]

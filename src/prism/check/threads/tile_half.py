@@ -33,6 +33,7 @@ def model_of(loop, scene, log=None, cores=None):
         given["range_blocks"],
         log,
         cores,
+        host.held.wide,
     )
 
 

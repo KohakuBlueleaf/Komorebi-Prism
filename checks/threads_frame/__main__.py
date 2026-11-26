@@ -47,6 +47,9 @@ def parse():
     parser.add_argument(
         "--heavy", type=int, default=None, help="the threads' tiles cut past it"
     )
+    parser.add_argument(
+        "--deadline", type=float, default=None, help="seconds a command may take"
+    )
     parser.add_argument("--card", type=int, default=None, help="needed but for model")
     parser.add_argument("--out", type=Path, default=None)
     return parser.parse_args()
@@ -69,7 +72,7 @@ def on_card(args, scene):
     """The card part's record."""
     threads_name = args.pipeline + SUFFIX
     policies = args.policy or list(names.POLICIES)
-    options = {"heavy": args.heavy}
+    options = {"heavy": args.heavy, "deadline": args.deadline}
     with km.Session(card=args.card) as session:
         open_loop = opener(args, session)
         match args.part:

@@ -12,6 +12,8 @@ from prism.program.threads.implementations import JOBS
 from prism_common.build import located
 
 TILE_THREAD = "tile_thread"  # the option naming the tile thread: a dotted path
+DEADLINE = "deadline"  # the option: seconds a command may take (else Komorebi's)
+WAIT_ABOVE = 1.0  # seconds the kernels' wait limit is above the deadline
 
 
 @dataclass
@@ -74,8 +76,21 @@ def assembled(pipeline, session, scene, options):
 
 
 def load(threaded, session):
-    """The assembled program loaded on `session`, each host bound (Loaded)."""
-    return loaded_program.load(threaded, session)
+    """The assembled program loaded on `session`, each host bound (Loaded); the option
+    DEADLINE: the seconds a command may take, the kernels' wait limit above it."""
+    seconds = threaded.options.get(DEADLINE)
+    if seconds is None:
+        return loaded_program.load(threaded, session)
+    run = session.load(
+        threaded.program,
+        trace=int(threaded.options.get("trace") or 0),
+        deadline=float(seconds),
+        wait=float(seconds) + WAIT_ABOVE,
+    )
+    loaded = loaded_program.Loaded(threaded, session, run)
+    for host in threaded.hosts.values():
+        hosted(host, "bind")(loaded)
+    return loaded
 
 
 def view(threaded, loaded, camera, size):

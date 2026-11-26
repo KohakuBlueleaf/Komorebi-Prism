@@ -84,12 +84,23 @@ def shade_word(area_bits, shade):
     return word.astype(np.uint32)
 
 
-def card_records(scene, shade=None):
+def widened(packed, pieces):
+    """`packed` with its box columns as a wide build holds them (grid.h): the first
+    column and the last + 1 as float32 bits."""
+    box = pieces["box"].astype(np.float32)
+    packed[:, K["kRecX0"]] = bits(box[:, 0])
+    packed[:, K["kRecX1"]] = bits(box[:, 1] + 1)
+    return packed
+
+
+def card_records(scene, shade=None, wide=False):
     """(the pieces of setup(scene), their 32-word records as place writes them): a
-    shaded layer's colour planes weighted by 1/z, its shade word from `shade`."""
+    shaded layer's colour planes weighted by 1/z, its shade word from `shade`; `wide`
+    the box columns of a wide build."""
     if shade is None:
         pieces = setup(scene)
-        return pieces, pack_records(pieces)
+        packed = pack_records(pieces)
+        return pieces, widened(packed, pieces) if wide else packed
     corner_values = scene["colors"][scene["indices"]].astype(np.float32)
     pieces = setup(scene, extra=corner_values)
     packed = pack_records(pieces)
@@ -99,4 +110,4 @@ def card_records(scene, shade=None):
         packed[:, column : column + 3] = bits(weighted[:, :, channel])
     tri = pieces["tri"].astype(np.int64)
     packed[:, S["kRecShadeWord"]] = shade_word(bits(pieces["area2"]), shade[:, tri])
-    return pieces, packed
+    return pieces, widened(packed, pieces) if wide else packed

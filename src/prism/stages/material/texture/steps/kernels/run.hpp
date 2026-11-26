@@ -12,10 +12,14 @@
 namespace material_step {
 
     // The material work's words (kShadeWorkBytes): the texel addresses, the page
-    // passes' table, a pass's ask list.
+    // passes' table, a row's keys (texels.hpp: after the table's used slots), a pass's
+    // ask list.
     constexpr uint32_t kWorkIndex = 0;     // 1,024 texel addresses, row by row
     constexpr uint32_t kWorkPages = 1024;  // texel_pages::Pages (2 hash sizes + slots)
-    constexpr uint32_t kWorkAsked = kWorkPages + 2 * kPagesHashSize + kShadeSlots;
+    constexpr uint32_t kRowKeys = 32;      // a row's keys
+    constexpr uint32_t kWorkAsked = (
+        kWorkPages + 2 * kPagesHashSize + kShadeSlots + kRowKeys
+    );
     static_assert(4 * (kWorkAsked + 1 + kShadeSlots) <= kShadeWorkBytes);
 
     // The page cache's bytes: kShadeSlots pages and the white texel's.
