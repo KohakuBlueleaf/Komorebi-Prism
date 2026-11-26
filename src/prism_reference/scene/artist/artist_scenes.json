@@ -1,0 +1,202 @@
+{
+ "classroom": {
+  "name": "Classroom",
+  "author": "Christophe Seux",
+  "licence": "CC0",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/test/classroom.zip",
+  "member": "classroom/classroom.blend",
+  "bytes": 70279690,
+  "sha256": "0f0ecc58d45f12b2f4272a53e2d8e69135518e16e956b118f10c20d8dcfdf5e6"
+ },
+ "italian_flat": {
+  "name": "Italian Flat",
+  "author": "Flavio Della Tommasa",
+  "licence": "CC-BY",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/cycles/flat-archiviz.blend",
+  "member": "",
+  "bytes": 367972724,
+  "sha256": "0027fcbd73411cce7f49b3d86c22c03d18980e22641083da9d8ba82d9fc94e25"
+ },
+ "eevee_archiviz": {
+  "name": "Archiviz",
+  "author": "Marek Moravec",
+  "licence": "CC0",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/eevee/archiviz/archiviz.blend",
+  "member": "",
+  "bytes": 204256291,
+  "sha256": "9f636b2e1a59b3d181f90caf1b1703658eeadebad57f3c6207737d2fe3ffd85e"
+ },
+ "wanderer": {
+  "name": "Wanderer",
+  "author": "Daniel Bystedt",
+  "licence": "CC-BY-SA",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/eevee/wanderer/wanderer_v2.blend",
+  "member": "",
+  "bytes": 275858366,
+  "sha256": "fc22fce2cf8a72cabbadf9ee73371aa0e4b63e598a901e670a2b8e0a4302a099"
+ },
+ "splash_fox": {
+  "name": "Splash Fox",
+  "author": "Daniel Bystedt",
+  "licence": "CC-BY-SA 3.0",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/splash/blender-2.90-splash.blend",
+  "member": "",
+  "bytes": 94710609,
+  "sha256": "80b29f6dcd099460a60ae100503188474145495222bd88fea1b4df0bf0383041"
+ },
+ "red_autumn_forest": {
+  "name": "Red Autumn Forest",
+  "author": "Robin Tran",
+  "licence": "CC-BY-SA 3.0",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/splash/blender-2.91-splash.blend",
+  "member": "",
+  "bytes": 69359275,
+  "sha256": "b60bd6d566d202cc9cd8c0bd260a45be0ab8c37fc24e0d2e9c909efa41e94655"
+ },
+ "secret_deer": {
+  "name": "Secret Deer",
+  "author": "Lorenzo Aiello",
+  "licence": "CC-BY-SA 4.0",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/splash/blender-3.1-splash.zip",
+  "member": "blender3.1-splash.blend",
+  "bytes": 93750173,
+  "sha256": "6d37c25ff01ea3ffb551ff666897b7fcb3d757ee610ed07cd0e295dbac720a7a"
+ },
+ "scanlands": {
+  "name": "Scanlands",
+  "author": "Piotr Krynski",
+  "licence": "CC-BY-SA",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/splash/blender-3.3-splash.blend",
+  "member": "",
+  "bytes": 84857521,
+  "sha256": "22aa5b6cc69ea9689e40dbeba9fe0aa29536cb682401fb6006573fc628e89cb6"
+ },
+ "charge": {
+  "name": "Charge",
+  "author": "Blender Studio",
+  "licence": "CC-BY",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/splash/blender-3.4-splash.zip",
+  "member": "Blender-3.4.blend",
+  "bytes": 1529143296,
+  "sha256": "24935766c9938686c092c094ffb8e0465955bfd7a05876113969d4776285029d"
+ },
+ "charge_factory_floor": {
+  "name": "Charge, the factory floor set",
+  "author": "Blender Studio",
+  "licence": "CC-BY",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/splash/blender-3.4-splash.zip",
+  "member": "pro/lib/sets/factory_floor/factory_floor.blend",
+  "bytes": 1529143296,
+  "sha256": "24935766c9938686c092c094ffb8e0465955bfd7a05876113969d4776285029d"
+ },
+ "gaku": {
+  "name": "Gaku",
+  "author": "Gaku Tada",
+  "licence": "CC-BY-SA",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/splash/blender-4.0-splash.blend",
+  "member": "",
+  "bytes": 33844223,
+  "sha256": "fec31be671d68e2594d087865fb2a8bbbc2929c56e365085a8d4e6af260fb67f"
+ },
+ "lynxsdesign": {
+  "name": "Lynxsdesign",
+  "author": "Lynxsdesign",
+  "licence": "CC-BY",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/splash/blender-4.1-splash.blend",
+  "member": "",
+  "bytes": 289522338,
+  "sha256": "467ce0c73abe2b19764ee0572d7a544565488ca46844002af455fdedb9f4e1fe"
+ },
+ "gold": {
+  "name": "Gold",
+  "author": "Blender Studio",
+  "licence": "CC-BY 4.0",
+  "licence_from": "the file's README",
+  "url": "https://download.blender.org/demo/splash/blender-4.2-splash.zip",
+  "member": "gold-splash_screen.blend",
+  "bytes": 299392982,
+  "sha256": "1f0c72bec2064ec6f3dd4ca8f4d37f32b12bdcf3ab02ce0f54de06c904787897"
+ },
+ "overgrown": {
+  "name": "OVERGROWN",
+  "author": "Blender Studio",
+  "licence": "CC-BY",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/splash/blender-5.3-splash.blend",
+  "member": "",
+  "bytes": 336974572,
+  "sha256": "ad16c33ac1298c8ef32ebb6af53a6f4b20730d3a37e8c97797719bb5a9c316d4"
+ },
+ "sprite_fright": {
+  "name": "Sprite Fright",
+  "author": "Blender Studio",
+  "licence": "CC-BY",
+  "licence_from": "the download page's label",
+  "url": "https://download.blender.org/demo/sprite_fright_030_0020_A.zip",
+  "member": "030_0020_A/030_0020_A.lighting.blend",
+  "bytes": 254374945,
+  "sha256": "21ee25dfffc76030770b644de5fe897559aead064b384fba77166b71a9337791"
+ },
+ "the_shed": {
+  "name": "The Shed",
+  "author": "Poly Haven",
+  "licence": "CC0",
+  "licence_from": "the site's licence page",
+  "url": "https://dl.polyhaven.org/file/ph-assets/Scenes/the_shed.zip",
+  "member": "the_shed/the_shed.blend",
+  "bytes": 2233374665,
+  "sha256": "18b007e0f55c4bb3b5f746c698b6c524508253cb763f2b7b14345cbefb81c8d0"
+ },
+ "pine_forest": {
+  "name": "Pine Forest",
+  "author": "Poly Haven",
+  "licence": "CC0",
+  "licence_from": "the site's licence page",
+  "url": "https://dl.polyhaven.org/file/ph-assets/Scenes/pine_forest.zip",
+  "member": "polyhaven_pine_fir_forest.blend",
+  "bytes": 2746288533,
+  "sha256": "9d08c4883a0b0eac2bd001ef874795d5120889b59e97c52f482cf1da77e42c33"
+ },
+ "hidden_alley": {
+  "name": "The Hidden Alley",
+  "author": "Poly Haven",
+  "licence": "CC0",
+  "licence_from": "the site's licence page",
+  "url": "https://dl.polyhaven.org/file/ph-assets/Scenes/hidden_alley.zip",
+  "member": "ph_hidden_alley.blend",
+  "bytes": 1505326815,
+  "sha256": "3dd51c6dc7aad321e6cd4bada26785d87cdf376e649f20aa4f87ef5cf127e151"
+ },
+ "namaqualand": {
+  "name": "Namaqualand",
+  "author": "Poly Haven",
+  "licence": "CC0",
+  "licence_from": "the site's licence page",
+  "url": "https://dl.polyhaven.org/file/ph-assets/Scenes/namaqualand.zip",
+  "member": "Namaqualand.blend",
+  "bytes": 1148050039,
+  "sha256": "e2c61ac273ca291e7f0ddb0f27a4b22a8c2375133228d918c86169ad464a97e7"
+ },
+ "verdant_trail": {
+  "name": "A Verdant Trail",
+  "author": "Poly Haven",
+  "licence": "CC0",
+  "licence_from": "the site's licence page",
+  "url": "https://dl.polyhaven.org/file/ph-assets/Scenes/verdant_trail.zip",
+  "member": "verdant_trail.blend",
+  "bytes": 1918654862,
+  "sha256": "90e483de4a065586b86b8e924276cdd139f124c971cf99aa0601f3ece8ce2d2b"
+ }
+}

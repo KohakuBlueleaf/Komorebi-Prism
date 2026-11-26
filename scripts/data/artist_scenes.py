@@ -1,0 +1,120 @@
+"""Lists and fetches the artists' scenes, and runs the scripts of `scripts/blender/` on
+them into <data>/artist/<key>/: list | fetch | measure | export | render."""
+
+import argparse
+import json
+import os
+import subprocess
+import time
+from pathlib import Path
+
+from prism_common.paths import data_root
+from prism_reference.scene.artist.table import (
+    artist_dir,
+    attribution,
+    blend_path,
+    download,
+    table,
+    unpack,
+)
+
+BLENDER_VARIABLE = "PRISM_BLENDER"
+SCRIPTS = Path(__file__).resolve().parent.parent / "blender"
+PAUSE_SECONDS = 20
+ENGINE_STEMS = {"CYCLES": "truth", "EEVEE": "eevee"}
+
+
+def blender(key, data, script, arguments, timeout):
+    """Runs a script of `scripts/blender/` on a scene; its JSON line, or the failure."""
+    command = [
+        os.environ.get(BLENDER_VARIABLE, "blender"),
+        "--background",
+        "--disable-autoexec",
+        str(blend_path(key, data)),
+        "--python",
+        str(SCRIPTS / f"{script}.py"),
+        "--",
+        *arguments,
+    ]
+    try:
+        done = subprocess.run(
+            command, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": f"stopped after {timeout} s"}
+    lines = [ln[ln.find('{"') :] for ln in done.stdout.splitlines() if '{"' in ln]
+    if done.returncode or not lines:
+        tail = (done.stdout + done.stderr).strip().splitlines()[-3:]
+        return {"error": f"exit {done.returncode}", "tail": tail}
+    return json.loads(lines[-1])
+
+
+def fetch(keys, data):
+    """Downloads (checked) and unpacks each scene, 20 s between two downloads."""
+    fetched = False
+    for key in keys:
+        if fetched:
+            time.sleep(PAUSE_SECONDS)
+        fetched = download(key, data)
+        unpack(key, data)
+        print(json.dumps({"scene": key, "downloaded": fetched}), flush=True)
+
+
+def run(command, keys, data, args):
+    """Runs measure, export or render on each scene; one JSON line a scene."""
+    for key in keys:
+        folder = artist_dir(data) / key
+        folder.mkdir(exist_ok=True)
+        frame = ["--frame", str(args.frame)] if args.frame is not None else []
+        record = {"scene": key}
+        if command == "measure":
+            arguments = [str(folder / "stats.json")]
+            record |= blender(key, data, "measure", arguments, args.timeout)
+        elif command == "export":
+            arguments = [str(folder / "scene"), *frame]
+            record |= blender(key, data, "export", arguments, args.timeout)
+        else:
+            for engine in args.engines:
+                arguments = [
+                    str(folder / ENGINE_STEMS[engine]),
+                    "--engine",
+                    engine,
+                    "--size",
+                    *map(str, args.size),
+                    "--samples",
+                    str(args.samples),
+                    *frame,
+                ]
+                record[engine] = blender(key, data, "render", arguments, args.timeout)
+        print(json.dumps(record), flush=True)
+
+
+def main():
+    """Lists, fetches, measures, exports and renders the artists' scenes."""
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument(
+        "command", choices=("list", "fetch", "measure", "export", "render")
+    )
+    parser.add_argument("scenes", nargs="*")
+    parser.add_argument("--data", type=Path, default=None)
+    parser.add_argument("--frame", type=int, default=None)
+    parser.add_argument("--size", type=int, nargs=2, default=(1280, 720))
+    parser.add_argument("--samples", type=int, default=256)
+    parser.add_argument(
+        "--engines", nargs="+", choices=tuple(ENGINE_STEMS), default=["CYCLES", "EEVEE"]
+    )
+    parser.add_argument("--timeout", type=float, default=None, help="seconds a run")
+    args = parser.parse_args()
+    data = args.data or data_root()
+    keys = args.scenes or list(table())
+    if args.command == "list":
+        for key in keys:
+            print(f"{key}: {attribution(key)}")
+    elif args.command == "fetch":
+        fetch(keys, data)
+    else:
+        run(args.command, keys, data, args)
+
+
+if __name__ == "__main__":
+    main()

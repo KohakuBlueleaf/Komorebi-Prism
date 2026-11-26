@@ -29,6 +29,7 @@ where = ["src", "apps"]
 
 [tool.setuptools.package-data]
 "prism_reference.scene.public" = ["*.json"]
+"prism_reference.scene.artist" = ["*.json"]
 "prism_reference.native" = ["common/*.hpp", "raster/*.hpp", "raster/*.cpp", "trace/*.hpp", "trace/*.cpp"]
 
 [tool.black]
