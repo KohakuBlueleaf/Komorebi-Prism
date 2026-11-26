@@ -55,6 +55,7 @@ COLUMNS = tuple(
         "positions",
     )
 )
+PHASES = P + "phases"  # a view's phases (dispatch.h DP_PHASE_*; 0: every phase)
 TIMES = tuple(
     P + name for name in ("count", "sums", "running", "place", "words", "tile")
 )
@@ -118,7 +119,7 @@ UNIT = Unit(
         P + "log": Region(log_bytes),
         P + "state": Region(state_bytes),
     },
-    numbers=NUMBERS,
+    numbers=(*NUMBERS, PHASES),
     columns=COLUMNS,
     times=TIMES,
     results=RESULTS,

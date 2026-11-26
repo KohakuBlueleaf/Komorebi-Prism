@@ -32,3 +32,13 @@ uint32_t jobs_unit_field(uint32_t* half, uint32_t* scale) {
     *scale = g_wants.scale;
     return g_wants.given;
 }
+
+uint32_t jobs_unit_light_field(dr_frame_t* frame) {
+    (void)frame;
+    return g_wants.given ? 1u + g_wants.half : 0u;
+}
+
+uint32_t jobs_unit_light_field_scale(dr_frame_t* frame) {
+    (void)frame;
+    return g_wants.scale;
+}

@@ -1,5 +1,6 @@
 """The job thread's part of the frame's thread: a unit serving `job_wants` (the cores a
-job wants, the field it made), its words, and the owner name its C is prefixed by."""
+job wants, the field it made) and giving the field's version as slots, its words, and
+the owner name its C is prefixed by."""
 
 from pathlib import Path
 
@@ -17,6 +18,7 @@ FRAME_UNIT = Unit(
     sources=("c/jobs_unit.c",),
     includes=("c",),
     serves=(COMMAND,),
+    gives={"light.field": "light_field", "light.field_scale": "light_field_scale"},
 )
 
 

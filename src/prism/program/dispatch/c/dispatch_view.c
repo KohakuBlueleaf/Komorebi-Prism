@@ -1,5 +1,5 @@
-/* A view as Komorebi's pulls (dispatch.h): the frame's page, count, sums, the slices'
- * places, place, the steps' words, tiles. */
+/* A view as Komorebi's pulls (dispatch.h): the frame's page, then the phases asked:
+ * count, sums, the slices' places, place, the steps' words, tiles. */
 #include "dispatch.h"
 
 /* The work handler's and the sums' commands carry the page as their block */
@@ -173,9 +173,8 @@ static uint32_t work_command(km_command_t* command, const view_t* view, uint32_t
     return error == KMX_OK ? 0u : DP_BAD_BLOCK;
 }
 
-/* The sums on every core of the group, then each layer's place a slice (the running
- * sum of the slices' entries) and the choice's slices. 0, or the code. */
-static uint32_t sums(dr_frame_t* frame, const view_t* one) {
+/* The sums on every core of the group. 0, or the code. */
+static uint32_t sums(const view_t* one) {
     page_of()[TF_PULL] = 0;
     dr_flush(DP_REGION_PAGE, DP_REGION_PAGE_AT, PAGE_BYTES);
     km_command_t command;
@@ -184,11 +183,14 @@ static uint32_t sums(dr_frame_t* frame, const view_t* one) {
         return DP_BAD_BLOCK;
     }
     kmx_progress(DP_WHERE_SUMS);
-    uint32_t code = dr_run(&command);
+    return dr_run(&command);
+}
+
+/* From the slices' words (the sums', or the host's): each layer's place a slice (the
+ * running sum of the slices' entries) and the choice's slices. 0, or the code. */
+static uint32_t running(dr_frame_t* frame, const view_t* one) {
+    uint32_t code = 0;
     uint64_t mark = kmx_time();
-    if (code) {
-        return code;
-    }
     dp_choose_t* state = choose_of();
     if (dp_choose_reset(
             state,
@@ -233,15 +235,28 @@ static uint32_t sums(dr_frame_t* frame, const view_t* one) {
     return code;
 }
 
+/* The phases of the view (DP_N_PHASES; 0: every phase). 0, or DP_BAD_NUMBERS. */
+static uint32_t phases_of(const dr_frame_t* frame, uint32_t* phases) {
+    *phases = dr_number(frame, DP_N_PHASES);
+    if (*phases == 0) {
+        *phases = DP_PHASE_ALL;
+    }
+    return *phases & ~DP_PHASE_ALL ? DP_BAD_NUMBERS : 0u;
+}
+
 uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     uint64_t mark = kmx_time();
     view_t one;
     km_command_t command;
-    uint32_t code = view_page(frame, view, &one);
+    uint32_t phases = 0;
+    uint32_t code = phases_of(frame, &phases);
     if (code == 0) {
+        code = view_page(frame, view, &one);
+    }
+    if (code == 0 && (phases & DP_PHASE_COUNT)) {
         code = work_command(&command, &one, TP_COUNT);
     }
-    if (code == 0) {
+    if (code == 0 && (phases & DP_PHASE_COUNT)) {
         const kmx_pull counting = {
             one.ranges, 1u, KMX_PULL_LOG, DP_REGION_LOG, 0, 0, 0
         };
@@ -249,28 +264,31 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
         frame->times[DP_R_RANGES] += one.ranges;
     }
     frame->times[DP_T_COUNT] += dr_ticks(&mark);
-    if (code == 0) {
-        code = sums(frame, &one);
+    if (code == 0 && (phases & DP_PHASE_SUMS)) {
+        code = sums(&one);
+    }
+    if (code == 0 && (phases & (DP_PHASE_SUMS | DP_PHASE_PLACE | DP_PHASE_TILE))) {
+        code = running(frame, &one);
     }
     frame->times[DP_T_SUMS] += dr_ticks(&mark);
-    if (code == 0) {
+    if (code == 0 && (phases & DP_PHASE_PLACE)) {
         code = work_command(&command, &one, TP_PLACE);
     }
-    if (code == 0) {
+    if (code == 0 && (phases & DP_PHASE_PLACE)) {
         const kmx_pull placing = {
             one.ranges, 1u, KMX_PULL_REPLAY, DP_REGION_LOG, 0, 0, 0
         };
         code = pull(&command, &placing, DP_WHERE_PLACE, DP_LATE_PLACE);
     }
     frame->times[DP_T_PLACE] += dr_ticks(&mark);
-    if (code == 0) {
+    if (code == 0 && (phases & DP_PHASE_TILE)) {
         code = dp_frame_words(frame, view, (uint32_t*)page_of());
     }
     frame->times[DP_T_WORDS] += dr_ticks(&mark);
-    if (code == 0) {
+    if (code == 0 && (phases & DP_PHASE_TILE)) {
         code = work_command(&command, &one, TP_TILE);
     }
-    if (code == 0) {
+    if (code == 0 && (phases & DP_PHASE_TILE)) {
         dp_choose_t* state = choose_of();
         const kmx_pull tiles = {
             one.slices * TR_SLICE_RECORDS,

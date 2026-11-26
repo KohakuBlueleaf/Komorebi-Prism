@@ -3,7 +3,7 @@ the generated switch, the jobs' C), its regions shared by every cluster of the i
 declared on the program."""
 
 from prism.core.headers import INCLUDE
-from prism.program.jobs.layout import C, JobLayout
+from prism.program.jobs.layout import OWN, PAGE, C, JobLayout
 from prism_common.paths import build_root
 
 CLUSTERS = (2, 3)  # the work clusters the job thread's image runs on
@@ -17,8 +17,8 @@ def lead(clusters=CLUSTERS):
 
 def declare(program, jobs, name, clusters=CLUSTERS):
     """The job thread for `jobs` (owner, Job, host) declared on `program` under the
-    build folder `name`: its regions declared shared, its image on `clusters`; its
-    JobLayout."""
+    build folder `name`: one region of each cluster's own, the others declared shared,
+    its image on `clusters`; its JobLayout."""
     layout = JobLayout(jobs)
     sources, includes = [], []
     for _, job, _ in layout.jobs:
@@ -35,8 +35,8 @@ def declare(program, jobs, name, clusters=CLUSTERS):
         clusters=tuple(clusters),
         sources=[C / "jobs.c", generated / "jobs_program.c", *sources],
         includes=[C, generated, INCLUDE, *includes],
-        regions={},
-        shared=tuple(layout.regions),
+        regions={OWN: PAGE},
+        shared=layout.shared(),
         handlers=layout.handlers(),
         defines=layout.defines,
         deadline=DEADLINE,

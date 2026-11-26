@@ -39,6 +39,14 @@
 #define DP_LATE_PLACE (DR_UNIT_CODES + 74u)
 #define DP_LATE_TILE (DR_UNIT_CODES + 75u)
 
+/* A view's phases, the bits of the number DP_N_PHASES (0: every phase). Without the
+ * sums, a phase after them takes the slices' words the host left in their region. */
+#define DP_PHASE_COUNT 1u
+#define DP_PHASE_SUMS 2u
+#define DP_PHASE_PLACE 4u
+#define DP_PHASE_TILE 8u
+#define DP_PHASE_ALL 15u
+
 /* The progress marks (kmx_progress) before each wait of a view */
 #define DP_WHERE_COUNT 0xD1u
 #define DP_WHERE_SUMS 0xD2u
@@ -53,8 +61,9 @@
 /* Once: the regions checked against their need. 0, or DP_SMALL_REGION. */
 uint32_t dp_setup(dr_frame_t* frame);
 
-/* A view: the page, the count pull, the sums, the running sum over the slices, the
- * place pull, the steps' frame words, the tile pull. 0, or the first code. */
+/* A view: the page, then its phases (DP_N_PHASES): the count pull, the sums, the
+ * running sum over the slices, the place pull, the steps' frame words, the tile pull.
+ * 0, or the first code. */
 uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view);
 
 /* Generated (pipeline.c): each step's <step>_frame_words(frame, view, page) in the

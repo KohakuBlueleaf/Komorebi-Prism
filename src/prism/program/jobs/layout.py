@@ -18,6 +18,7 @@ REGIONS_MAX = km_thread.layout()["KMX_REGIONS_MAX"]
 HANDLER_MOST = 239  # a thread's handler numbers are 1 to 239
 SERVE = "jobs_serve"  # the runtime's command: a cluster that is not the lead serves
 BLOCK = "jobs_block"  # the runtime's region: the job's input and the parts' lines
+OWN = "jobs_own"  # the runtime's region of each cluster's own (a thread holds one)
 HEADER = "jobs_layout.h"
 SOURCE = "jobs_program.c"
 
@@ -36,7 +37,10 @@ class JobLayout:
         self.jobs = list(jobs)
         self.commands = {SERVE: (RUNTIME, "jb_serve", 1)}
         block = J["JB_BLOCK_IN"] + J["JB_PARTS_MOST"] * J["JB_LINE"]
-        self.regions = {BLOCK: (RUNTIME, 0, pages(block), None)}
+        self.regions = {
+            OWN: (RUNTIME, 0, PAGE, None),
+            BLOCK: (RUNTIME, 1, pages(block), None),
+        }
         for owner, job, host in self.jobs:
             for name, function in job.serves.items():
                 if name in self.commands:
@@ -90,10 +94,16 @@ class JobLayout:
             )
         return self.commands[name][2]
 
+    def shared(self):
+        """The regions every cluster of the image shares, in id order (all but OWN)."""
+        return tuple(name for name in self.regions if name != OWN)
+
     def region_values(self):
-        """{name: bytes or first words} of every region, in id order."""
+        """{name: bytes or first words} of every shared region, in id order."""
         out = {}
         for name, (owner, _, bytes_, region) in self.regions.items():
+            if name == OWN:
+                continue
             host = self.host_of(owner)
             if region is None or region.contents is None:
                 out[name] = bytes_
