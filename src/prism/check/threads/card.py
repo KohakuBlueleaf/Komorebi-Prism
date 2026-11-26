@@ -74,7 +74,8 @@ def write_words(session, tensor, words, first=0):
 
 def read_words(session, tensor, count=None, first=0):
     """`count` pages of `tensor` from page `first` (None: to its end) as uint32 rows."""
-    return words_of(session.read(tensor, first=first, pages=count))
+    (rows,) = session.read(tensor, first=first, pages=count)  # a list: one tensor's
+    return words_of(rows)
 
 
 def write_per_core(session, tensor, image):

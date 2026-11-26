@@ -82,6 +82,12 @@ def sorted_rows(rows):
     return rows[np.lexsort(rows.T[::-1])]
 
 
+def triangles(slots):
+    """The triangle numbers of list slots (kRecTri, a float), as a set of ints."""
+    column = np.ascontiguousarray(slots[:, K["kRecTri"]]).view(np.float32)
+    return set(column.astype(np.int64).tolist())
+
+
 def lists(laid, layer, got):
     """A layer's lists read back (slots, 32 words) against the model's, item by item:
     the same entries (the judgement) and in the model's order (reported); the first
@@ -101,8 +107,7 @@ def lists(laid, layer, got):
             continue
         unlike += 1
         if first is None:
-            index = K["kRecIndex"]
-            have, wanted = set(mine[:, index].tolist()), set(theirs[:, index].tolist())
+            have, wanted = triangles(mine), triangles(theirs)
             first = {
                 "record": number,
                 "tile": tile,

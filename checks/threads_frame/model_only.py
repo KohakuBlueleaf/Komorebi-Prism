@@ -8,7 +8,7 @@ import numpy as np
 
 from checks.raster_model.compare import asserted
 from prism.check.threads import codes, compare
-from prism.check.threads.layers import card_records, flat_scene, frame_layers
+from prism.check.threads.layers import card_records, flat_scene, frame_layers, placed
 from prism.check.threads.model import (
     PORTS_CORES,
     counts_image,
@@ -62,7 +62,7 @@ def layers_case(name, scene, layers):
             mesh_blocks(flat_scene(blocks, len(one["indices"]), one)), blocks
         )
         pieces, packed = card_records(one, shade)
-        plain = pack_records(setup(one))
+        plain = placed(pack_records(setup(one)))
         if shade is None:
             unshaded &= np.array_equal(packed, plain)
             continue

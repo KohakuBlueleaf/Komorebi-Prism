@@ -1,7 +1,7 @@
 """The geometry half: the count pull, the sums and the place pull of a view run, then
-the records, the slices' words, each core's counts, row histograms and positions pages
-and each layer's lists read back against the model for the same log (the lists as the
-same entries an item, their order reported)."""
+the records, the slices' words, each core's counts, row histograms, positions pages (the
+words the sums write) and each layer's lists read back against the model for the same
+log (the lists as the same entries an item, their order reported)."""
 
 import numpy as np
 
@@ -11,6 +11,7 @@ from prism.check.threads.model import (
     counts_image,
     log_cores,
     positions_image,
+    positions_used,
     records_image,
     rows_image,
     slices_image,
@@ -63,9 +64,14 @@ def judged(laid, got, held):
         for name, image in (
             ("counts", counts_image(laid, layer, words["counts"])),
             ("rows", rows_image(laid, layer, words["rows"])),
-            ("positions", positions_image(laid, layer, words["positions"])),
         ):
             out.append(compare.exact(f"{name}.{layer}", one[name], image))
+        used = positions_used(laid, words["positions"])
+        image = positions_image(laid, layer, words["positions"])
+        judged_used = compare.exact(
+            f"positions.{layer}", one["positions"][:, used], image[:, used]
+        )
+        out.append(judged_used | {"words_used": int(used.sum())})
         out.append(compare.lists(laid, layer, one["lists"]))
     return out
 

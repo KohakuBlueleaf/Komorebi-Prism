@@ -8,6 +8,7 @@ from komorebi.program import thread as km_thread
 from prism.check.threads.layers import card_records
 from prism.stages.raster.model import threads
 from prism.stages.raster.model.numbers import GROUPS
+from prism.stages.raster.threads.layout import G
 from prism_reference.raster.setup import grid
 
 PORTS_CORES = km_thread.layout()["KMX_PORTS_CORES"]
@@ -42,6 +43,7 @@ def laid_out(
         cores=cores,
         slice_records=capacity.slice_records,
         held=capacity.slices,
+        wide=wide,
     )
     for layer, (name, one, shade) in enumerate(layers):
         pieces, packed = card_records(one, shade, wide)
@@ -108,6 +110,21 @@ def positions_image(laid, layer, page_words):
     out = np.zeros((len(page), page_words), np.uint32)
     out[:, : page.shape[1]] = page
     return out
+
+
+def positions_used(laid, page_words):
+    """The words of a positions page the sums write for the view (page_words,) bool:
+    every slice's tile words, and the two words of each band entry the slices use."""
+    used = np.zeros(page_words, dtype=bool)
+    sliced, items = laid["slices"], laid["items"]
+    held = len(sliced["tiles"]) if laid["held"] is None else int(laid["held"])
+    tile_words = G["kSliceTilesMost"] * held
+    used[:tile_words] = True
+    cut = items[items[:, 3] >= 0]
+    entry = sliced["of"][cut[:, 0]] * laid["slice_records"] + cut[:, 3]
+    at = tile_words + G["kBandWords"] * entry
+    used[at] = used[at + 1] = True
+    return used
 
 
 def log_cores(raw, ranges):

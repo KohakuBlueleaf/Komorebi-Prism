@@ -317,11 +317,12 @@ def layout(
     cores=None,
     slice_records=SLICE_RECORDS,
     held=None,
+    wide=False,
 ):
     """A view's layout: `scene` one scene or its layers; `view` {camera, size,
     page_first, page_across}; `log` the core that counted each range (None: one core);
-    a tile past `heavy` entries cut into bands; `held` RASTER_SLICES. The lists,
-    positions and their pages, items, records and slices' words."""
+    a tile past `heavy` entries cut into bands; `held` RASTER_SLICES; `wide` a wide
+    build's records. The lists, positions, items, records and slices' words."""
     if not 0 < slice_tiles <= min(slice_records, G["kSliceTilesMost"]):
         raise ValueError(
             f"layout: {slice_tiles} tiles a slice; 1 to {slice_records} records a "
@@ -354,7 +355,7 @@ def layout(
         slice_place = places[sliced["of"][items[:, 0]], layer]
         slots, by_slot = place_layer(
             tables[layer],
-            pack_records(one),
+            pack_records(one, wide),
             items,
             positions[layer],
             slice_place,

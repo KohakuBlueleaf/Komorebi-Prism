@@ -25,8 +25,9 @@ def half_bits(x):
     return x.astype(np.float16).view(np.uint16).astype(np.uint32)
 
 
-def pack_records(records):
-    """The 32-word card record of every triangle record of `setup.setup`."""
+def pack_records(records, wide=False):
+    """The 32-word card record of every triangle record of `setup.setup`; `wide` the
+    box columns as a wide build holds them (float32, grid.h), else float16."""
     count = len(records["tri"])
     packed = np.zeros((count, SLOT), dtype=np.uint32)
     packed[:, K["kRecA"] : K["kRecA"] + 3] = bits(records["a"])
@@ -41,8 +42,9 @@ def pack_records(records):
         column = K["kRecCol"] + 3 * channel
         packed[:, column : column + 3] = bits(colour_planes[:, :, channel])
     box = records["box"].astype(np.int64)
-    packed[:, K["kRecX0"]] = half_bits(box[:, 0])
-    packed[:, K["kRecX1"]] = half_bits(box[:, 1] + 1)
+    columns = bits if wide else half_bits
+    packed[:, K["kRecX0"]] = columns(box[:, 0])
+    packed[:, K["kRecX1"]] = columns(box[:, 1] + 1)
     packed[:, K["kRecY0"]] = box[:, 2].astype(np.uint32)
     packed[:, K["kRecY1"]] = box[:, 3].astype(np.uint32)
     packed[:, K["kRecTri"]] = bits(records["tri"].astype(np.float32))

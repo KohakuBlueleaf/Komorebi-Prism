@@ -76,14 +76,15 @@ def assembled(pipeline, session, scene, options):
 
 
 def load(threaded, session):
-    """The assembled program loaded on `session`, each host bound (Loaded); the option
-    DEADLINE: the seconds a command may take, the kernels' wait limit above it."""
-    seconds = threaded.options.get(DEADLINE)
+    """The assembled program loaded on `session`, each host bound (Loaded); the
+    option DEADLINE: each command's deadline and the kernels' wait limit above it."""
+    options = threaded.options
+    seconds = options.get(DEADLINE)
     if seconds is None:
         return loaded_program.load(threaded, session)
     run = session.load(
         threaded.program,
-        trace=int(threaded.options.get("trace") or 0),
+        trace=int(options.get("trace") or 0),
         deadline=float(seconds),
         wait=float(seconds) + WAIT_ABOVE,
     )
