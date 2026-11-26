@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from prism.core.implementation import hosted
 from prism.program import loaded as loaded_program
 from prism.program.assemble import Assembled, connected, held_slots
+from prism.program.frame import device
 from prism.program.threads import program
 from prism.program.threads.implementations import JOBS
 from prism_common.build import located
@@ -65,6 +66,7 @@ def assembled(pipeline, session, scene, options):
     }
     out.made = program.classes(out.frame, out.composition, others, session)
     out.program = program.merged(out.made, session)
+    device.streams_checked(out.program, out.composition)
     program.ports(out.program, session)
     out.job_hosts = [
         (i.name, JOBS[i.name], hosts[i.name])

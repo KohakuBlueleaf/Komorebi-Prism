@@ -1,6 +1,6 @@
 """The geometry thread's kinds beside the tile thread: count and place, each with the
-rings its range moves through (the pass's own spaces among them) and the state it keeps
-on a core during its pull."""
+rings its range moves through (the pass's own spaces among them; the block pairs its
+streams), and the state it keeps on a core during its pull."""
 
 from prism.core.headers import INCLUDE, defined
 from prism.core.thread.module import Kind
@@ -47,6 +47,7 @@ def kinds(
     if slices is None:
         slices = layout.slices_of(32, -(-tiles // 32))
     blocks = pair("mesh", S["kMeshBytes"], streamer)
+    shades = pair("shade", S["kShadeBlockBytes"], streamer)
     out = {"out": (S["kOutPages"], S["kOutBytes"], "pack"), **pass_spaces()}
     count = Kind(
         name="count",
@@ -58,6 +59,7 @@ def kinds(
         },
         buffers={**blocks, **out},
         fields=(),
+        streams=tuple(blocks),
     )
     place = Kind(
         name="place",
@@ -69,10 +71,11 @@ def kinds(
         },
         buffers={
             **blocks,
-            **pair("shade", S["kShadeBlockBytes"], streamer),
+            **shades,
             **out,
         },
         fields=(),
+        streams=(*blocks, *shades),
     )
     return count, place
 

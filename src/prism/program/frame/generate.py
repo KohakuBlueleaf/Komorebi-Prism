@@ -27,6 +27,7 @@ WORD = 4
 MEMORY, OWNER = "frame_memory", "frame"  # the command space's part, its user
 # the handler's own rings: name, (pages, page bytes, pushing CPU) by the composition
 FIXED = ("page", "jobs", "jobs_b", "list_a", "list_b", "asks_a", "asks_b")
+LIST_HALVES = ("frame_list_a", "frame_list_b")  # the loop's list stream's halves
 
 
 def camel(name):
@@ -55,9 +56,9 @@ class Composition:
     """A tile thread and the kinds beside it, composed for the frame's layers: the
     steps' words {define: word}, the planes {name: (byte, bytes)}, the kept state
     {(owner, name): (byte, bytes)}, each step's passes (layer indices), each view's list
-    stream, the outputs (step, Output), the rings {field: (pages, page bytes, pusher)},
-    the lists' geometry (records a page, a page's bytes, pages a block), the handler's
-    memory bytes."""
+    stream, the outputs (step, Output), the rings {field: (pages, page bytes, pusher)}
+    (the stream halves first), the stream halves' fields, the lists' geometry (records
+    a page, a page's bytes, pages a block), the handler's memory bytes."""
 
     thread: object
     kinds: tuple
@@ -69,6 +70,7 @@ class Composition:
     streams: dict
     outputs: tuple
     rings: dict
+    streamed: tuple
     geometry: tuple
     planes_at: int
     memory_bytes: int
@@ -165,7 +167,10 @@ def lists_geometry(steps):
 
 def kind_field(kinds, kind, name):
     """The field of `kind`'s ring `name`: kind_<name>, one for every kind declaring
-    the ring with the same shape and pusher, when another does; else <kind>_<name>."""
+    the ring with the same shape and pusher, when another does; else <kind>_<name>
+    (a step's: <step>_<name>)."""
+    if kind not in kinds:
+        return f"{kind.name}_{name}"
     shape = kind.buffers[name]
     alike = [other for other in kinds if other.buffers.get(name) == shape]
     return f"kind_{name}" if len(alike) > 1 else f"{kind.name}_{name}"
@@ -209,9 +214,7 @@ def rings_of(thread, kinds, outputs, geometry):
     shared = set()
     for owner in (*thread.steps, *kinds):
         for name, (pages, page_bytes, pusher) in owner.buffers.items():
-            field = f"{owner.name}_{name}"
-            if owner in kinds:
-                field = kind_field(kinds, owner, name)
+            field = kind_field(kinds, owner, name)
             if field in shared:
                 continue
             if field in rings:
@@ -220,6 +223,20 @@ def rings_of(thread, kinds, outputs, geometry):
             if owner in kinds and field == f"kind_{name}":
                 shared.add(field)
     return rings
+
+
+def stream_fields(thread, kinds):
+    """The fields of the rings Komorebi's movers move: the loop's list halves, then
+    each step's and kind's `streams`; refused for a stream naming no ring of its own."""
+    out = list(LIST_HALVES)
+    for owner in (*thread.steps, *kinds):
+        for name in owner.streams:
+            if name not in owner.buffers:
+                raise ValueError(f"frame program: {owner.name!r} streams {name!r}")
+            field = kind_field(kinds, owner, name)
+            if field not in out:
+                out.append(field)
+    return tuple(out)
 
 
 def compose(thread, kinds, layers, held=None):
@@ -254,6 +271,8 @@ def compose(thread, kinds, layers, held=None):
     geometry = lists_geometry(thread.steps)
     memory = aligned(FRAME["FM_SHARED_BYTES"] + largest)
     rings = rings_of(thread, kinds, outputs, geometry)
+    streamed = stream_fields(thread, kinds)
+    rings = {name: rings[name] for name in streamed} | rings
     fields.need(MEMORY, OWNER, lambda held, bytes_=memory: bytes_)
     return Composition(
         thread,
@@ -266,6 +285,7 @@ def compose(thread, kinds, layers, held=None):
         streams,
         outputs,
         rings,
+        streamed,
         geometry,
         aligned(FRAME["FM_SHARED_BYTES"] + steps_bytes),
         memory,

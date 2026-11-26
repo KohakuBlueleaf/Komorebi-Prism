@@ -7,6 +7,7 @@ memory a part of the command space).
 import types
 
 import komorebi as km
+from komorebi.dsl.compile.layout import FIRST_UPPER
 
 from prism.core import fields
 from prism.core.compute import FRAME_COMPUTE
@@ -16,6 +17,7 @@ from prism_common.paths import build_root
 ENTRY = "prism_frame::work"  # work_movement on both movers, work_compute on compute
 HANDLER = "work"
 WORD = 4
+STREAM_INDICES = FIRST_UPPER  # a stream's half is among a core's first buffers
 
 
 def field_of(pages, page_bytes, pusher):
@@ -77,3 +79,23 @@ def made(host, composition, defines):
         session=host.session,
         depth=1,
     )
+
+
+def streams_checked(program, composition):
+    """The made program's index of each stream half of the composition; refused with
+    the indices when one is past a core's first STREAM_INDICES buffers or not found."""
+    held = {buffer.name: buffer.index for buffer in program.buffers}
+    indices = {
+        name: held.get(f"kField{generate.camel(name)}") for name in composition.streamed
+    }
+    past = {
+        name: index
+        for name, index in indices.items()
+        if index is None or index >= STREAM_INDICES
+    }
+    if past:
+        raise ValueError(
+            f"frame program: stream halves at indices {past}, past the first "
+            f"{STREAM_INDICES} a stream's half takes (every half: {indices})"
+        )
+    return indices
