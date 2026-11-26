@@ -238,7 +238,11 @@ def build(
     counts |= matrix_counts(blocks) | field_counts(model)
     counts["seconds"] = times
     (transport_dir(name, data) / "y_exact.npy").unlink(missing_ok=True)
-    write(name, data, model, result, source, counts, live["sample"])
+    command = (
+        f"python scripts/data/public_scenes.py indirect {name} --transport {method}"
+    )
+    command += " --far-only" if far_only else ""
+    write(name, data, model, result, source, counts, live["sample"], command)
     step("write")
     counts["seconds"] = times
     return counts

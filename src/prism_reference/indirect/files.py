@@ -42,9 +42,10 @@ def load_model(path):
     return _MODELS[path]
 
 
-def write(name, data, model, result, source, counts, samples):
+def write(name, data, model, result, source, counts, samples, command=None):
     """The files: the indirect file (elements in the matrix's order, transfer rows,
-    field) and the card's folder (blocks.npz, weights.f32, x, y_*, perm.npy, README)."""
+    field) and the card's folder (blocks.npz, weights.f32, the vectors of `result`,
+    perm.npy, a README naming them and `command`, the build's command line)."""
     folder = transport_dir(name, data)
     folder.mkdir(parents=True, exist_ok=True)
     blocks, weights = model["blocks"], model["weights"]
@@ -54,7 +55,10 @@ def write(name, data, model, result, source, counts, samples):
         np.save(folder / f"{key}.npy", value.astype(F))
     perm = np.where(source >= 0, samples[np.maximum(source, 0)], -1).astype(np.int32)
     np.save(folder / "perm.npy", perm)
-    (folder / "README.md").write_text(transport_readme(name, counts, len(weights)))
+    command = command or f"python scripts/data/public_scenes.py indirect {name}"
+    (folder / "README.md").write_text(
+        transport_readme(name, counts, len(weights), list(result), command)
+    )
     keep = {k: v for k, v in model.items() if k not in ("blocks", "weights", "cache")}
     out = model_path(name, data)
     np.savez(out, **keep, counts=json.dumps(counts))
@@ -63,11 +67,14 @@ def write(name, data, model, result, source, counts, samples):
     np.savez(out, **keep, counts=json.dumps(counts))
 
 
-def transport_readme(name, counts, numbers):
-    """The card folder's README: what the files hold and the apply that reproduces
-    y_float.npy."""
+def transport_readme(name, counts, numbers, vectors, command):
+    """The card folder's README: what the files hold (of the vectors, those in
+    `vectors`), the command that wrote them and the apply that reproduces y_float.npy.
+    """
     return TRANSPORT_README.format(
         name=name,
+        command=command,
+        vectors=" ".join(VECTORS[key] for key in vectors),
         elements=counts["elements"],
         units=counts["elements"] // UNIT,
         kept=counts["kept"],
@@ -81,9 +88,18 @@ def transport_readme(name, counts, numbers):
     )
 
 
+VECTORS = {
+    "x": "`x.npy` (N, 3) float32: L0 of the scene's own lights, RGB.",
+    "y_exact": "`y_exact.npy`: the dense apply (every entry of M, float64 sums).",
+    "y_float": "`y_float.npy`: the apply below from these files, float32, bit for bit.",
+    "y_q8": "`y_q8.npy`: the card's numbers emulated: every stored number bfp8_b (host"
+    " encode: one exponent for each 16 consecutive numbers of a stored row), x's and"
+    " t's rows bfloat16 as the LEFT operand at HiFi4, float32 sums.",
+}
+
 TRANSPORT_README = """# {name}: the light-transport matrix in the card's layout
 
-Written by `python scripts/data/public_scenes.py indirect {name}`
+Written by `{command}`
 (prism_reference.indirect; the definition: docs/internals/reference/indirect.md). The
 card computes
 `y = M x`: `M = pi F`, F the elements' form factor with visibility and the near-field
@@ -99,11 +115,7 @@ no scaling (every `scale` is 1.0).
   as the elements of `{name}_indirect.npz`.
 - `perm.npy` (N,) int32: each position's sample number k (element k of the area
   sampling); -1 for a copy.
-- `x.npy` (N, 3) float32: L0 of the scene's own lights, RGB. `y_exact.npy`: the dense
-  apply (every entry of M, float64 sums). `y_float.npy`: the apply below from these
-  files, float32, bit for bit. `y_q8.npy`: the card's numbers emulated: every stored
-  number bfp8_b (host encode: one exponent for each 16 consecutive numbers of a stored
-  row), x's and t's rows bfloat16 as the LEFT operand at HiFi4, float32 sums.
+- {vectors}
 
 ## Stored TRANSPOSED: the card's product is y_row = x_row @ W
 
