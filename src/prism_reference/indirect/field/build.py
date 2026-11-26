@@ -30,7 +30,9 @@ def sight(tree, eps, position, normal):
     def seen(centre, column):
         end = position[column].astype(np.float64)
         end = end + normal[column].astype(np.float64) * eps
-        _, tri, _, _ = trace(tree, centre.astype(F), (end - centre).astype(F), 1.0, True)
+        _, tri, _, _ = trace(
+            tree, centre.astype(F), (end - centre).astype(F), 1.0, True
+        )
         return tri < 0
 
     return seen
