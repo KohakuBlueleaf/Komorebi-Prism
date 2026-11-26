@@ -177,7 +177,9 @@ two-dimensional difference array (four corner adds a box, two running sums), the
 `bin_triangles` gives without its per-entry arrays. The counts are made once
 (`counts.kept_counts`) for a scene's positions, indices and camera, its frame's size and
 the grid: kept in the process and under `$PRISM_CACHE/counts/` as one `.npy` named by the
-first 16 hex digits of the BLAKE2b digest of those and a version number, the whole digest
+first 16 hex digits of the digest of those and a version number (`prism_common.digest`:
+each array cut into 16 MiB pieces hashed with BLAKE2b on the process's CPUs, then the
+BLAKE2b digest of the pieces' digests), the whole digest
 in a `.json` beside it, compared on load (each written to a temporary name, then renamed).
 A frame that needs more slots stops
 with `RASTER_LISTS_SMALL` and the loop reloads with a quarter more.

@@ -114,7 +114,11 @@ from a file or from inside a zip, tar or gzip archive, with numpy only:
 - a ground plane (a 16 x 16 checker) is added under a single object when the table asks
   for it (`ground`, its half width as a multiple of the object's width).
 
-Vertices are split by (vertex, colour), so every triangle keeps a flat colour. The
+Vertices are split by (vertex, colour), so every triangle keeps a flat colour: the
+distinct (vertex, colour) pairs in the order of the vertex, then of the colour; a colour is
+ranked once among the distinct colours (lexicographic), a vertex whose triangles all
+carry one colour is one pair, and only the vertices between colours are sorted, so the
+split is linear in the corners (`shared_vertices`). The
 rasterizer has no lighting, so the colour is multiplied by a fixed shade per vertex,
 `0.55 + 0.45 |n . d|` with `d = normalize(0.3, 1, 0.5)` and `n` the area-weighted
 normals of the triangles around the vertex; without it a room is a few flat areas. The
@@ -256,8 +260,9 @@ python scripts/data/public_scenes.py lighting sponza      # <scene>_lighting.npz
 It downloads the scene's environment map (the table's `environments`: one HDR map per
 entry, its page, licence and SHA-256; the file is saved in `downloads/` like the scene
 files and never committed), bakes the sky visibility per vertex (`<scene>_visibility.npz`,
-reused unless `--rebake`; `--workers` processes, by default the CPUs the process may run
-on, at most 32), finds the lamps, renders the sun's shadow map and writes
+reused unless `--rebake`; traced by the compiled batch tracer (`trace.batch`, the
+reference's walk and triangle test), 16,384 vertices at a time on `--workers` threads, by
+default the CPUs the process may run on, at most 32), finds the lamps, renders the sun's shadow map and writes
 `<scene>_lighting.npz` (to a temporary name, then renamed). With `--visibility open` and
 no visibility file yet, every vertex's visibility is 1 and the file's `counts` say
 `"visibility": "open"`; a later `--visibility bake` (the default) replaces it.

@@ -121,10 +121,14 @@ def sky_irradiance(sh, n):
     return e
 
 
-def environment(path, turn):
-    """The sun and the sky of a map turned by `turn` degrees about y: the sun's unit
-    direction and colour, the sky's sh (9, 3) without the sun's cone, and the map."""
-    radiance = read_hdr(path).astype(np.float64)
+def read_radiance(path):
+    """The map's radiance (H, W, 3) as float64."""
+    return read_hdr(path).astype(np.float64)
+
+
+def sun_of(radiance, turn):
+    """The sun of a map (float64 radiance) turned by `turn` degrees about y: its unit
+    direction, colour, cone, the ring's mean, the cone's weights and the luminance."""
     height, width = radiance.shape[:2]
     d, solid = texel_directions(height, width)
     d = turned(d, turn)
@@ -138,6 +142,16 @@ def environment(path, turn):
     direction = (d[cone] * weight[:, None]).sum(0)
     direction /= np.linalg.norm(direction)
     colour = excess.sum(0) / (excess.sum(0) @ LUMINANCE)
+    return direction, colour, cone, around, weight, lum, d, solid
+
+
+def environment(path, turn, radiance=None):
+    """The sun and the sky of a map (its file, or its float64 `radiance`) turned by
+    `turn` degrees about y: the sun's unit direction and colour, the sky's sh (9, 3)
+    without the sun's cone, and the map."""
+    if radiance is None:
+        radiance = read_radiance(path)
+    direction, colour, cone, around, weight, lum, d, solid = sun_of(radiance, turn)
     sky = radiance.copy()
     sky[cone] = around
     sh = np.einsum("hwk,hwc,hw->kc", sh_basis(d), sky, solid)

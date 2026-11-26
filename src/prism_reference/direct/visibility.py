@@ -2,19 +2,20 @@
 leave the scene."""
 
 import concurrent.futures
-import multiprocessing
 
 import numpy as np
 
+from prism_reference.native.loader import library
 from prism_reference.raster.vector import cross3, dot3, normalized
 from prism_reference.scene.generated import uniform
-from prism_reference.trace.tracer import CHUNK, TMAX, trace
+from prism_reference.trace.batch import trace
+from prism_reference.trace.tracer import TMAX
 
 F = np.float32
 # Rays per vertex and the hash seed of their directions.
 VIS_RAYS = 64
 VIS_SEED = 11
-VIS_CHUNK = CHUNK // VIS_RAYS
+VIS_CHUNK = 1 << 14  # vertices a thread bakes at once
 _BAKE = {}
 
 
@@ -61,19 +62,19 @@ def _bake_chunk(span):
     n = normals[start:end]
     d = bake_directions(vertex, n).reshape(-1, 3).astype(np.float32)
     o = np.repeat(positions[start:end] + n * eps, VIS_RAYS, axis=0)
-    hit = trace(tree, o, d, TMAX, any_hit=True)["leaf"] >= 0
+    hit = trace(tree, o, d, TMAX, any_hit=True, count=1)[1] >= 0
     vis = F(1) - hit.reshape(-1, VIS_RAYS).sum(1).astype(np.float32) / F(VIS_RAYS)
     return np.where(dot3(n, n) > 0, vis, F(1))
 
 
 def bake_visibility(positions, indices, tree, eps, workers=4):
     """Per vertex the share of VIS_RAYS cosine rays from the vertex moved eps along its
-    normal that leave without a hit (1 where the normal is zero), in `workers` processes.
+    normal that leave without a hit (1 where the normal is zero), on `workers` threads.
     """
     _BAKE.update(
         positions=positions,
         normals=vertex_normals(positions, indices),
-        tree=tree,
+        tree={k: np.ascontiguousarray(tree[k]) for k in ("nodes", "tris", "leaf_tri")},
         eps=F(eps),
     )
     spans = [
@@ -81,8 +82,8 @@ def bake_visibility(positions, indices, tree, eps, workers=4):
         for s in range(0, len(positions), VIS_CHUNK)
     ]
     if workers > 1:
-        context = multiprocessing.get_context("fork")
-        with concurrent.futures.ProcessPoolExecutor(workers, context) as pool:
+        library()  # built before the threads ask for it
+        with concurrent.futures.ThreadPoolExecutor(workers) as pool:
             parts = list(pool.map(_bake_chunk, spans))
     else:
         parts = [_bake_chunk(span) for span in spans]

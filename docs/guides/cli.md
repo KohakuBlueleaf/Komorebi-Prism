@@ -60,8 +60,9 @@ python -m prism_cli open FILE [--pipeline P] [--size W H] [--camera NODE] [--fra
 ```
 
 A glTF file drawn by a preset in one command, through the parts `run` uses
-(`preset.opened`, the loop): the file converted once and kept under the data root, or
-found there (`prism_reference.scene.artist.opened`); when the preset takes the lights and
+(`preset.opened`, the loop): the file converted once and kept under the data root (its
+textures decoded on the CPUs the command may run on, at most 32), or found there
+(`prism_reference.scene.artist.opened`); when the preset takes the lights and
 the scene has no lighting file, the lights made with every vertex's sky visibility 1 and
 the bake by `--bake` (`background`, the default: a detached
 `public_scenes.py lighting NAME --visibility bake --shadow card`, its log

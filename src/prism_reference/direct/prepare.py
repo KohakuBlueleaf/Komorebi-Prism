@@ -15,7 +15,9 @@ from prism_reference.direct.sky import (
     OCTA_SIDE,
     environment,
     octahedral_map,
+    read_radiance,
     sky_irradiance,
+    sun_of,
 )
 from prism_reference.direct.visibility import VIS_RAYS, bake_visibility
 from prism_reference.scene.public.lighting import fetch_environment, lighting_path
@@ -42,7 +44,8 @@ def scene_tree(name, data, mesh):
 
 def scene_lamps(entry, scene, materials):
     """The point lights of a `lighting` entry: its authored `lights`, each of intensity
-    `lamp_scale`, else `find_lamps`. Positions, colours, intensities and counts."""
+    `lamp_scale`, else `find_lamps` (which reads `materials`). Positions, colours,
+    intensities and counts."""
     if "lights" not in entry:
         return find_lamps(
             scene, materials, entry["merge_distance"], entry["lamp_scale"]
@@ -59,13 +62,14 @@ def scene_sun(entry, env_path):
     `sun` the map is turned to its azimuth and the sun is the authored one."""
     if "sun" not in entry:
         return environment(env_path, entry["turn"]), float(entry["turn"])
-    own = environment(env_path, 0.0)["sun_direction"].astype(np.float64)
+    radiance = read_radiance(env_path)
+    own = sun_of(radiance, 0.0)[0].astype(np.float32).astype(np.float64)
     to_sun = -np.asarray(entry["sun"]["direction"], dtype=np.float64)
     to_sun /= np.linalg.norm(to_sun)
     turn = float(
         np.degrees(np.arctan2(own[2], own[0]) - np.arctan2(to_sun[2], to_sun[0]))
     )
-    env = environment(env_path, turn)
+    env = environment(env_path, turn, radiance)
     colour = np.asarray(entry["sun"]["colour"], dtype=np.float64)
     env["sun_direction"] = to_sun.astype(np.float32)
     env["sun_colour"] = (colour / (colour @ LUMINANCE)).astype(np.float32)
@@ -116,7 +120,8 @@ def prepare(
     entry = table()[name]["lighting"]
     (env_path,) = fetch_environment(entry["environment"], data)
     mesh, _ = load_mesh(name, data)
-    materials, _ = load_materials(name, data)
+    wanted = shadow == "host" or "lights" not in entry
+    materials = load_materials(name, data)[0] if wanted else None
     counts = {"vertices": len(mesh["positions"])}
     visibility, bake = sky_visibility(name, data, mesh, workers, rebake, visibility)
     counts |= bake

@@ -35,6 +35,7 @@ sky's visibility alone.
 | `bake.json` | the bake alone: by scene and process count, the seconds, the rays and the rays a second |
 | `first_lit/<scene>_<first|second>.json` | the records of [the first lit picture without the host's shadow map](#the-first-lit-picture-without-the-hosts-shadow-map) |
 | `convert_memory.json` | the conversion alone: by scene, its seconds, its steps and the process's peak resident memory after it |
+| `waste/` | the records of [the waste cut](#the-waste-cut): the host part's parts (`<scene>_host_<before|final>.json`), the card part's (`<scene>_card_<before|final>_<cold|warm>.json` and the command's `..._record.json`), the bake's samples (`bake_samples.json`) |
 
 ## The columns
 
@@ -248,3 +249,90 @@ names are the same as in the loads above.
 | italian_flat | 3,358,422 | 23.2 | 4.76 |
 | lynxsdesign | 8,806,420 | 46.0 | 5.09 |
 | hidden_alley | 8,994,024 | 58.5 | 6.75 |
+
+## The waste cut
+
+The load the frame `gi` needs (its scene's conversion, its lights, its hosts' tables, its
+program, its tensors), before and after cutting the work nobody needed, on the new
+exports of three scenes: classroom (1,252,126 triangles), lynxsdesign (29,756,735),
+hidden_alley (8,994,697). A scene without a transport set opens as `gi` without its
+indirect term, the implementations of `lit`; the rows below are named by part. Date
+2026-11-27 (UTC+8), card 1, 24 CPUs of the host (every command under the same 24), Komorebi
+0.6.0. Each scene: the host part in a process of its own, no card (`open_scene`, then the
+lights with `visibility="open"` and `shadow="card"`, the calls `open` makes), the data
+root empty of that scene; then `python -m prism_cli open <folder>/scene.glb --pipeline lit
+--bake none --size 1920 1080 --card 1`, 16 frames, cold (Komorebi's, tt-metal's and the
+cache root's folders emptied) and warm. The kind of each part's time is from `py-spy
+--native` samples: numpy's compiled loops, other native code (Pillow and zlib, BLAKE2b,
+the compiled tracer) or the interpreter; the interpreter's share was under 5 % of each
+part's samples but the HDR map's reading (about a third) and the texture decoding (6 to
+12 %, Pillow's Python around its decoders).
+
+Every file the conversion writes (the mesh, the materials) is equal byte for byte before
+and after on the three scenes; the lighting files differ in one timed number of their
+`counts`; every PNG (cold and warm) is equal byte for byte; the baked visibility of
+classroom by the compiled tracer equals the whole bake by the numpy tracer byte for byte,
+and on the two larger scenes 24 runs of 16,384 vertices each (25,165,824 rays) are equal.
+The caches' keys of the hosts' tables (`blocks/`, `counts/`) are another digest now
+(`prism_common.digest`, version 2): a cache of the earlier form is made again once.
+
+Seconds by part, lynxsdesign | hidden_alley | classroom.
+
+| part | before | after | kind | what was cut |
+|---|---|---|---|---|
+| convert.textures | 11.9 / 27.2 / 7.9 | 4.3 / 9.0 / 2.4 | layout, compute split | the mip's 2 x 2 box filter as four strided adds (a reduce over two small strided axes before, 11 x slower); the decoders on every CPU given (4 before) |
+| convert.shared_vertices | 140.7 / 32.2 / 4.3 | 10.0 / 3.0 / 0.35 | algorithm | a sort of every corner's 4-column row replaced by integer keys: a colour ranked once, one pair a vertex of one colour, only the vertices between colours sorted |
+| convert.uv | 10.8 / 7.2 / 0.5 | 5.9 / 1.4 / 0.15 | needless | a full scan of every triangle per material replaced by one stable sort |
+| convert, all steps and the digest | 174.8 / 75.2 / 14.1 | 33.7 / 21.9 / 4.2 | | |
+| lights.open | 10.3 / 13.9 / 11.9 | 9.3 / 8.6 / 7.3 | twice, needless | the HDR map read and its environment made once (twice with an authored sun); the materials (1.4 GB) not read when the lamps are authored and the shadow is the card's |
+| host part, peak memory GiB | 15.8 / 7.2 / 2.7 | 13.7 / 8.2 / 3.1 | | |
+| model.raster, cold | 112.4 / 18.6 / 3.3 | 21.5 / 8.2 / 1.6 | needless, split | `setup.boxes` without the clip's recipes it never reads, on every CPU by runs of triangles; the mesh blocks by runs of whole blocks on every CPU and as a reshape; the keys' digests on every CPU |
+| model.material.texture, cold | 5.6 / 2.0 / 0.44 | 1.0 / 0.86 / 0.34 | twice | the same blocks' digest (made by the raster host first) on every CPU |
+| model.raster, warm | 7.7 / 3.2 / 0.45 | 0.70 / 0.67 / 0.30 | layout | the keys' digests (BLAKE2b over 0.6 to 2 GB a call, eight calls a load) on every CPU |
+| model.material.texture, warm | 3.6 / 1.9 / 0.41 | 0.94 / 0.93 / 0.30 | layout | as above |
+| card part, peak memory GiB, cold | 15.6 / 5.0 / 1.9 | 14.7 / 8.0 / 2.3 | | the blocks and boxes made by runs at once |
+
+Seconds to the first picture: the host part plus the card part's command to its first
+picture (the card part's process start is 0.2 to 0.3 s more).
+
+| scene | cold before | cold after | warm before | warm after |
+|---|---|---|---|---|
+| lynxsdesign | 185.0 + 187.0 = 372.0 | 43.0 + 90.7 = 133.7 | 31.2 | 21.3 |
+| hidden_alley | 89.1 + 81.8 = 170.9 | 30.5 + 73.6 = 104.1 | 19.8 | 16.2 |
+| classroom | 26.1 + 55.5 = 81.6 | 11.5 + 50.9 = 62.4 | 7.6 | 7.1 |
+
+What is left, cold (lynxsdesign): Komorebi's host module built 17.1 (one compiler, one
+CPU), the program built 8.2 and launched 9.2, with the card opened again when the kernels
+ask for a larger kernel buffer and every tensor written again (11.1 GB in 7.5 s, cold
+only); the tensors 22.1 GB in 16.4 s; the digest of the files 2.7 (BLAKE2b, one CPU, every
+open, warm too: the scene's key is the digest of the bytes); the conversion's writing 5.5
+(2.3 GB); the HDR map's run-length rows 4 (the interpreter: a serial format); `sun_view`
+2.8. The mesh's colours and the materials' `light` (`vertex_shade`) are not read by `gi`
+(its blocks carry u, v and the visibility), only by `textured` and the public scenes;
+they cost about 6 s of the conversion.
+
+### The sky's visibility bake
+
+`python scripts/data/public_scenes.py lighting NAME --visibility bake --shadow card
+--rebake --workers 24`, the command `open --bake background` starts. Before, each process
+traced its rays with the reference's numpy tracer (`trace.tracer`: one walk over the tree
+in vectorized steps a chunk of 65,536 rays); after, the compiled batch tracer
+(`trace.batch`, the same walk and triangle test in float32 without fused multiply-add)
+traces 16,384 vertices (1,048,576 rays) a thread on every CPU, and the median tree's
+lexicographic sort of each level is one stable sort of a 64-bit key, by runs of whole
+segments on every CPU (the tree equal array for array).
+
+| scene | vertices | rays | before: rays a second | before, seconds | after: tree and files, seconds | after: bake, seconds | after: rays a second |
+|---|---|---|---|---|---|---|---|
+| classroom | 963,928 | 61,691,392 | 598,898 (the whole bake) | 103.0 + 8.4 tree | 11.1 | 7.3 | 8,429,000 |
+| hidden_alley | 9,115,111 | 583,367,104 | 248,097 (a 25 M ray sample) | about 2,350 + 50 tree | 36.0 | 78.0 | 7,478,000 |
+| lynxsdesign | 19,745,143 | 1,263,689,152 | 313,904 (a 25 M ray sample) | about 4,030 + 184 tree | 84.9 | 125.4 | 10,078,000 |
+
+An on-card form of this bake would need: the tree resident in the card's memory
+(lynxsdesign: 59.5 M nodes of 32 B and 29.8 M triangles of 36 B, 3.0 GB) or cut into
+treelets an L1 holds (`trace.tree.cut_treelets`); each vertex's position and normal (24 B,
+0.47 GB) and its visibility out (4 B); the rays made on the card from the vertex's hash
+(`bake_directions`), none sent; an any-hit walk with a stack of 64 entries a ray on the
+cores, the box and triangle tests in float32 in the reference's order without fused
+multiply-add to stay equal to the host; the vertices handed out to the cores in runs as
+they finish, since a run's cost follows the scene.

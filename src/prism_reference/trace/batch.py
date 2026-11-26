@@ -18,9 +18,10 @@ def threads():
     return max(1, min(8, len(os.sched_getaffinity(0))))
 
 
-def trace(tree, origin, direction, tmax, any_hit=False):
+def trace(tree, origin, direction, tmax, any_hit=False, count=None):
     """t, triangle (-1: none), u, v (n,) of rays origin + t direction with t < tmax (a
-    number or (n,)); the reference tree walk and triangle test, threaded."""
+    number or (n,)); the reference tree walk and triangle test, on `count` threads
+    (`threads()` when None)."""
     o = np.ascontiguousarray(origin, F)
     d = np.ascontiguousarray(direction, F)
     n = len(o)
@@ -39,7 +40,7 @@ def trace(tree, origin, direction, tmax, any_hit=False):
         n,
         int(any_hit),
         *(a.ctypes.data for a in (t, leaf, u, v)),
-        threads(),
+        threads() if count is None else int(count),
     )
     tri = np.where(leaf >= 0, tree["leaf_tri"][np.maximum(leaf, 0)], -1)
     return t, tri, u, v

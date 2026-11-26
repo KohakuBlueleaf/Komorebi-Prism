@@ -102,10 +102,13 @@ def corner_uv(scene, flat, material, has_uv):
     """Per triangle its corners' uv (T, 3, 2): uv0 through the base-colour transform,
     written as (u, 1 - v); 0 where the primitive has no uv0."""
     uv = flat["uv0"][flat["indices"]].astype(np.float64)
-    for m in np.unique(material[material >= 0]):
+    order = np.argsort(material, kind="stable")
+    counts = np.bincount(material[material >= 0])
+    ends = np.count_nonzero(material < 0) + np.cumsum(counts)
+    for m in np.flatnonzero(counts):
         use = scene.materials[m].base_color_texture
         if use is not None:
-            pick = material == m
+            pick = order[ends[m] - counts[m] : ends[m]]
             uv[pick] = transformed(uv[pick], use)
     uv[..., 1] = 1.0 - uv[..., 1]
     return np.where(has_uv[:, None, None], uv, 0.0).astype(np.float32)
