@@ -6,7 +6,9 @@
 - `performance/`: measured numbers and what they say.
 
 The numbers on every page come from the records' pages under
-[measurements](../measurements/README.md).
+[measurements](../measurements/README.md). The README's figures (`images/teaser-*.svg`,
+`images/frame-*.svg`) are drawn by `python docs/images/pipeline.py`, which needs only the
+standard library; its docstring names the code and the records each figure is taken from.
 
 ## Concepts
 

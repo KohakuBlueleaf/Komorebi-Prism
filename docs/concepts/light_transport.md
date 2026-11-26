@@ -55,7 +55,8 @@ command space the other stages share
 The update is the sources, one pass a bounce (an apply, then the pass on the X280:
 `y` fetched and added, the next `x` stored), and the finish (the field's values by row,
 its scale, its texels, its pages stored where LIGHT reads them). The X280 parts are the
-field update's C, split over an X280 cluster's four cores. Where it runs differs:
+field update's C, split over the four cores of its X280 cluster (in `gi_threads`, over
+every core of both job clusters). Where it runs differs:
 
 | preset | where the X280 parts run | where the applies run | what the frames do meanwhile | how the new field reaches LIGHT |
 |---|---|---|---|---|
