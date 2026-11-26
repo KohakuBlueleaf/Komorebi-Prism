@@ -3,6 +3,7 @@ raw or tiles), its varying size a constant given at the make, the largest any of
 users needs; each user registers its need in its own module (need)."""
 
 import inspect
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import komorebi as km
@@ -97,6 +98,22 @@ def need(name, user, function):
     NEEDS[name][user] = function
     field_name = SPACE if name in PARTS else name
     CONSTANTS[varying(field_name)].default = size(field_name, None)  # no size given
+
+
+@contextmanager
+def scoped(*names):
+    """The needs of fields or parts `names` registered within the block are the
+    block's: after it, their users and the varying sizes' defaults as before it."""
+    users = {name: dict(NEEDS[name]) for name in names}
+    defaults = {size: constant.default for size, constant in CONSTANTS.items()}
+    try:
+        yield
+    finally:
+        for name, kept in users.items():
+            NEEDS[name].clear()
+            NEEDS[name].update(kept)
+        for size, default in defaults.items():
+            CONSTANTS[size].default = default
 
 
 def largest(name, held):

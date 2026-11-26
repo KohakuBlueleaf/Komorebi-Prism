@@ -95,28 +95,41 @@ class TransportHost:
     def prepare(self):
         """The set read and dealt to the cores, w encoded or read from the cache, the
         tensors made with x the set's own."""
+        self.read()
+        self.dealt()
+        self.tensors = self.slot_tensors() | self.dealt_tensors()
+
+    def read(self):
+        """The set and its x read."""
         self.set = load(self.folder)
+        self.x = self.set.vector("x.npy")
+
+    def dealt(self, first=None):
+        """The set dealt to the cores (`first`: the deal's ranges, else made): its
+        tables, sizes and w's bytes encoded or read from the cache."""
         _, pages = weight_pages(self.set)
-        self.tables = tables(self.set, deal(self.set, self.cores), pages - 1)
+        first = deal(self.set, self.cores) if first is None else first
+        self.tables = tables(self.set, first, pages - 1)
         self.sizes = sizes(self.set, self.tables)
         self.raw = encoded(self.set, weights_file(self.folder, self.cores))
-        self.x = self.set.vector("x.npy")
-        self.tensors = self.made_tensors()
 
-    def made_tensors(self):
-        """x (bf16 tiles), w (bfp8_b, tiles stored transposed), y (fp32 tiles), the
-        tables, the profile pages."""
+    def slot_tensors(self):
+        """x (bf16 tiles) and y (fp32 tiles)."""
+        bf16, fp32 = (format_of(name).komorebi for name in ("bf16", "fp32"))
+        return {
+            "x": self.session.tensor(x_tiles(self.x), bf16, "tile"),
+            "y": self.session.empty((TILE, TILE * self.set.tiles), fp32, "tile"),
+        }
+
+    def dealt_tensors(self):
+        """w (bfp8_b, tiles stored transposed), the tables, the profile pages."""
         session = self.session
-        bf16, bfp8, fp32, u32 = (
-            format_of(name).komorebi for name in ("bf16", "bfp8_b", "fp32", "u32")
-        )
+        bfp8, u32 = (format_of(name).komorebi for name in ("bfp8_b", "u32"))
         w = session.empty((len(self.raw), TILE, TILE), bfp8, "tile")
         w.transposed_tiles = True
         session.write(w, np.asarray(self.raw))
         return {
-            "x": session.tensor(x_tiles(self.x), bf16, "tile"),
             "w": w,
-            "y": session.empty((TILE, TILE * self.set.tiles), fp32, "tile"),
             "tables": session.tensor(self.tables.words, u32),
             "profile": session.empty((self.cores, PROFILE_WORDS), u32),
         }

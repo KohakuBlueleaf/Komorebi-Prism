@@ -30,9 +30,11 @@ UNIT = Unit(
     defines=defines,
 )
 
-# with the job thread: the field's half (1 + it; 0 none yet) and scale word by slots
+# with the job thread: the field's half (1 + it; 0 none yet) and scale word by slots;
+# the result: the field a frame's colour view took (1 + its half; 0 the table's)
 FIELD_UNIT = replace(
     UNIT,
     takes=("light.shadow_map", "light.field", "light.field_scale"),
+    results=("light_field",),
     defines=field_defines,
 )

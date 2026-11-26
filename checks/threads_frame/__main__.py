@@ -30,6 +30,8 @@ from prism.check.threads import (
     whole,
 )
 from prism.check.threads.card import recorded
+from prism.program.threads.hosts import least_cores, update_cores
+from prism.stages.indirect.transport.host import TransportHost
 from prism_reference.direct.lights import sun_angles
 from prism_reference.scene.camera import with_size
 
@@ -89,6 +91,12 @@ def parse():
         "--bounces", type=int, default=None, help="the field's passes (with a sun)"
     )
     parser.add_argument(
+        "--update-cores",
+        type=int,
+        default=None,
+        help="the least cores an update takes (gi)",
+    )
+    parser.add_argument(
         "--frames", type=int, default=64, help="during: frames sent at most"
     )
     parser.add_argument("--card", type=int, default=None, help="needed but for model")
@@ -123,10 +131,15 @@ def sun_of(args):
     return given
 
 
-def deals_of(args, threads_name):
-    """The update part's deals: the threads' preset's update cores, then every core."""
-    preset = opened(threads_name, args.scene, args.view, args.size)
-    return [int(preset.options["update_cores"]), None]
+def stagewise_cores_of(args, threads_name, session, options):
+    """The least cores the stage-wise preset's transport fits from the threads' floor
+    (--update-cores, else the preset's), its set read, no card run."""
+    given = {key: value for key, value in options.items() if value is not None}
+    threads = opened(threads_name, args.scene, args.view, args.size, given)
+    stage = opened(args.pipeline, args.scene, args.view, args.size)
+    host = TransportHost(session, with_size(stage.scene, stage.size), stage.options)
+    host.read()
+    return least_cores(host, update_cores(session, threads.options), session.ranks)[0]
 
 
 def on_card(args, scene):
@@ -135,8 +148,10 @@ def on_card(args, scene):
     policies = args.policy or list(names.POLICIES)
     options = {"heavy": args.heavy, "deadline": args.deadline}
     options |= {"recover": False if args.no_recover else None}
+    options |= {"update_cores": args.update_cores}
     with km.Session(card=args.card) as session:
         open_loop = opener(args, session)
+        fit = (args, threads_name, session, options)
         match args.part:
             case "tile":
                 return tile_half.check(
@@ -171,7 +186,7 @@ def on_card(args, scene):
                     policies,
                     options,
                     sun_of(args),
-                    args.deal or deals_of(args, threads_name),
+                    args.deal or [stagewise_cores_of(*fit), None],
                 )
             case "during":
                 return during.check(
@@ -183,6 +198,7 @@ def on_card(args, scene):
                     options,
                     sun_of(args),
                     args.frames,
+                    stagewise_cores_of(*fit),
                 )
             case "geometry":
                 return geometry_half.check(

@@ -22,11 +22,12 @@ __attribute__((unused)) static uint32_t bits_of(float value) {
 
 /* The field's version words (none: 0): 1 + its first page for its half as a float, a
  * channel's unit (1 / max code)^2 x the scale (light model field.field_words), the
- * scale. */
+ * scale; the version taken as the unit's result. */
 static void field_words(dr_frame_t* frame, uint32_t* page) {
     page[PRISM_TF_LIGHT_FIELD_FIRST] = 0;
 #if defined(DIRECT_LIGHT_FIELD_BY_SLOT)
     const uint32_t given = DR_GIVE_LIGHT_FIELD(frame); /* 1 + the half, 0: none yet */
+    frame->times[DR_DIRECT_LIGHT_R_LIGHT_FIELD] = given;
     if (given == 0) {
         return;
     }

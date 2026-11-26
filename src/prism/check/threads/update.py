@@ -11,6 +11,7 @@ from prism.check.threads.card import closed, set_frame
 from prism.check.threads.standing import standing
 from prism.check.threads.sun import map_of, shadow_host
 from prism.core.implementation import command_of, hosted
+from prism.program.threads.hosts import transport_of
 from prism.stages.indirect.field_update.check import codes
 from prism.stages.indirect.field_update.model.results import times
 
@@ -123,7 +124,8 @@ def check(open_loop, threads_name, stage_name, scene, policies, options, sun, de
         }
     }
     loop = open_loop(threads_name, {**options, **sun})
-    loop.sends = True
+    out["update_cores"] = transport_of(loop.loaded.assembled)[1].cores
+    whole.say(f"the update takes {out['update_cores']} cores")
     try:
         done = updated(loop, scene, policies[0])
         if "field" in done:

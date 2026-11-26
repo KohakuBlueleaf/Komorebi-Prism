@@ -4,10 +4,12 @@ the X280 ports, the frame's thread and the job thread; loaded (prism.program.for
 
 from dataclasses import dataclass, field
 
+from prism.core import fields
 from prism.core.implementation import hosted
 from prism.program import loaded as loaded_program
 from prism.program.assemble import Assembled, connected, held_slots
 from prism.program.frame import device
+from prism.program.frame.generate import MEMORY
 from prism.program.threads import program
 from prism.program.threads.implementations import JOBS
 from prism_common.build import located
@@ -41,9 +43,9 @@ def frame_host(hosts):
 
 
 def assembled(pipeline, session, scene, options):
-    """`pipeline` (a threads' preset's) for `scene` on `session`: each host made and
-    prepared, the slots held and each connected; the classes (work and sums at the
-    frame's capacity, then each implementation's own) merged, the ports, the threads.
+    """`pipeline` (a threads' preset's) for `scene` on `session`: each host prepared,
+    connected; the composition, each host's `composed(assembled)`, the classes (the
+    frame's need of the command space theirs alone) merged, the ports, the threads.
     The option TILE_THREAD names the tile thread."""
     if TILE_THREAD not in options:
         raise ValueError(f"pipeline {pipeline.name!r}: no option {TILE_THREAD!r}")
@@ -58,13 +60,18 @@ def assembled(pipeline, session, scene, options):
     connected(out)
     out.frame = frame_host(hosts)
     out.capacity = out.frame.capacity
-    out.composition = program.composed(out.frame, tile_thread)
-    others = {
-        i.name: i.device(hosts[i.name])
-        for i in pipeline.implementations
-        if i.device is not None
-    }
-    out.made = program.classes(out.frame, out.composition, others, session)
+    with fields.scoped(MEMORY):
+        out.composition = program.composed(out.frame, tile_thread)
+        for host in hosts.values():
+            composed = getattr(host, "composed", None)
+            if composed is not None:
+                composed(out)
+        others = {
+            i.name: i.device(hosts[i.name])
+            for i in pipeline.implementations
+            if i.device is not None
+        }
+        out.made = program.classes(out.frame, out.composition, others, session)
     out.program = program.merged(out.made, session)
     device.streams_checked(out.program, out.composition)
     program.ports(out.program, session)

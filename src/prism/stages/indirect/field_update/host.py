@@ -37,10 +37,10 @@ from prism_reference.direct.lights import load as load_lights
 from prism_reference.indirect.files import load_model
 from prism_reference.indirect.hmatrix.apply import apply
 from prism_reference.scene.public.materials import load_materials
+from prism_reference.scene.public.table import table
 from prism_reference.scene.public.views import make_view
 
 COMMAND = "update"
-VIEW = "overview"  # the view whose scene the sun's shadow map is made of
 PAGES = "light.field"  # the light pages, when a host gives them
 SCALE = "light.field_scale"  # the last update's scale, for the host that reads it
 SCALE_COMMAND = "field_scale"  # the command returning the last update's scale word
@@ -49,12 +49,12 @@ MS = 1e3
 
 def sun_moved(scene, sun):
     """The scene's lights, with the sun at `sun` (azimuth, elevation; None: as loaded)
-    and its shadow map as the reference makes it."""
+    and its shadow map as the reference makes it of the scene's first view's scene."""
     data = data_root()
     lights = load_lights(scene, data)
     if sun is None:
         return lights
-    view = f"{scene}_{VIEW}"
+    view = f"{scene}_{next(iter(table()[scene]['views']))}"
     return moved(lights, make_view(view, data), load_materials(view, data)[0], *sun)
 
 
