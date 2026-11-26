@@ -69,15 +69,23 @@ def sky_radiance(lights, d):
     return environment_radiance({**lights, "octahedral": sky_map(lights)}, d)
 
 
+def fit_grid():
+    """The fit's grid: its directions (n, 3) float32 and the fit's operator (SKY_TERMS,
+    n) float64, the pseudo-inverse of `sh_basis` weighted by solid angle with the
+    weights applied. Kept."""
+    if "grid" not in _MAPS:
+        d, solid = texel_directions(SKY_GRID, 2 * SKY_GRID)
+        d, root = d.reshape(-1, 3), np.sqrt(solid.ravel())[:, None]
+        _MAPS["grid"] = (d.astype(F), np.linalg.pinv(sh_basis(d) * root) * root.T)
+    return _MAPS["grid"]
+
+
 def sky_coefficients(lights):
     """The sky's 25 coefficients (SKY_TERMS, 3) float32: the least-squares fit of
     `sh_basis` to `sky_radiance`, weighted by solid angle, on an equirectangular grid.
     """
-    d, solid = texel_directions(SKY_GRID, 2 * SKY_GRID)
-    d, root = d.reshape(-1, 3), np.sqrt(solid.ravel())[:, None]
-    radiance = sky_radiance(lights, d.astype(F)).astype(np.float64)
-    fit = np.linalg.lstsq(sh_basis(d) * root, radiance * root, rcond=None)[0]
-    return fit.astype(F)
+    d, fit = fit_grid()
+    return (fit @ sky_radiance(lights, d).astype(np.float64)).astype(F)
 
 
 def transfer(tree, elements, eps, rays=SKY_RAYS):

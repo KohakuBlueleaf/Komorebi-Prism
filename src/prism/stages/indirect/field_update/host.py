@@ -92,7 +92,9 @@ class FieldUpdateHost:
         layout."""
         self.own_lights = sun_moved(self.scene, None)
         self.made = (None, bounce_count(self.own_lights.get("bounces", BOUNCES)))
-        self.lights = sun_moved(self.scene, self.sun)
+        self.lights = self.own_lights
+        if self.sun is not None:
+            self.lights = sun_moved(self.scene, self.sun)
         if "indirect" not in self.lights:
             raise ValueError(f"{self.scene}: no indirect field model in the data root")
         self.model = load_model(self.lights["indirect"])

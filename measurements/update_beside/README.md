@@ -116,6 +116,22 @@ single wait, in ms.
 | (120, 40) | 10 | 5 | 0.520 | 0.197 | 0 |
 | (200, 30) | 9 | 5 | 0.636 | 0.312 | 0 |
 
+## The stop after the sky's fit was kept
+
+In the tables above a sun change stops `gi_tile`'s frames for the sun's pass (about 19 ms
+on the card) and for about 95 ms of host work: the sky's 25 coefficients fitted again by
+least squares at every change (`prism_reference.indirect.sky.sky_coefficients`), and at the
+first change the sky map made for a second copy of the lights (0.4 s). The fit's grid and
+operator are now kept and the host loads its lights once; the coefficients are the same
+float32 words. One run of that code on the same case
+(`sponza_overview_1024_1024_gi_tile_sky.json`; the same pictures, field and scale as the
+record above):
+
+| sun | stop before (ms) | stop now (ms) | frames during the update |
+| --- | ---: | ---: | ---: |
+| (120, 40), the first change | 499.01 | 61.3 | 10 |
+| (200, 30) | 126.15 | 55.4 | 9 |
+
 ## Running
 
 ```bash
