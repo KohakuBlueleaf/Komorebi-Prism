@@ -121,6 +121,22 @@ class TileThread:
                         f"{pusher!r}, none of {PUSHERS}"
                     )
 
+    def words(self, first, most):
+        """{PRISM_TF_<STEP>_<WORD>: its word of the frame's page}: the steps' words in
+        the steps' order from word `first` (frame.h TF_STEP_AT); ValueError past word
+        `most` (TF_WORDS). The one assignment the kernels and the thread both take."""
+        out, word = {}, first
+        for step in self.steps:
+            for name in step.words:
+                out[f"PRISM_TF_{step.name.upper()}_{name.upper()}"] = word
+                word += 1
+        if word > most:
+            raise ValueError(
+                f"tile thread: the steps' words end at word {word}, past the page's "
+                f"{most}"
+            )
+        return out
+
     def passes(self):
         """(step, pass) of every list pass, in the order the stream carries them."""
         return [(step, one) for step in self.steps for one in step.passes]

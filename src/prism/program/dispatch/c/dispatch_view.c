@@ -1,0 +1,275 @@
+/* A view as Komorebi's pulls (dispatch.h): the frame's page, count, sums, the slices'
+ * places, place, the steps' words, tiles. */
+#include "dispatch.h"
+
+/* The work handler's and the sums' commands carry the page as their block */
+#define PAGE_BYTES (4u * TF_WORDS)
+
+_Static_assert(TF_STEP_AT + DP_STEP_WORDS <= TF_WORDS, "the steps' words fit the page");
+_Static_assert(PAGE_BYTES <= 1024u, "a command's block holds the page");
+
+/* A view's group and what its page does not hold: the group's first rank and cores,
+ * the layers in the page, each one's list slots, the count ranges, the slices */
+typedef struct {
+    uint32_t first, count, layers, ranges, slices;
+    uint32_t list_slots[TR_LAYERS];
+} view_t;
+
+static volatile uint32_t* page_of(void) {
+    return (volatile uint32_t*)DR_REGION(DP_REGION_PAGE);
+}
+
+static dp_choose_t* choose_of(void) {
+    return (dp_choose_t*)DR_REGION(DP_REGION_STATE);
+}
+
+uint32_t dp_setup(dr_frame_t* frame) {
+    if (frame->bytes[DP_REGION_PAGE] < PAGE_BYTES ||
+        frame->bytes[DP_REGION_STATE] < DP_CHOOSE_BYTES ||
+        frame->bytes[DP_REGION_SLICES] < 4ull * TS_WORDS * DP_SLICES_MOST ||
+        frame->bytes[DP_REGION_LOG] < KMX_PULL_LOG_BYTES(DP_RANGES_MOST)) {
+        return DP_SMALL_REGION;
+    }
+    /* lines an earlier image left dirty would be written over what the cores write */
+    kmx_flush(DP_REGION_SLICES);
+    return 0;
+}
+
+/* The dispatcher's next wake event by `until`: 0, or 1 (late, stopped). */
+static uint32_t wake(uint64_t until) {
+    kmx_event event;
+    while (kmx_time() < until && !kmx_stop_requested()) {
+        if (kmx_poll(&event) == KMX_OK && event.kind == KMX_EVENT_WAKE) {
+            return 0;
+        }
+    }
+    return 1u;
+}
+
+/* `command` pulled by `settings` until its event, again after a full ring or a busy
+ * rejection, within DR_WAIT_TICKS: 0, DP_PULL_BAD, or `late`. */
+static uint32_t pull(
+    const km_command_t* command, const kmx_pull* settings, uint32_t where, uint32_t late
+) {
+    kmx_progress(where);
+    const uint64_t until = kmx_time() + DR_WAIT_TICKS;
+    for (;;) {
+        kmx_event event;
+        event.handle = event.kind = event.auxiliary = event.ticks = 0;
+        const int error = kmx_pull_run(command, settings, &event);
+        if (error == KMX_FULL && event.handle != 0) {
+            /* the command runs; its event waits behind 32 others */
+            const int waited = kmx_wait(event.handle, until, &event);
+            return waited == KMX_OK && event.kind == KM_EVENT_DONE ? 0u : late;
+        }
+        if (error == KMX_FULL && kmx_time() < until && !kmx_stop_requested()) {
+            continue;
+        }
+        if (error == KMX_BAD) {
+            return DP_PULL_BAD;
+        }
+        if (error != KMX_OK) {
+            return late;
+        }
+        if (event.kind == KM_EVENT_DONE) {
+            return 0;
+        }
+        if (event.kind == KM_EVENT_REJECTED && event.auxiliary == KMX_REJECT_BUSY &&
+            wake(until) == 0) {
+            continue;
+        }
+        return late;
+    }
+}
+
+/* The page's words of the view and its layers (a DEPTH view: the layers with depth),
+ * the group from the update's cores; the count ranges. 0, or the code. */
+static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t* out) {
+    volatile uint32_t* page = page_of();
+    const uint32_t held = dr_number(frame, DP_N_UPDATE_CORES);
+    const uint32_t range_blocks = dr_number(frame, DP_N_RANGE_BLOCKS);
+    const uint32_t slice_tiles = dr_number(frame, DP_N_SLICE_TILES);
+    if (held >= frame->cores) {
+        return DP_NO_CORES;
+    }
+    if (range_blocks == 0 || slice_tiles == 0 || view->tiles > 0xFFFFu) {
+        return DP_BAD_NUMBERS;
+    }
+    out->first = held;
+    out->count = frame->cores - held;
+    out->slices = (view->tiles + slice_tiles - 1u) / slice_tiles;
+    if (out->slices > DP_SLICES_MOST) {
+        return DP_TOO_MANY;
+    }
+    for (uint32_t word = 0; word < TF_WORDS; word++) {
+        page[word] = 0;
+    }
+    const uint32_t depth = view->kind == DR_VIEW_DEPTH;
+    page[TF_VIEW] = view->index | (depth ? TV_DEPTH : TV_COLOUR) << 8;
+    page[TF_GRID] = (view->grid & ~0xFu) | frame->bank_plus_one;
+    page[TF_CAMERA] = view->camera_at;
+    page[TF_RECORDS] = dr_number(frame, DP_N_RECORDS);
+    page[TF_SLICES] = DR_ADDRESS(DP_REGION_SLICES);
+    page[TF_SLICE_COUNT] = out->slices;
+    page[TF_SLICE_TILES] = slice_tiles;
+    page[TF_HEAVY] = dr_number(frame, DP_N_HEAVY);
+    page[TF_TARGET] = depth ? view->target : dr_number(frame, DP_N_DISPLAY);
+    page[TF_TARGET_FIRST] = depth ? view->target_first : 0u;
+    page[TF_TARGET_ACROSS] = depth ? view->target_across : DP_GRID_ACROSS(view->grid);
+    page[TF_RANGE_BLOCKS] = range_blocks;
+    const uint32_t row = DR_LAYER_WORDS * view->index * DR_LAYERS;
+    dr_invalidate(DR_REGION_LAYERS, 4u * row, 4u * DR_LAYER_WORDS * frame->layers);
+    const volatile uint32_t* rows = (const volatile uint32_t*)DR_REGION(
+        DR_REGION_LAYERS
+    );
+    out->layers = out->ranges = 0;
+    for (uint32_t layer = 0; layer < frame->layers; layer++) {
+        const volatile uint32_t* words = rows + row + DR_LAYER_WORDS * layer;
+        if (depth && !words[DR_L_DEPTH]) {
+            continue;
+        }
+        if (out->layers == TR_LAYERS) {
+            return DP_BAD_LAYERS;
+        }
+        volatile uint32_t* at = page + TF_LAYER_AT + TF_LAYER_WORDS * out->layers;
+        const uint32_t blocks = words[DP_L_BLOCKS];
+        at[TF_L_MESH] = words[DP_L_MESH];
+        at[TF_L_RANGE_FIRST] = out->ranges;
+        at[TF_L_BLOCKS] = blocks;
+        at[TF_L_SHADE] = words[DP_L_SHADE];
+        at[TF_L_LISTS] = words[DP_L_LISTS];
+        at[TF_L_COUNTS] = words[DP_L_COUNTS];
+        at[TF_L_ROWS] = words[DP_L_ROWS];
+        at[TF_L_POSITIONS] = words[DP_L_POSITIONS];
+        out->list_slots[out->layers++] = words[DP_L_LIST_SLOTS];
+        out->ranges += (blocks + range_blocks - 1u) / range_blocks;
+    }
+    page[TF_LAYER_COUNT] = out->layers;
+    return out->ranges > DP_RANGES_MOST ? DP_TOO_MANY : 0u;
+}
+
+/* The work handler's command on the view's group, the page (its pull `kind`) its
+ * block. 0, or DP_BAD_BLOCK. */
+static uint32_t work_command(km_command_t* command, const view_t* view, uint32_t kind) {
+    page_of()[TF_PULL] = kind;
+    dr_flush(DP_REGION_PAGE, DP_REGION_PAGE_AT, PAGE_BYTES);
+    DP_BUILD_WORK(command, 0, view->first, view->count);
+    const int error = kmx_block(command, DP_REGION_PAGE, DP_REGION_PAGE_AT, PAGE_BYTES);
+    return error == KMX_OK ? 0u : DP_BAD_BLOCK;
+}
+
+/* The sums on every core of the group, then each layer's place a slice (the running
+ * sum of the slices' entries) and the choice's slices. 0, or the code. */
+static uint32_t sums(dr_frame_t* frame, const dr_view_t* view, const view_t* one) {
+    page_of()[TF_PULL] = 0;
+    dr_flush(DP_REGION_PAGE, DP_REGION_PAGE_AT, PAGE_BYTES);
+    km_command_t command;
+    DP_BUILD_SUMS(&command, 0, one->first, one->count);
+    if (kmx_block(&command, DP_REGION_PAGE, DP_REGION_PAGE_AT, PAGE_BYTES) != KMX_OK) {
+        return DP_BAD_BLOCK;
+    }
+    kmx_progress(DP_WHERE_SUMS);
+    uint32_t code = dr_run(&command);
+    uint64_t mark = kmx_time();
+    if (code) {
+        return code;
+    }
+    dp_choose_t* state = choose_of();
+    if (dp_choose_reset(
+            state,
+            dr_number(frame, DP_N_POLICY),
+            dr_number(frame, DP_N_NEAR),
+            one->first,
+            one->count,
+            one->slices,
+            DP_GRID_ACROSS(view->grid),
+            dr_number(frame, DP_N_SLICE_TILES)
+        )) {
+        return DP_BAD_NUMBERS;
+    }
+    const uint32_t bytes = 4u * TS_WORDS * one->slices;
+    dr_invalidate(DP_REGION_SLICES, DP_REGION_SLICES_AT, bytes);
+    volatile uint32_t* words = (volatile uint32_t*)DR_REGION(DP_REGION_SLICES);
+    /* volatile: no memset, which does not link */
+    volatile uint32_t place[TR_LAYERS];
+    for (uint32_t layer = 0; layer < TR_LAYERS; layer++) {
+        place[layer] = 0;
+    }
+    uint32_t records = 0;
+    for (uint32_t slice = 0; slice < one->slices; slice++) {
+        volatile uint32_t* at = words + TS_WORDS * slice;
+        if (at[TS_RECORDS] > TR_SLICE_RECORDS) {
+            return DP_SLICE_FULL;
+        }
+        for (uint32_t layer = 0; layer < one->layers; layer++) {
+            at[TS_PLACE(layer)] = place[layer];
+            place[layer] += at[TS_ENTRIES(layer)];
+        }
+        dp_choose_slice(state, slice, at[TS_RECORDS], at[TS_WEIGHT]);
+        records += at[TS_RECORDS];
+    }
+    for (uint32_t layer = 0; layer < one->layers; layer++) {
+        if (place[layer] > one->list_slots[layer]) {
+            code = DP_LISTS_SMALL;
+        }
+    }
+    dr_flush(DP_REGION_SLICES, DP_REGION_SLICES_AT, bytes);
+    frame->times[DP_R_TILE_THREADS] += records;
+    frame->times[DP_T_RUNNING] += dr_ticks(&mark);
+    return code;
+}
+
+uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
+    uint64_t mark = kmx_time();
+    view_t one;
+    km_command_t command;
+    uint32_t code = view_page(frame, view, &one);
+    if (code == 0) {
+        code = work_command(&command, &one, TP_COUNT);
+    }
+    if (code == 0) {
+        const kmx_pull counting = {
+            one.ranges, 1u, KMX_PULL_LOG, DP_REGION_LOG, 0, 0, 0
+        };
+        code = pull(&command, &counting, DP_WHERE_COUNT, DP_LATE_COUNT);
+        frame->times[DP_R_RANGES] += one.ranges;
+    }
+    frame->times[DP_T_COUNT] += dr_ticks(&mark);
+    if (code == 0) {
+        code = sums(frame, view, &one);
+    }
+    frame->times[DP_T_SUMS] += dr_ticks(&mark);
+    if (code == 0) {
+        code = work_command(&command, &one, TP_PLACE);
+    }
+    if (code == 0) {
+        const kmx_pull placing = {
+            one.ranges, 1u, KMX_PULL_REPLAY, DP_REGION_LOG, 0, 0, 0
+        };
+        code = pull(&command, &placing, DP_WHERE_PLACE, DP_LATE_PLACE);
+    }
+    frame->times[DP_T_PLACE] += dr_ticks(&mark);
+    if (code == 0) {
+        code = dp_frame_words(frame, view, (uint32_t*)page_of());
+    }
+    frame->times[DP_T_WORDS] += dr_ticks(&mark);
+    if (code == 0) {
+        code = work_command(&command, &one, TP_TILE);
+    }
+    if (code == 0) {
+        dp_choose_t* state = choose_of();
+        const kmx_pull tiles = {
+            one.slices * TR_SLICE_RECORDS,
+            1u,
+            KMX_PULL_COUNT,
+            0u,
+            0,
+            (uint64_t)(uintptr_t)state,
+            dp_choose
+        };
+        code = pull(&command, &tiles, DP_WHERE_TILE, DP_LATE_TILE);
+        frame->times[DP_R_NEAR_GIVEN] += state->near_given;
+    }
+    frame->times[DP_T_TILE] += dr_ticks(&mark);
+    return code;
+}
