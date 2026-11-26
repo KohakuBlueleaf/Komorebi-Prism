@@ -1,7 +1,8 @@
 // The light step on the compute CPUs: the pack CPU lights the tile's rows a quarter at
-// a time from its surface and visibility planes into the visibility's colour planes
-// (the displayed form, or with glass the linear then the glass form); the unpack CPU
-// serves its mails; the math CPU has no part.
+// a time from its surface and visibility planes into the first layer's colour planes
+// (the displayed form, or with glass the linear then the glass form), its pages asked
+// through the loop's request rings; the unpack CPU serves its mails; the math CPU has
+// no part.
 #pragma once
 
 #include <stdint.h>
@@ -10,12 +11,12 @@
 #include "../../../../../core/include/grid.h"
 #include "../../../../../core/include/thread/frame.h"
 #include "../../../../../core/include/thread/record.h"
-#include "../../kernels/light.h"
 #include "../../kernels/from_raster.hpp"
+#include "../../kernels/light.h"
 #include "light_step.h"
 
 #if defined(TRISC_PACK)
-#include "planes.hpp"
+#include "colour.hpp"
 #endif
 
 namespace light_step {
@@ -46,27 +47,24 @@ namespace light_step {
         return visibility + layer * fill_k::kPlanes * fill_k::kOutPageBytes;
     }
 
-    // The request ring pair of the light step's next pass of pages: the two in turn.
-    inline uint32_t next_turn() {
-        static uint32_t turn = 0;
-        turn ^= 1u;
-        return turn;
-    }
-
     static_assert(kLightStepProfileWords >= light_k::kLightProfWords);
+    static_assert(kLightStepTableBytes == light_k::kLightTableBytes);
 
 #if defined(TRISC_PACK)
     static_assert(4 * (kLwField + 1024 * kFieldCorners) <= kLightStepWorkBytes);
     static_assert(4 * (2 * kPagesHashSize + kShadeSlots) <= kLightStepPagesBytes);
+    static_assert(4 * (1 + kShadeSlots) <= kLightStepAskedBytes);
 
-    // The form's numbers from the table; false: out of range (given up).
+    // The form's numbers from LIGHT's table and SHADE's (`shade_table`, `shade_words`
+    // of it kept); false: out of range (given up).
     inline bool form_numbers(
         const compute_mail::Waits& waits,
         const uint32_t* table,
+        const uint32_t* shade_table,
+        uint32_t shade_words,
         uint32_t mode,
         LightNumbers& numbers
     ) {
-        const uint32_t* shade_table = table + kLightShadeTableAt;
         numbers.terms = table[kLtTerms];
         numbers.lamps = table[kLtLamps];
         numbers.bits = table[kLtExponentBits];
@@ -76,7 +74,7 @@ namespace light_step {
             table[kLtCurve] > kCurveFilmic || mode > kLightGlass ||
             (mode == kLightGlass &&
              kTabMaterial + kMaterialWords * shade_table[kTabMaterials] >
-                 kLightShadeTableBytes / 4)) {
+                 shade_words)) {
             compute_mail::stop(waits.stops, waits.stops.gave_bad, kWhereLightStepBad);
             return false;
         }
@@ -84,7 +82,7 @@ namespace light_step {
     }
 
     // The tile's rows in one form (`mode`: 0 displayed, kLightLinear, kLightGlass)
-    // from `from` into the visibility's colour planes. False: gave up.
+    // from `from` into the first layer's colour planes. False: gave up.
     template <typename Ctx, typename Tile>
     bool light_form(
         Ctx& ctx,
@@ -93,13 +91,33 @@ namespace light_step {
         const FormPlanes& from,
         uint32_t mode
     ) {
-        const uint32_t* table = reinterpret_cast<const uint32_t*>(ctx.light_table);
+        using namespace prism_frame;
+        const uint32_t* table = reinterpret_cast<const uint32_t*>(
+            ctx.kept(kKeptLightTable)
+        );
+        // SHADE's table, the common field frame_table (the lit material step's begin)
+        const uint32_t* shade_table = reinterpret_cast<const uint32_t*>(
+            compute_mail::write_ptr(kFieldFrameTable)
+        );
+        // the lit material step's page cache, lent for the light's passes
+        const uint32_t cache = ctx.kept(kKeptMaterialLitCache);
         const bool glass = mode == kLightGlass;
-        Pass pass = {waits, 0, 0, table, {table, 0, 0, 0, mode, false}};
+        LitPass lit = {
+            {waits, 0, 0, table, {table, 0, 0, 0, mode, false}},
+            {&ctx,
+             ctx.page[PRISM_TF_LIGHT_PAGES],
+             cache,
+             reinterpret_cast<uint32_t*>(
+                 ctx.kept(kKeptLightPages) + kLightStepPagesBytes
+             )}
+        };
+        Pass& pass = lit.pass;
         pass.cam = table + kLtCamera;
         pass.glass = glass;
-        const uint32_t* material_words = table + kLightShadeTableAt + kTabMaterial;
-        if (!form_numbers(waits, table, mode, pass.numbers)) {
+        const uint32_t* material_words = shade_table + kTabMaterial;
+        if (!form_numbers(
+                waits, table, shade_table, PRISM_FRAME_TABLE_WORDS, mode, pass.numbers
+            )) {
             return false;
         }
         const uint32_t first_row = tile.first_row, end_row = tile.end_row;
@@ -115,16 +133,16 @@ namespace light_step {
         // the zero texel of each field direction's place (a key of 0)
         for (uint32_t direction = 0; direction < 6; ++direction) {
             *reinterpret_cast<volatile uint32_t*>(
-                ctx.cache + kZeroTexel + kFieldDirectionBytes * direction
+                cache + kZeroTexel + kFieldDirectionBytes * direction
             ) = 0;
         }
-        pass.pages.place(reinterpret_cast<uint32_t*>(ctx.light_pages));
-        uint32_t* work = reinterpret_cast<uint32_t*>(ctx.light_work);
+        pass.pages.place(reinterpret_cast<uint32_t*>(ctx.kept(kKeptLightPages)));
+        uint32_t* work = reinterpret_cast<uint32_t*>(ctx.kept(kKeptLightWork));
         uint32_t values[kLightStepProfileWords] = {};
         pass.values = values;
         pass.index = work + kLwIndex;
         pass.field_index = work + kLwField;
-        pass.slots = reinterpret_cast<const uint32_t*>(ctx.cache);
+        pass.slots = reinterpret_cast<const uint32_t*>(cache);
         const size_t vl = __riscv_vsetvl_e32m8(32);
         pass.vl = vl;
         // the lanes' column + 0.5, 1 / f
@@ -157,11 +175,7 @@ namespace light_step {
             if (pass.first >= pass.end) {
                 continue;
             }
-            // this quarter's requests to the ring pair's half whose turn it is
-            const uint32_t turn = next_turn();
-            pass.ask = ctx.asks[turn];
-            pass.done = ctx.dones[turn];
-            uint32_t mark = km::wall();
+            const uint32_t mark = km::wall();
             planes_in(from, quarter, vl);
             const bool in_front = glass &&
                 glass_planes_in(from, quarter, material_words, vl);
@@ -172,7 +186,7 @@ namespace light_step {
             const uint32_t now = km::wall();
             values[kLightProfCopyIn] += now - mark;
             pass.mark = now;
-            if (!quarter_colour(pass, in_front, keyed, pointed, field)) {
+            if (!lit_quarter(lit, in_front, keyed, pointed, field)) {
                 return false;
             }
             copy_out(from.opaque, quarter, vl);
@@ -210,21 +224,21 @@ namespace light_step {
     }
 #endif
 
-    // The light step on a compute CPU (all three call it). False: gave up (recorded).
-    template <typename Ctx, typename Tile, typename Planes>
-    bool light_compute(Ctx& ctx, const Tile& tile, Planes& planes) {
-#if defined(TRISC_PACK)
-        return light_pack(ctx, tile, planes);
-#else
-        static_cast<void>(tile);
-        static_cast<void>(planes);
-#if defined(TRISC_UNPACK)
-        compute_mail::serve_mails(waits_of(ctx.compute.control()));
-#else
-        static_cast<void>(ctx);
-#endif
-        return true;
-#endif
-    }
-
 }  // namespace light_step
+
+// The light step on a compute CPU (all three call it). False: gave up (recorded).
+template <typename Ctx, typename Tile, typename Planes>
+bool light_compute(Ctx& ctx, const Tile& tile, Planes& planes) {
+#if defined(TRISC_PACK)
+    return light_step::light_pack(ctx, tile, planes);
+#else
+    static_cast<void>(tile);
+    static_cast<void>(planes);
+#if defined(TRISC_UNPACK)
+    compute_mail::serve_mails(light_step::waits_of(ctx.compute.control()));
+#else
+    static_cast<void>(ctx);
+#endif
+    return true;
+#endif
+}

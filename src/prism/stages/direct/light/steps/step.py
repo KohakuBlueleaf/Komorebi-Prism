@@ -1,36 +1,40 @@
 """The direct light as a step of the tile thread: the surface and visibility planes
-into the visibility's colour planes, the light pages on request, its kept table and
-work, its words of the frame's page."""
+into the first layer's colour planes, the light pages on request into the lit material
+step's page cache, SHADE's table from the common field, its kept table, work and page
+table, its words of the frame's page."""
 
 from pathlib import Path
 
-from prism.core import fields
 from prism.core.headers import constexpr
 from prism.core.thread.module import Step
-from prism.stages.direct.light import device
+from prism.stages.material.texture.steps.step import SURFACE_PLANE
+from prism.stages.raster.steps.step import VISIBILITY
 
 KERNELS = Path(__file__).resolve().parent / "kernels"
 LS = constexpr(KERNELS / "light_step.h")
 STAGE = "stages/direct/light"
-
-
-def table_bytes(held):
-    """The kept table page: LIGHT's table, the camera, SHADE's table after them (the
-    table field's bytes, light.h kShadeTableBytes) at the capacity `held`."""
-    return 4 * max(fields.size("frame_table", held), device.TABLE_WORDS)
-
+# the field's version as the frame's thread gives it (0 first: the table's own)
+FIELD_WORDS = (
+    "field_first",
+    "field_unit_r",
+    "field_unit_g",
+    "field_unit_b",
+    "field_scale",
+)
 
 LIGHT = Step(
     name="light",
     header=f"{STAGE}/steps/kernels/light_step.hpp",
     requests=("pages",),
-    reads=("frame.surface", "frame.visibility"),
-    leaves=("frame.visibility",),
+    reads=(SURFACE_PLANE.name, VISIBILITY.name),
+    leaves=(VISIBILITY.name,),
     keeps={
-        "light_table": table_bytes,
-        "light_work": LS["kLightStepWorkBytes"],
-        "light_pages": LS["kLightStepPagesBytes"],
+        "table": LS["kLightStepTableBytes"],
+        "work": LS["kLightStepWorkBytes"],
+        "pages": LS["kLightStepPagesBytes"] + LS["kLightStepAskedBytes"],
     },
-    words=("table", "pages", "shade_table", "glass"),
+    words=("table", "pages", "glass", *FIELD_WORDS),
     thread=f"{STAGE}/thread/light_frame_words.c",
+    begin=True,
+    fields=("frame_table",),
 )

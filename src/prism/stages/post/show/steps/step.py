@@ -17,9 +17,10 @@ POST = Step(
     outputs=(Output("display", PS["kPostBlockBytes"], 2, convert="post_convert"),),
     reads=("frame.visibility",),
     keeps={
-        "post_table": PS["kPostTableBytes"],
-        "post_scratch": PS["kPostScratchBytes"],
+        "table": PS["kPostTableBytes"],
+        "scratch": PS["kPostScratchBytes"],
     },
     words=("table", "pages"),
     thread=f"{STAGE}/thread/post_frame_words.c",
+    begin=True,
 )

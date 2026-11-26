@@ -18,8 +18,8 @@ DEPTH_OUT = Step(
     header=f"{STAGE}/steps/depth/kernels/depth_out.hpp",
     outputs=(Output("depth", PS["kDepthBlockBytes"], 2, convert="depth_out_convert"),),
     reads=("frame.visibility",),
-    keeps={"depth_scratch": PS["kPostScratchBytes"]},
-    words=("first", "across", "pages"),
+    keeps={"scratch": PS["kPostScratchBytes"]},
+    words=("pages",),
     thread=f"{STAGE}/thread/depth_out_frame_words.c",
     depth=True,
 )

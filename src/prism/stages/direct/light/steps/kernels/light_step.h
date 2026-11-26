@@ -1,23 +1,27 @@
 // The light step of the tile thread: its kept state's sizes and its give-up places.
-// Its words are the build's defines (PRISM_TF_LIGHT_*); its keeps, planes and request
-// rings the tile thread's context and planes give by name.
+// Its words are the build's defines (PRISM_TF_LIGHT_*); its kept state the loop's
+// places (kKeptLight*).
 #pragma once
 
 #include <stdint.h>
 
 namespace light_step {
 
+    // The kept table page: LIGHT's table with the camera in it (light.h
+    // kLightTableBytes).
+    constexpr uint32_t kLightStepTableBytes = 4096;
     // The pack CPU's texel addresses: four taps' (1,024 words a tap) from word 0, the
     // field's eight corners' from word 8,192 (pack/dst.hpp kLwIndex, kLwField).
     constexpr uint32_t kLightStepWorkBytes = 65536;
-    // A pass's page table (texel_pages Pages): keys, slots, the places used.
+    // A pass's page table (texel_pages Pages: keys, slots, the places used), then its
+    // ask list (the pages, from word 1).
     constexpr uint32_t kLightStepPagesBytes = 2560;
-    // The tone's and the terms' profile words a tile (light.h kLightProf*), on the
-    // pack CPU's stack.
+    constexpr uint32_t kLightStepAskedBytes = 576;
+    // The profile words a tile (light.h kLightProf*), on the pack CPU's stack.
     constexpr uint32_t kLightStepProfileWords = 25;
 
     // Give-up places (the writer's word): a bad table or record, the unpack CPU's mail,
-    // a request ring's front or room, the table's and the camera's reads (mover A).
+    // a buffer's front or room, the table's and the camera's reads (begin).
     constexpr uint32_t kWhereLightStepBad = 48;
     constexpr uint32_t kWhereLightStepMail = 49;
     constexpr uint32_t kWhereLightStepRing = 50;

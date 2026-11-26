@@ -37,8 +37,9 @@ class Output:
     """A stream of blocks a step pushes for the data-movement CPUs to write: its name,
     a block's bytes, the blocks each half holds, and the function a data-movement CPU
     runs on a block before writing it (None: written as it is):
-    `uint32_t f(ctx, block, tile, page, bytes, offset)` gives the address to write
-    `bytes` from, to byte `offset` of page `page` (the record's, unless it sets it)."""
+    `uint32_t f(MoverContext&, payload, bytes)` converts the payload in place and gives
+    the bytes to write. A block starts with the loop's 16-byte header (page, offset,
+    bytes, page bytes), counted in its bytes."""
 
     name: str
     block_bytes: int

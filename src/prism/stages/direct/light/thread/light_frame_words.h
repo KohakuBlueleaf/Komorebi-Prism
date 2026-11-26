@@ -1,5 +1,5 @@
-/* The light step's words of a view's frame's page: LIGHT's table, the light pages, the
- * glass layer's SHADE table and 1 + its index (PRISM_TF_LIGHT_*). */
+/* The light step's words of a view's frame's page: LIGHT's table, the light pages, 1 +
+ * the glass layer's index, the field's version (PRISM_TF_LIGHT_*). */
 #pragma once
 
 #include <stdint.h>

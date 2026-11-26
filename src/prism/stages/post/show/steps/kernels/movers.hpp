@@ -1,12 +1,11 @@
 // The post step on the data-movement CPUs: the thresholds and their buckets kept once
-// a command (mover A, before the command's first tile thread is handed on), and a
-// block's colour converted by SHOW's rule (kernels/convert.hpp) into a scratch page
-// on the CPU that took it.
+// a command (the loop's begin, before the command's first tile thread), and a block's
+// colour converted in place by SHOW's rule (kernels/convert.hpp) on the CPU that took
+// it.
 #pragma once
 
 #include <stdint.h>
 
-#include "../../../../../core/include/grid.h"
 #include "../../../../../core/include/thread/frame.h"
 #include "api/dataflow/dataflow_api.h"
 #include "komorebi/device/km_worker.hpp"
@@ -22,41 +21,32 @@ namespace post_step {
 
     // The kept thresholds (int32) and buckets (a byte each, after them).
     template <typename Ctx>
-    int32_t* thresholds_of(const Ctx& ctx) {
-        return reinterpret_cast<int32_t*>(ctx.post_table);
+    int32_t* thresholds_of(Ctx& ctx) {
+        return reinterpret_cast<int32_t*>(ctx.kept(prism_frame::kKeptPostTable));
     }
 
     template <typename Ctx>
-    tt_l1_ptr uint8_t* buckets_of(const Ctx& ctx) {
+    tt_l1_ptr uint8_t* buckets_of(Ctx& ctx) {
         return reinterpret_cast<tt_l1_ptr uint8_t*>(
-            ctx.post_table + 4 * show_k::kShowTableWords
+            ctx.kept(prism_frame::kKeptPostTable) + 4 * show_k::kShowTableWords
         );
     }
 
-    // The thresholds' table read from the regions' bank into mover A's first scratch
-    // page, then the kept thresholds and buckets made from it. False: gave up.
+    // The thresholds' table read from the regions' bank into this CPU's scratch page,
+    // then the kept thresholds and buckets made from it. False: gave up.
     template <typename Ctx>
     bool post_begin(Ctx& ctx) {
-        const volatile uint32_t* page = ctx.page;
-        const uint32_t bank_plus_one = bank_word(page[TF_GRID]);
-        const uint32_t table = page[PRISM_TF_POST_TABLE];
-        if (bank_plus_one == 0 || table == 0) {
-            ctx.bad(kWherePostTable);
-            return false;
+        const uint32_t table = ctx.page[PRISM_TF_POST_TABLE];
+        if (table == 0) {
+            return ctx.gave_up(km::kGaveBadItem, kWherePostTable);
         }
-        uint32_t used = 0;
-        const uint32_t staging = scratch_page(
-            ctx, ctx.post_scratch, used, kWherePostSent
-        );
-        if (staging == 0) {
-            return false;
-        }
+        const uint32_t staging = scratch_page(ctx.kept(prism_frame::kKeptPostScratch));
         noc_async_read(
-            get_noc_addr_from_bank_id<true>(bank_plus_one - 1, table),
+            get_noc_addr_from_bank_id<true>(ctx.bank, table),
             staging,
             4 * show_k::kShowTableWords
         );
-        const bool arrived = ctx.wait(
+        const bool arrived = ctx.movement.wait(
             [] {
                 return ncrisc_noc_reads_flushed(noc_index);
             },
@@ -69,38 +59,23 @@ namespace post_step {
         return true;
     }
 
-    // Output `display`'s block of `tile` (its red, green, blue planes) converted into
-    // this CPU's next scratch page: the L1 address of the band's rows, their `bytes`
-    // and byte `offset` in display page `page`. 0: gave up.
-    template <typename Ctx, typename Tile>
-    uint32_t post_convert(
-        Ctx& ctx,
-        uint32_t block,
-        const Tile& tile,
-        uint32_t& page,
-        uint32_t& bytes,
-        uint32_t& offset
-    ) {
-        static uint32_t used = 0;  // this CPU's scratch pages taken
-        if (page >= ctx.page[PRISM_TF_POST_PAGES]) {
-            ctx.bad(kWherePostPage);
-            return 0;
-        }
-        const uint32_t out = scratch_page(ctx, ctx.post_scratch, used, kWherePostSent);
-        if (out == 0) {
-            return 0;
-        }
+    // The block whose payload is at `payload` (the band's rows of the tile's red, green
+    // and blue planes, `bytes` a plane) converted by SHOW's rule through this CPU's
+    // scratch page, back over the payload; the bytes.
+    template <typename Ctx>
+    uint32_t post_convert(Ctx& ctx, uint32_t payload, uint32_t bytes) {
+        uint32_t first_row = 0, end_row = 0;
+        rows_of(payload, bytes, first_row, end_row);
+        const uint32_t out = scratch_page(ctx.kept(prism_frame::kKeptPostScratch));
         show_k::colour_rows(
-            reinterpret_cast<const tt_l1_ptr uint32_t*>(block),
+            reinterpret_cast<const tt_l1_ptr uint32_t*>(payload),
             reinterpret_cast<tt_l1_ptr uint32_t*>(out),
-            tile.first_row,
-            tile.end_row,
+            first_row,
+            end_row,
             thresholds_of(ctx),
             buckets_of(ctx)
         );
-        offset = tile.first_row * fill_k::kRowBytes;
-        bytes = (tile.end_row - tile.first_row) * fill_k::kRowBytes;
-        return out + offset;
+        return copy_back(out + first_row * fill_k::kRowBytes, payload, bytes);
     }
 
 }  // namespace post_step
