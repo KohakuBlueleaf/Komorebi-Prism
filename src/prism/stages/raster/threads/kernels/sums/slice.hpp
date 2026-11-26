@@ -139,8 +139,10 @@ namespace geometry_k {
     }
 
     // Item `item`'s record (record.h) into `words` (TR_WORDS): its tile and rows, its
-    // weight, its layers, its page (its tile), each layer's slot and entries.
-    inline void record_of(const Item& item, uint32_t layers, uint32_t* words) {
+    // weight, its layers, its tile's page `page`, each layer's slot and entries.
+    inline void record_of(
+        const Item& item, uint32_t layers, uint32_t page, uint32_t* words
+    ) {
         for (uint32_t word = 0; word < TR_WORDS; ++word) {
             words[word] = 0;
         }
@@ -151,7 +153,7 @@ namespace geometry_k {
             words[TR_LAYER_SLOT(layer)] = item.slot[layer];
             words[TR_LAYER_ENTRIES(layer)] = item.entries[layer];
         }
-        words[3] = item.tile;
+        words[3] = page;
     }
 
 }  // namespace geometry_k

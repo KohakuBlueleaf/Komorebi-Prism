@@ -44,7 +44,7 @@ namespace geometry_k {
     struct SumView {
         Slices slices;
         uint32_t layers, heavy, cores, rank, bank;
-        uint32_t records, slice_words;
+        uint32_t records, slice_words, page_first, page_across;
         uint32_t counts[TR_LAYERS], rows[TR_LAYERS], positions[TR_LAYERS];
     };
 

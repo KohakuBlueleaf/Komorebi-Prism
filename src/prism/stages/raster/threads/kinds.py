@@ -1,5 +1,6 @@
 """The geometry thread's kinds beside the tile thread: count and place, each with the
-rings its range moves through and the spaces it keeps on a core during its pull."""
+rings its range moves through (the pass's own spaces among them) and the state it keeps
+on a core during its pull."""
 
 from prism.core.headers import INCLUDE, defined
 from prism.core.thread.module import Kind
@@ -29,12 +30,12 @@ def pair(name, page_bytes, streamer=STREAMER):
 
 
 def pass_spaces():
-    """The stage-wise pass's own spaces on the pack CPU: its work, its cost knots,
-    its profile words."""
+    """The stage-wise pass's own spaces on the pack CPU, a page each (it takes them as
+    buffers): its work, its cost knots, its profile words."""
     return {
-        "geo_work": S["kWorkBytes"],
-        "geo_costs": 4 * (S["kCostKnots"] + 1),
-        "geo_profile": S["kSProfBytes"],
+        "work": (1, S["kWorkBytes"], None),
+        "costs": (1, 4 * (S["kCostKnots"] + 1), None),
+        "profile": (1, S["kSProfBytes"], None),
     }
 
 
@@ -45,33 +46,33 @@ def kinds(
     capacity's grid of 32 tiles a row in runs of layout.SLICE_TILES)."""
     if slices is None:
         slices = layout.slices_of(32, -(-tiles // 32))
-    blocks = pair("geo_mesh", S["kMeshBytes"], streamer)
-    out = {"geo_out": (S["kOutPages"], S["kOutBytes"], "pack")}
+    blocks = pair("mesh", S["kMeshBytes"], streamer)
+    out = {"out": (S["kOutPages"], S["kOutBytes"], "pack"), **pass_spaces()}
     count = Kind(
         name="count",
         pull=ANSWER["TP_COUNT"],
         header=COUNT_HEADER,
         keeps={
-            **pass_spaces(),
-            "geo_counts": layout.count_bytes(tiles),
-            "geo_rows": layout.hist_bytes(tiles),
+            "counts": layout.count_bytes(tiles),
+            "rows": layout.hist_bytes(tiles),
         },
         buffers={**blocks, **out},
+        fields=(),
     )
     place = Kind(
         name="place",
         pull=ANSWER["TP_PLACE"],
         header=PLACE_HEADER,
         keeps={
-            **pass_spaces(),
-            "geo_positions": layout.position_bytes(slices, slice_records),
-            "geo_places": layout.places_bytes(slices),
+            "positions": layout.position_bytes(slices, slice_records),
+            "places": layout.places_bytes(slices),
         },
         buffers={
             **blocks,
-            **pair("geo_shade", S["kShadeBlockBytes"], streamer),
+            **pair("shade", S["kShadeBlockBytes"], streamer),
             **out,
         },
+        fields=(),
     )
     return count, place
 

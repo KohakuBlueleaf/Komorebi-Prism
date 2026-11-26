@@ -118,7 +118,10 @@ namespace geometry_k {
         uint32_t weight = 0;
         for (uint32_t k = 0; k < count; ++k) {
             const Item& item = scratch.items[scratch.order[k]];
-            record_of(item, view.layers, scratch.records[k]);
+            const uint32_t page = view.page_first +
+                (item.tile / view.slices.across) * view.page_across +
+                item.tile % view.slices.across;
+            record_of(item, view.layers, page, scratch.records[k]);
             weight += item.weight;
             noc_async_write(
                 l1_of(scratch.records[k]),
@@ -294,6 +297,8 @@ namespace geometry_k {
         view.bank = bank_word(page[TF_GRID]);
         view.records = page[TF_RECORDS];
         view.slice_words = page[TF_SLICES];
+        view.page_first = page[TF_PAGE_FIRST];
+        view.page_across = page[TF_PAGE_ACROSS];
         for (uint32_t layer = 0; layer < view.layers; ++layer) {
             view.counts[layer] = layer_word(page, layer, TF_L_COUNTS);
             view.rows[layer] = layer_word(page, layer, TF_L_ROWS);

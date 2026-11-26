@@ -1,6 +1,6 @@
-// The frame's page as the geometry thread and the sums read it: a layer's words, the
-// layer and blocks of a range of the count and place pulls, the slices of the view's
-// grid. Plain arithmetic over the page's words (frame.h), on any CPU.
+// The frame's page as the geometry thread and the sums read it: a layer's words, a
+// range of the count and place pulls checked against its layer, the slices of the
+// view's grid. Plain arithmetic over the page's words (frame.h), on any CPU.
 #pragma once
 
 #include <stdint.h>
@@ -22,37 +22,15 @@ namespace geometry_k {
         return layers < TR_LAYERS ? layers : TR_LAYERS;
     }
 
-    // The ranges of layer `layer`: its blocks over TF_RANGE_BLOCKS, rounded up.
-    template <typename Words>
-    inline uint32_t layer_ranges(const Words& page, uint32_t layer) {
-        const uint32_t per = page[TF_RANGE_BLOCKS];
-        const uint32_t blocks = layer_word(page, layer, TF_L_BLOCKS);
-        return per == 0 ? 0 : (blocks + per - 1) / per;
-    }
-
-    // What a range of the count and place pulls is: its layer and its blocks [first,
-    // first + blocks) of that layer's mesh, cut at the layer's end.
-    struct Span {
-        uint32_t layer;
-        uint32_t first;
-        uint32_t blocks;
-    };
-
-    // The span of range `range`; blocks 0 when no layer of the page holds it.
-    template <typename Words>
-    inline Span span_of(const Words& page, uint32_t range) {
-        const uint32_t layers = layers_of(page), per = page[TF_RANGE_BLOCKS];
-        for (uint32_t layer = 0; layer < layers; ++layer) {
-            const uint32_t first = layer_word(page, layer, TF_L_RANGE_FIRST);
-            if (range < first || range - first >= layer_ranges(page, layer)) {
-                continue;
-            }
-            const uint32_t block = (range - first) * per;
-            const uint32_t blocks = layer_word(page, layer, TF_L_BLOCKS);
-            const uint32_t left = blocks - block;
-            return {layer, block, left < per ? left : per};
+    // Whether a range of the count and place pulls (prism_frame::Range) lies in a
+    // layer of the page: blocks [first_block, first_block + blocks) of the layer's.
+    template <typename Words, typename Range>
+    inline bool range_fits(const Words& page, const Range& range) {
+        if (range.layer >= layers_of(page) || range.blocks == 0) {
+            return false;
         }
-        return {layers, 0, 0};
+        const uint32_t blocks = layer_word(page, range.layer, TF_L_BLOCKS);
+        return range.first_block < blocks && range.blocks <= blocks - range.first_block;
     }
 
     // The view's slices: runs of TF_SLICE_TILES tiles along a row of the grid, a row

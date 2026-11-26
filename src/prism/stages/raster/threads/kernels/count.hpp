@@ -39,12 +39,12 @@ namespace geometry_k {
     // The counts and histograms in L1 zeroed (the frame's tiles).
     template <typename Ctx>
     void count_zero(Ctx& ctx) {
-        const uint32_t tiles = counted_tiles(ctx.frame);
+        const uint32_t tiles = counted_tiles(ctx.page);
         volatile tt_l1_ptr uint32_t* counts = km::l1(
-            get_write_ptr(Ctx::Buffers::geo_counts)
+            ctx.kept(prism_frame::kKeptCountCounts)
         );
         volatile tt_l1_ptr uint32_t* rows = km::l1(
-            get_write_ptr(Ctx::Buffers::geo_rows)
+            ctx.kept(prism_frame::kKeptCountRows)
         );
         for (uint32_t i = 0; i < tiles; ++i) {
             counts[i] = 0;
@@ -58,7 +58,7 @@ namespace geometry_k {
     // histograms page of it. False: gave up (recorded).
     template <typename Ctx>
     bool count_send(Ctx& ctx, uint32_t layer) {
-        const auto& page = ctx.frame;
+        const auto& page = ctx.page;
         const uint32_t counts = layer_word(page, layer, TF_L_COUNTS);
         const uint32_t rows = layer_word(page, layer, TF_L_ROWS);
         if (counts == 0 || rows == 0) {
@@ -67,12 +67,12 @@ namespace geometry_k {
         const uint32_t tiles = counted_tiles(page);
         asm volatile("fence" ::: "memory");  // the counts' stores before the reads
         noc_async_write(
-            get_write_ptr(Ctx::Buffers::geo_counts),
+            ctx.kept(prism_frame::kKeptCountCounts),
             dram(0, counts, ctx.rank, kCountBytes),
             kCountTileBytes * tiles
         );
         noc_async_write(
-            get_write_ptr(Ctx::Buffers::geo_rows),
+            ctx.kept(prism_frame::kKeptCountRows),
             dram(0, rows, ctx.rank, kHistBytes),
             kHistTileBytes * tiles
         );
@@ -85,11 +85,11 @@ namespace geometry_k {
     template <typename Ctx>
     bool count_move(Ctx& ctx, uint32_t next) {
         CountHeld& held = count_held();
-        const uint32_t layers = layers_of(ctx.frame);
+        const uint32_t layers = layers_of(ctx.page);
         uint32_t zero_from = 0;
         if (held.layer != kNoLayer) {
             if (next < held.layer) {
-                return ctx.movement.gave_up_at(km::kGaveBadItem, kWhereRange, __LINE__);
+                return ctx.gave_up(km::kGaveBadItem, kWhereRange);
             }
             if (!count_send(ctx, held.layer)) {
                 return false;
@@ -112,14 +112,14 @@ namespace geometry_k {
     template <typename Ctx>
     bool count_pages(Ctx& ctx) {
         km::Movement& movement = ctx.movement;
-        constexpr uint32_t out = Ctx::Buffers::geo_out;
-        const uint32_t across = grid_of(ctx.frame[TF_GRID]).across;
+        constexpr uint32_t out = Ctx::Buffers::out;
+        const uint32_t across = grid_of(ctx.page[TF_GRID]).across;
         volatile tt_l1_ptr uint32_t* counts = km::l1(
-            get_write_ptr(Ctx::Buffers::geo_counts)
+            ctx.kept(prism_frame::kKeptCountCounts)
         );
         volatile tt_l1_ptr uint16_t*
             histogram = reinterpret_cast<volatile tt_l1_ptr uint16_t*>(
-                get_write_ptr(Ctx::Buffers::geo_rows)
+                ctx.kept(prism_frame::kKeptCountRows)
             );
         for (;;) {
             if (!front(movement, out, 1, kWhereOut)) {
@@ -162,9 +162,7 @@ namespace geometry_k {
                         tile_histogram[kGroups + ((last_row - top) >> 1)] = ends;
                         if (starts == 0 || ends == 0) {
                             cb_pop_front(out, 1);
-                            return movement.gave_up_at(
-                                km::kGaveBadItem, kWhereHist, tile
-                            );
+                            return ctx.gave_up(km::kGaveBadItem, kWhereHist);
                         }
                     }
                 }
@@ -176,69 +174,63 @@ namespace geometry_k {
         }
     }
 
-    // count on both movers, for the pull's range `range` (its units in order): the
-    // streaming mover reads each unit's blocks; the integer mover counts them.
-    template <typename Ctx, typename Range>
-    bool count_movers(Ctx& ctx, const Range& range) {
-        for (uint32_t unit = range.first; unit < range.first + range.count; ++unit) {
-            const Span span = span_of(ctx.frame, unit);
-            if (span.blocks == 0) {
-                return ctx.movement.gave_up_at(km::kGaveBadItem, kWhereRange, __LINE__);
-            }
-            if constexpr (km::kMover == kStreamer) {
-                if (!blocks_in<Ctx, false>(ctx, span, false)) {
-                    return false;
-                }
-            } else {
-                if (span.layer != count_held().layer && !count_move(ctx, span.layer)) {
-                    return false;
-                }
-                if (!count_pages(ctx)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    // The count pull's end on both movers (every core of the group, ranges or none):
-    // on the integer mover the layer held written and zeros for every layer after it.
-    template <typename Ctx>
-    bool count_end(Ctx& ctx) {
-        if constexpr (km::kMover == kStreamer) {
-            static_cast<void>(ctx);
-            return true;
-        } else {
-            return count_move(ctx, layers_of(ctx.frame));
-        }
-    }
-
-#else
-
-    // count on the compute CPUs: each unit's blocks through the projection pass, its
-    // box words to the integer mover.
-    template <typename Ctx, typename Range>
-    bool count_compute(Ctx& ctx, const Range& range) {
-        for (uint32_t unit = range.first; unit < range.first + range.count; ++unit) {
-            const Span span = span_of(ctx.frame, unit);
-            if (span.blocks == 0) {
-                ctx.compute.gave_up(km::kGaveBadItem, kWhereRange);
-                return false;
-            }
-            if (!pass_over<Ctx, false>(ctx, span, setup_k::kHandlerCount, false)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // The count pull's end on the compute CPUs: nothing is held.
-    template <typename Ctx>
-    bool count_end(Ctx& ctx) {
-        static_cast<void>(ctx);
-        return true;
-    }
-
 #endif
 
 }  // namespace geometry_k
+
+#if !defined(COMPILE_FOR_TRISC)
+
+// count on both movers, for the pull's range `range` (one layer's blocks): the
+// streaming mover reads its blocks; the integer mover counts them. False: gave up
+// (recorded).
+template <typename Ctx>
+bool count_movers(Ctx& ctx, const prism_frame::Range& range) {
+    using namespace geometry_k;
+    if (!range_fits(ctx.page, range)) {
+        return ctx.gave_up(km::kGaveBadItem, kWhereRange);
+    }
+    if constexpr (km::kMover == kStreamer) {
+        return blocks_in<Ctx, false>(ctx, range, false);
+    } else {
+        if (range.layer != count_held().layer && !count_move(ctx, range.layer)) {
+            return false;
+        }
+        return count_pages(ctx);
+    }
+}
+
+// The count pull's end on both movers (every core of the group, ranges or none): on
+// the integer mover the layer held written and zeros for every layer after it.
+template <typename Ctx>
+bool count_end(Ctx& ctx) {
+    using namespace geometry_k;
+    if constexpr (km::kMover == kStreamer) {
+        static_cast<void>(ctx);
+        return true;
+    } else {
+        return count_move(ctx, layers_of(ctx.page));
+    }
+}
+
+#else
+
+// count on the compute CPUs: the range's blocks through the projection pass, its box
+// words to the integer mover. False: gave up (recorded).
+template <typename Ctx>
+bool count_compute(Ctx& ctx, const prism_frame::Range& range) {
+    using namespace geometry_k;
+    if (!range_fits(ctx.page, range)) {
+        ctx.compute.gave_up(km::kGaveBadItem, kWhereRange);
+        return false;
+    }
+    return pass_over<Ctx, false>(ctx, range, setup_k::kHandlerCount, false);
+}
+
+// The count pull's end on the compute CPUs: nothing is held.
+template <typename Ctx>
+bool count_end(Ctx& ctx) {
+    static_cast<void>(ctx);
+    return true;
+}
+
+#endif

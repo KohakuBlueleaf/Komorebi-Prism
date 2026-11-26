@@ -29,14 +29,14 @@ namespace geometry_k {
     template <typename Ctx>
     bool place_load(Ctx& ctx, uint32_t layer) {
         km::Movement& movement = ctx.movement;
-        const auto& page = ctx.frame;
+        const auto& page = ctx.page;
         const Slices slices = slices_of(page);
         if (slices.count == 0) {
-            return movement.gave_up_at(km::kGaveBadItem, kWhereSlice, __LINE__);
+            return ctx.gave_up(km::kGaveBadItem, kWhereSlice);
         }
         const uint32_t positions = layer_word(page, layer, TF_L_POSITIONS);
-        const uint32_t at = get_write_ptr(Ctx::Buffers::geo_positions);
-        const uint32_t places = get_write_ptr(Ctx::Buffers::geo_places);
+        const uint32_t at = ctx.kept(prism_frame::kKeptPlacePositions);
+        const uint32_t places = ctx.kept(prism_frame::kKeptPlacePlaces);
         const uint32_t tile_bytes = 4 * kSliceTilesMost * slices.count;
         const uint32_t band_bytes = 4 * kBandWords * kSliceRecords * slices.count;
         noc_async_read(dram(0, positions, ctx.rank, kPositionBytes), at, tile_bytes);
@@ -80,12 +80,12 @@ namespace geometry_k {
     template <typename Ctx>
     bool place_pages(Ctx& ctx, uint32_t layer) {
         km::Movement& movement = ctx.movement;
-        constexpr uint32_t out = Ctx::Buffers::geo_out;
-        const auto& page = ctx.frame;
+        constexpr uint32_t out = Ctx::Buffers::out;
+        const auto& page = ctx.page;
         const uint32_t across = grid_of(page[TF_GRID]).across;
         const Slices slices = slices_of(page);
         volatile tt_l1_ptr uint32_t* positions = km::l1(
-            get_write_ptr(Ctx::Buffers::geo_positions)
+            ctx.kept(prism_frame::kKeptPlacePositions)
         );
         const InterleavedAddrGen<true> lists = {
             .bank_base_address = layer_word(page, layer, TF_L_LISTS),
@@ -177,76 +177,67 @@ namespace geometry_k {
         }
     }
 
-    // place on both movers, for the pull's range `range` (the ranges this core counted,
-    // replayed): the streaming mover reads each unit's blocks (with their shade blocks
-    // on a shaded layer); the integer mover places the records.
-    template <typename Ctx, typename Range>
-    bool place_movers(Ctx& ctx, const Range& range) {
-        for (uint32_t unit = range.first; unit < range.first + range.count; ++unit) {
-            const Span span = span_of(ctx.frame, unit);
-            if (span.blocks == 0) {
-                return ctx.movement.gave_up_at(km::kGaveBadItem, kWhereRange, __LINE__);
-            }
-            if constexpr (km::kMover == kStreamer) {
-                if (!blocks_in<Ctx, true>(ctx, span, shaded(ctx.frame, span, true))) {
-                    return false;
-                }
-            } else {
-                PlaceHeld& held = place_held();
-                if (span.layer != held.layer) {
-                    if (held.layer != kNoLayer && span.layer < held.layer) {
-                        return ctx.movement.gave_up_at(
-                            km::kGaveBadItem, kWhereRange, __LINE__
-                        );
-                    }
-                    if (!place_load(ctx, span.layer)) {
-                        return false;
-                    }
-                    held.layer = span.layer;
-                }
-                if (!place_pages(ctx, span.layer)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    // The place pull's end on both movers: no layer held (the lists are written).
-    template <typename Ctx>
-    bool place_end(Ctx& ctx) {
-        static_cast<void>(ctx);
-        place_held().layer = kNoLayer;
-        return true;
-    }
-
-#else
-
-    // place on the compute CPUs: each unit's blocks through the set-up pass (weighted
-    // on a shaded layer), its records with their boxes to the integer mover.
-    template <typename Ctx, typename Range>
-    bool place_compute(Ctx& ctx, const Range& range) {
-        for (uint32_t unit = range.first; unit < range.first + range.count; ++unit) {
-            const Span span = span_of(ctx.frame, unit);
-            if (span.blocks == 0) {
-                ctx.compute.gave_up(km::kGaveBadItem, kWhereRange);
-                return false;
-            }
-            const bool with_shade = shaded(ctx.frame, span, true);
-            if (!pass_over<Ctx, true>(ctx, span, setup_k::kHandlerSetup, with_shade)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    // The place pull's end on the compute CPUs: nothing is held.
-    template <typename Ctx>
-    bool place_end(Ctx& ctx) {
-        static_cast<void>(ctx);
-        return true;
-    }
-
 #endif
 
 }  // namespace geometry_k
+
+#if !defined(COMPILE_FOR_TRISC)
+
+// place on both movers, for the pull's range `range` (a range this core counted,
+// replayed): the streaming mover reads its blocks (with their shade blocks on a shaded
+// layer); the integer mover places the records. False: gave up (recorded).
+template <typename Ctx>
+bool place_movers(Ctx& ctx, const prism_frame::Range& range) {
+    using namespace geometry_k;
+    if (!range_fits(ctx.page, range)) {
+        return ctx.gave_up(km::kGaveBadItem, kWhereRange);
+    }
+    if constexpr (km::kMover == kStreamer) {
+        return blocks_in<Ctx, true>(ctx, range, shaded(ctx.page, range, true));
+    } else {
+        PlaceHeld& held = place_held();
+        if (range.layer != held.layer) {
+            if (held.layer != kNoLayer && range.layer < held.layer) {
+                return ctx.gave_up(km::kGaveBadItem, kWhereRange);
+            }
+            if (!place_load(ctx, range.layer)) {
+                return false;
+            }
+            held.layer = range.layer;
+        }
+        return place_pages(ctx, range.layer);
+    }
+}
+
+// The place pull's end on both movers: no layer held (the lists are written).
+template <typename Ctx>
+bool place_end(Ctx& ctx) {
+    static_cast<void>(ctx);
+    geometry_k::place_held().layer = geometry_k::kNoLayer;
+    return true;
+}
+
+#else
+
+// place on the compute CPUs: the range's blocks through the set-up pass (weighted on
+// a shaded layer), its records with their boxes to the integer mover. False: gave up
+// (recorded).
+template <typename Ctx>
+bool place_compute(Ctx& ctx, const prism_frame::Range& range) {
+    using namespace geometry_k;
+    if (!range_fits(ctx.page, range)) {
+        ctx.compute.gave_up(km::kGaveBadItem, kWhereRange);
+        return false;
+    }
+    const bool with_shade = shaded(ctx.page, range, true);
+    return pass_over<Ctx, true>(ctx, range, setup_k::kHandlerSetup, with_shade);
+}
+
+// The place pull's end on the compute CPUs: nothing is held.
+template <typename Ctx>
+bool place_end(Ctx& ctx) {
+    static_cast<void>(ctx);
+    return true;
+}
+
+#endif

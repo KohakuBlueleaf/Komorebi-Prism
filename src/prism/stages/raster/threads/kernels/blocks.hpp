@@ -2,12 +2,13 @@
 // mover reads the camera's 64 bytes, then the range's mesh blocks (a shaded layer's
 // shade blocks beside them) as a Komorebi stream; compute takes them in order and the
 // pack CPU runs the stage-wise pass (passes/pack.hpp) on them, its pages to the
-// integer mover. Ctx::Buffers names the rings and kept spaces (kinds.py).
+// integer mover. Ctx::Buffers names the kind's rings as kinds.py declares them.
 #pragma once
 
 #include <stdint.h>
 
 #include "komorebi/device/km_worker.hpp"
+#include "../../../../program/frame/kernels/context.hpp"
 #include "komorebi/device/movement/km_movement.hpp"
 #include "frame.hpp"
 #if !defined(COMPILE_FOR_TRISC)
@@ -36,29 +37,31 @@ namespace geometry_k {
     // The rings of a range's blocks: the mesh's pair, the shade's pair.
     template <typename Ctx>
     constexpr km::BufferPair mesh_pair() {
-        return {Ctx::Buffers::geo_mesh_a, Ctx::Buffers::geo_mesh_b};
+        return {Ctx::Buffers::mesh_a, Ctx::Buffers::mesh_b};
     }
 
     template <typename Ctx>
     constexpr km::BufferPair shade_pair() {
-        return {Ctx::Buffers::geo_shade_a, Ctx::Buffers::geo_shade_b};
+        return {Ctx::Buffers::shade_a, Ctx::Buffers::shade_b};
     }
 
-    // Whether a span's blocks come with their shade blocks: place on a shaded layer.
+    // Whether a range's blocks come with their shade blocks: place on a shaded layer.
     template <typename Words>
-    inline bool shaded(const Words& page, const Span& span, bool placing) {
-        return placing && layer_word(page, span.layer, TF_L_SHADE) != 0;
+    inline bool shaded(
+        const Words& page, const prism_frame::Range& range, bool placing
+    ) {
+        return placing && layer_word(page, range.layer, TF_L_SHADE) != 0;
     }
 
 #if !defined(COMPILE_FOR_TRISC)
 
     // The streaming mover: the camera's 64 bytes into its half of the mesh's pair,
-    // then the span's mesh blocks (and shade blocks, `with_shade`) as one stream each.
+    // then the range's mesh blocks (and shade blocks, `with_shade`) as one stream each.
     // False: gave up (recorded).
     template <typename Ctx, bool kShade>
-    bool blocks_in(Ctx& ctx, const Span& span, bool with_shade) {
+    bool blocks_in(Ctx& ctx, const prism_frame::Range& range, bool with_shade) {
         km::Movement& movement = ctx.movement;
-        const auto& page = ctx.frame;
+        const auto& page = ctx.page;
         constexpr km::BufferPair mesh = mesh_pair<Ctx>();
         const uint32_t half = mesh.half(kStreamer);
         if (!room(movement, half, 1, kWhereCamera)) {
@@ -74,23 +77,30 @@ namespace geometry_k {
         }
         cb_push_back(half, 1);
         const InterleavedAddrGen<true> blocks = {
-            .bank_base_address = layer_word(page, span.layer, TF_L_MESH),
+            .bank_base_address = layer_word(page, range.layer, TF_L_MESH),
             .page_size = setup_k::kMeshBytes
         };
         const km::Stream mesh_stream(
-            km::kMoveRead, blocks, span.first, span.blocks, 1, 1, mesh, kBlockPattern
+            km::kMoveRead,
+            blocks,
+            range.first_block,
+            range.blocks,
+            1,
+            1,
+            mesh,
+            kBlockPattern
         );
         if constexpr (kShade) {
             if (with_shade) {
                 const InterleavedAddrGen<true> shades = {
-                    .bank_base_address = layer_word(page, span.layer, TF_L_SHADE),
+                    .bank_base_address = layer_word(page, range.layer, TF_L_SHADE),
                     .page_size = setup_k::kShadeBlockBytes
                 };
                 const km::Stream shade_stream(
                     km::kMoveRead,
                     shades,
-                    span.first,
-                    span.blocks,
+                    range.first_block,
+                    range.blocks,
                     1,
                     1,
                     shade_pair<Ctx>(),
@@ -106,29 +116,32 @@ namespace geometry_k {
 #else
 
     // Compute (unpack, math and pack all call it): the camera's page, then each block
-    // in the half that holds it (a shaded span's shade block beside it), handed from
+    // in the half that holds it (a shaded range's shade block beside it), handed from
     // unpack to pack, which runs the pass `handler` (setup.h kHandlerCount or
-    // kHandlerSetup); its pages go to the integer mover, the last one marked.
+    // kHandlerSetup); its pages go to the integer mover, the last one marked. False:
+    // gave up (recorded).
     template <typename Ctx, bool kShade>
-    bool pass_over(Ctx& ctx, const Span& span, uint32_t handler, bool with_shade) {
+    bool pass_over(
+        Ctx& ctx, const prism_frame::Range& range, uint32_t handler, bool with_shade
+    ) {
         km::Compute& compute = ctx.compute;
         constexpr km::BufferPair mesh = mesh_pair<Ctx>();
 #if defined(TRISC_PACK)
         setup_k::PackPass pack_pass{compute};
         pack_pass.start(
             handler,
-            Ctx::Buffers::geo_out,
-            Ctx::Buffers::geo_work,
-            Ctx::Buffers::geo_costs,
-            span.first,
-            span.first + span.blocks,
-            ctx.frame[TF_GRID],
+            Ctx::Buffers::out,
+            Ctx::Buffers::work,
+            Ctx::Buffers::costs,
+            range.first_block,
+            range.first_block + range.blocks,
+            ctx.page[TF_GRID],
             with_shade
         );
 #else
         static_cast<void>(handler);
 #endif
-        for (uint32_t page = 0; page <= span.blocks; ++page) {
+        for (uint32_t page = 0; page <= range.blocks; ++page) {
             const uint32_t half = page == 0
                 ? mesh.half(kStreamer)
                 : km::block_half(mesh, kBlockPattern, page - 1);
@@ -178,7 +191,7 @@ namespace geometry_k {
             }
         }
 #if defined(TRISC_PACK)
-        pack_pass.end(Ctx::Buffers::geo_profile);
+        pack_pass.end(Ctx::Buffers::profile);
 #endif
         return true;
     }
