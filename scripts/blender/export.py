@@ -1,6 +1,7 @@
 """Run inside Blender: the open scene as a .glb (one node a geometry key), its sidecar
-JSON, its instance table and the world's map.
-`blender --background <file.blend> --python export.py -- <out_stem> [--frame N]`"""
+JSON, its instance table and the world's map; `--plain` leaves the materials as they are.
+`blender --background <file.blend> --python export.py -- <out_stem> [--frame N] [--plain]`
+"""
 
 import argparse
 import json
@@ -229,6 +230,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("stem")
     parser.add_argument("--frame", type=int, default=None)
+    parser.add_argument("--plain", action="store_true")
     args = parser.parse_args(common.arguments())
     started = time.perf_counter()
     source = bpy.context.scene
@@ -240,7 +242,10 @@ def main():
     found, bases, left = common.copies(depsgraph, keep=True)
     record = sidecar(source, depsgraph, args.stem, frame, left)
     scene, names = build_scene(found, depsgraph, source)
-    rewritten, material_seconds, bakes = materials.Rewriter().run(materials.used(found))
+    rewritten, material_seconds, bakes = {}, 0.0, 0
+    if not args.plain:
+        rewriter = materials.Rewriter()
+        rewritten, material_seconds, bakes = rewriter.run(materials.used(found))
     record["materials"] = rewritten
     record["not_exported"]["materials"] = lossy(rewritten)
     table(found, names, args.stem + ".instances.npz")
@@ -264,6 +269,7 @@ def main():
     common.report(
         {
             "seconds": round(time.perf_counter() - started, 1),
+            "plain": args.plain,
             "glb_bytes": os.path.getsize(args.stem + ".glb"),
             "geometry_keys": len(found),
             "stored_triangles": sum(v["triangles"] for v in found.values()),

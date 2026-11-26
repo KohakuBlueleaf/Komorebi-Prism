@@ -1,5 +1,6 @@
 """Lists and fetches the artists' scenes, and runs the scripts of `scripts/blender/` on
-them into <data>/artist/<key>/: list | fetch | measure | export | render | planes;
+them into <data>/artist/<key>/: list | fetch | measure | export | render | planes |
+gltf_truth (Cycles and EEVEE of the exported .glb read back by Blender's importer);
 selftest runs the material rewrite's own check in Blender."""
 
 import argparse
@@ -23,17 +24,21 @@ BLENDER_VARIABLE = "PRISM_BLENDER"
 SCRIPTS = Path(__file__).resolve().parent.parent / "blender"
 PAUSE_SECONDS = 20
 ENGINE_STEMS = {"CYCLES": "truth", "EEVEE": "eevee"}
+GLTF_STEMS = {"CYCLES": "truth_gltf", "EEVEE": "eevee_gltf"}
+GLTF_BLEND = "scene_gltf.blend"  # the .glb and its sidecar as a scene of their own
 PLANES = "surface/cycles.npz"  # the planes of truth.exr, under a scene's folder
 
 
 def blender(key, data, script, arguments, timeout, open_blend=True):
-    """Runs a script of `scripts/blender/` on a scene (without opening its .blend when
-    `open_blend` is False); its JSON line, or the failure."""
+    """Runs a script of `scripts/blender/` on a scene (without opening a .blend when
+    `open_blend` is False, on another .blend when it is a path); its JSON line, or the
+    failure."""
+    opened = open_blend if isinstance(open_blend, Path) else blend_path(key, data)
     command = [
         os.environ.get(BLENDER_VARIABLE, "blender"),
         "--background",
         "--disable-autoexec",
-        *([str(blend_path(key, data))] if open_blend else []),
+        *([str(opened)] if open_blend else []),
         "--python",
         str(SCRIPTS / f"{script}.py"),
         "--",
@@ -85,8 +90,29 @@ def fetch(keys, data):
         print(json.dumps({"scene": key, "downloaded": fetched}), flush=True)
 
 
+def renders(key, data, args, stems, opened=True):
+    """{engine: render.py's JSON line} of each engine of `args` into `stems`."""
+    folder = artist_dir(data) / key
+    frame = ["--frame", str(args.frame)] if args.frame is not None else []
+    record = {}
+    for engine in args.engines:
+        arguments = [
+            str(folder / stems[engine]),
+            "--engine",
+            engine,
+            "--size",
+            *map(str, args.size),
+            "--samples",
+            str(args.samples),
+            *frame,
+        ]
+        record[engine] = blender(key, data, "render", arguments, args.timeout, opened)
+    return record
+
+
 def run(command, keys, data, args):
-    """Runs measure, export, render or planes on each scene; one JSON line a scene."""
+    """Runs measure, export, render, planes or gltf_truth on each scene; one JSON line
+    a scene."""
     for key in keys:
         folder = artist_dir(data) / key
         folder.mkdir(exist_ok=True)
@@ -96,25 +122,21 @@ def run(command, keys, data, args):
             arguments = [str(folder / "stats.json")]
             record |= blender(key, data, "measure", arguments, args.timeout)
         elif command == "export":
-            arguments = [str(folder / "scene"), *frame]
+            arguments = [str(folder / "scene"), *frame, *["--plain"] * args.plain]
             record |= blender(key, data, "export", arguments, args.timeout)
         elif command == "planes":
             (folder / PLANES).parent.mkdir(exist_ok=True)
             arguments = [str(folder / "truth.exr"), str(folder / PLANES)]
             record |= blender(key, data, "planes", arguments, args.timeout, False)
+        elif command == "gltf_truth":
+            arguments = [str(folder / "scene"), str(folder / GLTF_BLEND)]
+            record["build"] = blender(
+                key, data, "from_gltf", arguments, args.timeout, False
+            )
+            if "error" not in record["build"]:
+                record |= renders(key, data, args, GLTF_STEMS, folder / GLTF_BLEND)
         else:
-            for engine in args.engines:
-                arguments = [
-                    str(folder / ENGINE_STEMS[engine]),
-                    "--engine",
-                    engine,
-                    "--size",
-                    *map(str, args.size),
-                    "--samples",
-                    str(args.samples),
-                    *frame,
-                ]
-                record[engine] = blender(key, data, "render", arguments, args.timeout)
+            record |= renders(key, data, args, ENGINE_STEMS)
         print(json.dumps(record), flush=True)
 
 
@@ -123,11 +145,21 @@ def main():
     parser = argparse.ArgumentParser(description=main.__doc__)
     parser.add_argument(
         "command",
-        choices=("list", "fetch", "measure", "export", "render", "planes", "selftest"),
+        choices=(
+            "list",
+            "fetch",
+            "measure",
+            "export",
+            "render",
+            "planes",
+            "gltf_truth",
+            "selftest",
+        ),
     )
     parser.add_argument("scenes", nargs="*")
     parser.add_argument("--data", type=Path, default=None)
     parser.add_argument("--frame", type=int, default=None)
+    parser.add_argument("--plain", action="store_true", help="export: no rewrite")
     parser.add_argument("--size", type=int, nargs=2, default=(1280, 720))
     parser.add_argument("--samples", type=int, default=256)
     parser.add_argument(
