@@ -13,9 +13,13 @@ opened as the command line opens them (`prism_cli.preset.opened`, `docs/guides/c
 a preset that takes inputs from a scene's view (`SCENE_INPUTS`: materials, lights) is
 refused on a generated scene, and a preset that reads a scene's files beside its mesh
 (`SCENE_FILES`, the kinds of `prism_reference.scene.public.files`: `materials`,
-`lighting`, `indirect`, `transport`) is refused on a scene that lacks one, with the reason
-("no lighting file", "no indirect data"). The catalog says so for every scene and
-preset, so the page never offers a choice the server would refuse. The controls are the
+`lighting`, `indirect`, `transport`) is refused on a scene that lacks `materials` or
+`lighting`, with the reason ("no lighting file"). A scene that lacks the far field's files
+(`indirect`, `transport`) is not refused: `gi` and its forms open on it without the far
+field, their pictures `lit`'s ([the command line](cli.md#run)); the scene's facts say
+`far_field: none`, the scene menu shows it, and the load's notice says "without the far
+field" with what the scene lacks. The catalog says so for every scene and preset, so the
+page never offers a choice the server would refuse. The controls are the
 loop's (`Loop.controls()`: the hosts', named `<implementation>.<name>`); the card's times
 are the loaded thread's columns by name, a layer unit's by layer (`part`, `part.<i>`).
 
@@ -141,6 +145,7 @@ the right's. Every panel folds; the browser keeps what is folded.
   | Materials, Textures | materials, textures and the MiB of their texels | the materials file's `counts` |
   | Layers | opaque, masked, glass: the layers its triangles make | `counts.triangles_by_kind` |
   | Lighting | the lighting file's sky visibility: `baked`, `open` (1 everywhere), `none` | the lighting file's `counts` |
+  | Far field | `present` (indirect data and transport set), or `none`: `gi` draws without its indirect term | the files' presence |
   | Views | the scene's views | the entry |
   | Presets | each family (`raster`, `textured`, `lit`, `gi`; its forms on hover); one that cannot run struck, its reason on hover | the catalog's `refusals` |
 

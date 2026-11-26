@@ -42,6 +42,15 @@ also written there as `<name>.json`, `--name` its stem (by default
 `<scene>[_<view>]_<W>_<H>_<path>`). Exit 1 on a frame code that is not 0; the pictures' numbers are
 reported, not judged by the command.
 
+A preset with a far field (`gi`, `gi_threads`, `gi_tile`: `indirect` and `transport` in
+its `SCENE_FILES`) on a scene that lacks its indirect data or its transport set is opened
+without it, once, by `preset.opened`: the implementations that fill `indirect` left out,
+those that fill no item and read what nobody writes any more left out with them, each of
+the preset's `FAR_FIELD_ABSENT` replaced by its choice (`gi_threads`: the light unit that
+reads no field version), the term `indirect` taken from `terms`; its other options and
+its form stay. Its pictures are then `lit`'s (`lit_threads`'s, `lit_tile`'s) byte for
+byte. The next open after the files are written loads the whole preset.
+
 The record (one JSON line, and the harness's file under `--out`):
 
 | key | holds |
@@ -51,6 +60,7 @@ The record (one JSON line, and the harness's file under `--out`):
 | `pictures_judged` | by checked frame: `pixels_differ` against `REFERENCE`, and the `JUDGE`'s numbers |
 | `host_ms` | the host's frame (the loop's frame and its picture when taken): median, least, frames a second |
 | `codes`, `codes_not_0`, `reloads`, `retries`, `sizes`, `resized`, `results` | the frames' codes, the loop's reloads and retries, the sizes, each frame's result columns |
+| `far_field` | null for a preset without a far field; else `present`, or `absent: ` and what the scene lacks ("no indirect data", "no transport set"): the preset then drew without it (below) |
 
 ## `open`
 
@@ -82,6 +92,7 @@ or the host's memory). Exit 0, 1 on a frame code that is not 0,
 | `name`, `key`, `converted` | the scene's name, its key, whether this open converted it (else it was found) |
 | `lights`, `lights_made` | the lights' state after the open (`none`, `open`, `baked`); what this open made, the bake's PID and log |
 | `codes`, `picture`, `refused` | the frames' codes, the picture's file, the refusal's text |
+| `far_field` | as `run`'s: null, `present`, or `absent: ` and what the scene lacks |
 | `first_picture_seconds` | from the command's start (`_from_process`: the process's) to the first frame's picture |
 | `account.seconds` | each part of the load, exclusive of the tensor writes inside it: `digest`; `convert.<step>` (`import`, `flatten`, `materials`, `textures`, `shared_vertices`, `uv`, `writing`, `entry`); `lights.open` and `lights.open.shadow_map` (the map's camera alone, the map being the card's; or `lights.bake`); `module` (Komorebi's host module); `read.mesh`, `read.materials`, `read.lights`; `session.start`; `model.<implementation>` (its host's prepare and connect); `program.made` (the assembly less its hosts), `program.build`, `program.launch` (the load less the builds and the binds); `bind.<implementation>`; `frame.first`; `frames` (all of them); `other` (the rest) |
 | `account.tensors` | the tensors written to the card while the pipeline is opened, by implementation (`load`: outside every host): bytes, seconds, calls |

@@ -1,6 +1,7 @@
 """What can be chosen: the presets of configs/pipeline that render a view (given the
 slot view.camera), the generated scenes and the public scenes of the data root with
-their views and what their files say of them; a choice checked against them."""
+their views and what their files say of them (a preset with a far field runs without it
+on a scene that lacks its files); a choice checked against them."""
 
 from pathlib import PurePath
 
@@ -99,6 +100,12 @@ def lighting_of(name, data):
     return None if found is None else found.get("visibility", "baked")
 
 
+def far_field_of(name, data):
+    """`present` when the scene has every file of the far field, else `none`."""
+    found = all(files.present(name, kind, data) for kind in preset.FAR_FIELD)
+    return "present" if found else "none"
+
+
 def facts(name, entry, data):
     """What a public scene's files and records say of it; a number it lacks is None."""
     form, source = source_of(entry)
@@ -118,6 +125,7 @@ def facts(name, entry, data):
         "texel_mib": None if texel_bytes is None else round(texel_bytes / MIB, 1),
         "layers": layers_of(materials.get("triangles_by_kind")),
         "lighting": lighting_of(name, data),
+        "far_field": far_field_of(name, data),
         "present": [kind for kind in files.FILES if files.present(name, kind, data)],
     }
 
@@ -127,16 +135,18 @@ def generated_facts(name):
     triangles = len(make_preset(name)["indices"])
     keys = ("source", "stored", "objects", "instances", "materials", "textures")
     out = dict.fromkeys(keys) | {"texel_mib": None, "layers": None, "lighting": None}
+    out |= {"far_field": None}
     return out | {"format": GENERATED_FORMAT, "triangles": triangles, "present": []}
 
 
 def refusal(described_, scene):
     """Why the preset `described_` cannot run on `scene` (as `scenes` gives it); None
-    when it can."""
+    when it can (without its far field when the scene lacks those files)."""
     if scene["generated"]:
         inputs = described_["inputs"]
         return NO_VIEW.format(", ".join(inputs)) if inputs else None
-    lacking = [kind for kind in described_["files"] if kind not in scene["present"]]
+    wanted = [kind for kind in described_["files"] if kind not in preset.FAR_FIELD]
+    lacking = [kind for kind in wanted if kind not in scene["present"]]
     return "; ".join(files.missing(kind) for kind in lacking) or None
 
 

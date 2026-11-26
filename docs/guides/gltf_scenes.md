@@ -27,7 +27,11 @@ with its files present converts nothing. When the preset takes the lights and th
 has none, the lighting file is first written with every vertex's sky visibility 1, so the
 first lit picture comes before the bake; the bake (`--bake background`, the default) runs
 as a process of its own and replaces the file when it ends, and the next open finds the
-lights baked. The three commands below are the parts it is made of.
+lights baked. A scene just opened has no indirect data and no transport set: `gi`,
+`gi_threads` and `gi_tile` draw it without the far field (their pictures `lit`'s, the
+record's `far_field` "absent" with what it lacks; [the command line](cli.md#run)), and
+the viewer offers it with "far field: none"; the next open after the transport is built
+loads the whole preset. The three commands below are the parts it is made of.
 
 ## The parts
 

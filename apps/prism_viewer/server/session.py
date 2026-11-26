@@ -152,6 +152,7 @@ class Render:
             state.loaded = catalog.described(name, preset.globals) | {
                 "scene": scene_name,
                 "view": view,
+                "far_field": preset.far_field,
             }
             state.size, state.capacity = tuple(self.loop.size), self.capacity()
             state.controls = self.loop.controls()
@@ -159,7 +160,10 @@ class Render:
             state.pose = state.first_pose
             state.scene_serial += 1
             state.diagonal = diagonal(scene)
-            state.notice("reload", f"loaded {name} on {scene_name}", seconds)
+            text = f"loaded {name} on {scene_name}"
+            if preset.lacking:
+                text += f" without the far field ({preset.missing})"
+            state.notice("reload", text, seconds)
         log(f"opened in {seconds:.1f} s")
 
     def capacity(self):

@@ -101,6 +101,7 @@ def frames_of(args, preset):
             for name in report.columns(loop)[1]
         }
         extra = {"path": args.path, "pictures_judged": judged(preset, loop, pictures)}
+        extra |= {"far_field": preset.far_field}
         extra |= {"resized": resized, "pictures": args.pictures}
         extra |= {"host_ms": host_figures(host)}
         extra |= {"ms_sum_of_layers": layer_sums(loop, done), "results": results}
