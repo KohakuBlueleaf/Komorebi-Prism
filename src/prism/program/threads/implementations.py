@@ -9,7 +9,12 @@ from prism.check.threads.whole import check
 from prism.core.implementation import IMPLEMENTATIONS, Implementation
 from prism.program.threads import units
 from prism.program.threads.host import ThreadsHost
-from prism.program.threads.hosts import FieldJobHost, LightThreadsHost, ShowThreadsHost
+from prism.program.threads.hosts import (
+    FieldJobHost,
+    LightThreadsHost,
+    ShowThreadsHost,
+    TransportThreadsHost,
+)
 from prism.stages.direct.light import LIGHT as STAGE_LIGHT
 from prism.stages.indirect.field_update import FIELD_UPDATE
 from prism.stages.indirect.field_update.graph import JOB
@@ -71,7 +76,9 @@ SHOW = registered(
     )
 )
 
-TRANSPORT_THREADS = registered(replace(TRANSPORT, thread=None))
+TRANSPORT_THREADS = registered(
+    replace(TRANSPORT, host=TransportThreadsHost, thread=None)
+)
 
 FIELD_JOB = registered(
     replace(

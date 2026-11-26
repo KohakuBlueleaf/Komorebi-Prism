@@ -1,11 +1,19 @@
 """The stage-wise hosts as the threads' form holds them: the light's numbers of its
-threads' unit, the display always given as a slot, the field's update as a job (its
-numbers in the job thread's region, no thread command)."""
+threads' unit, the display always given as a slot, the transport's apply as a queued
+command's words, the field's update as the job thread's job run by a kept graph."""
 
+from prism.program.jobs.frame import COMMAND as WANTS
+from prism.program.jobs.host import JobThread
 from prism.stages.direct.light.host import LightHost
+from prism.stages.direct.light.model.sun import sun_lights
 from prism.stages.direct.light.model.terms import light_pages
+from prism.stages.indirect.field_update.graph import FieldGraph
 from prism.stages.indirect.field_update.host import FieldUpdateHost
+from prism.stages.indirect.transport.host import TransportHost
 from prism.stages.post.show.host import ShowHost
+
+APPLY = "apply"  # the transport's handler the graph queues
+IRRADIANCE = "elements.irradiance"  # the slot the transport's implementation writes
 
 
 class LightThreadsHost(LightHost):
@@ -41,14 +49,67 @@ class ShowThreadsHost(ShowHost):
         return {"display.picture": self.tensors["display"]}
 
 
-class FieldJobHost(FieldUpdateHost):
-    """The field update's host as the job thread's job: its numbers go to the job's
-    region (FieldGraph), it sends no thread command."""
+class TransportThreadsHost(TransportHost):
+    """The transport's host with no thread unit: its apply is queued by the field
+    update's graph on the cores the allocator finds."""
 
     def bind(self, loaded):
-        """The run kept; no numbers of a frame thread's unit."""
+        """Nothing: no number of a thread unit."""
+
+    def apply_args(self, handler):
+        """The command words of `handler` (its apply) on the tensors held."""
+        return handler.args(*self.words(APPLY))
+
+
+def transport_of(assembled):
+    """(name, host) of the implementation that writes IRRADIANCE with a class."""
+    for implementation in assembled.pipeline.implementations:
+        if (
+            IRRADIANCE in implementation.writes
+            and implementation.name in assembled.made
+        ):
+            return implementation.name, assembled.hosts[implementation.name]
+    raise ValueError(
+        f"pipeline {assembled.pipeline.name!r}: no class writes {IRRADIANCE}"
+    )
+
+
+class FieldJobHost(FieldUpdateHost):
+    """The field update's host as the job thread's job: its numbers in the job's
+    region, its graph (FieldGraph) made and kept on the run, no thread command."""
+
+    def bind(self, loaded):
+        """The job thread of the run, the graph of the update (the frame thread's
+        job_wants, the transport's apply on its cores), its numbers, its upload."""
         self.loaded = loaded
+        assembled = loaded.assembled
+        name, transport = transport_of(assembled)
+        apply = assembled.handler(name, APPLY)
+        self.graph = FieldGraph(
+            self,
+            JobThread(loaded.run, assembled.jobs),
+            loaded.run,
+            assembled.layout.handlers()[WANTS],
+            apply,
+            transport.apply_args(apply),
+            transport.cores,
+        )
+        self.graph.write_numbers(self.written())
+        self.graph.graph_for(self.bounces)
 
     def commands(self, loaded):
-        """None: the kept graph runs the update."""
+        """None: an update that ended taken; when the loop's sun or the bounces are
+        not the field's and none runs, the graph started for the lights at the sun."""
+        self.graph.served()
+        if self.graph.handle is not None:
+            return []
+        sun = loaded.options.get("sun")
+        sun = None if sun is None else tuple(float(n) for n in sun)
+        if (sun, self.bounces) == self.made:
+            return []
+        lights = self.own_lights
+        if sun is not None:
+            lights = sun_lights(self.own_lights, self.box, *sun)
+        self.lights = lights
+        self.graph.start(lights, sun, self.bounces)
         return []
