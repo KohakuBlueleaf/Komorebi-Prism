@@ -126,9 +126,10 @@ forward from the eye to the target, right = forward x y, up = right x forward, s
 that with y up a point on the camera's right is on the picture's right. The ray offset `eps` is `2e-5` of the
 scene's diagonal and the near distance `1e-4` of it unless the view gives `near`.
 
-`$PRISM_SCENES_EXTRA` names a further JSON file in the layout of `public_scenes.json`; its
-scenes are added to the table (for scenes used locally whose terms do not allow
-publishing pictures).
+The scenes opened from a file by `prism_cli open` ([glTF scenes](../guides/gltf_scenes.md))
+are added from `<data>/opened_scenes.json`. `$PRISM_SCENES_EXTRA` names a further JSON file
+in the layout of `public_scenes.json`; its scenes are added after them (for scenes used
+locally whose terms do not allow publishing pictures).
 
 ### Materials
 
@@ -255,8 +256,11 @@ python scripts/data/public_scenes.py lighting sponza      # <scene>_lighting.npz
 It downloads the scene's environment map (the table's `environments`: one HDR map per
 entry, its page, licence and SHA-256; the file is saved in `downloads/` like the scene
 files and never committed), bakes the sky visibility per vertex (`<scene>_visibility.npz`,
-reused unless `--rebake`; `--workers` processes), finds the lamps, renders the sun's
-shadow map and writes `<scene>_lighting.npz`. The maps used:
+reused unless `--rebake`; `--workers` processes, by default the CPUs the process may run
+on, at most 32), finds the lamps, renders the sun's shadow map and writes
+`<scene>_lighting.npz` (to a temporary name, then renamed). With `--visibility open` and
+no visibility file yet, every vertex's visibility is 1 and the file's `counts` say
+`"visibility": "open"`; a later `--visibility bake` (the default) replaces it. The maps used:
 
 | name | page | licence |
 |---|---|---|

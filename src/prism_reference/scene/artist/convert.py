@@ -2,6 +2,7 @@
 the materials file, the table entry and a report of the conversion."""
 
 import json
+import time
 
 import numpy as np
 
@@ -122,6 +123,19 @@ def count_notes(mapping, second_primitives):
     return notes
 
 
+class Steps:
+    """Seconds of each named step since the previous mark, in order."""
+
+    def __init__(self):
+        self.seconds, self.last = {}, time.perf_counter()
+
+    def mark(self, name):
+        """The time since the previous mark added to step `name`."""
+        now = time.perf_counter()
+        self.seconds[name] = self.seconds.get(name, 0.0) + now - self.last
+        self.last = now
+
+
 def convert(
     path,
     name,
@@ -133,9 +147,12 @@ def convert(
     workers=4,
 ):
     """Writes <public>/<name>.npz and <public>/<name>_materials.npz from a glTF file;
-    returns the table entry and the report."""
+    returns the table entry and the report (its `steps`: seconds of each step)."""
+    steps = Steps()
     scene = gltf.load(path)
+    steps.mark("import")
     flat = flatten(scene, most_triangles)
+    steps.mark("flatten")
     material = flat["material"].astype(np.int64)
     has_uv, second = triangle_sources(scene)
     textures = Textures(scene)
@@ -147,12 +164,15 @@ def convert(
         for m in scene.materials
         if image_of(scene, m.base_color_texture) is not None
     }
+    steps.mark("materials")
     textures.decode(sorted(bases), workers)
     colour = colours_of(scene, material, textures)
+    steps.mark("textures")
     positions = flat["positions"].astype(np.float64)
     faces = flat["indices"].astype(np.int64)
     vp, vc, idx = shared_vertices(positions, faces, colour)
     shade = vertex_shade(vp, idx)
+    steps.mark("shared_vertices")
     folder = public_dir(data)
     counts = {"triangles_total": len(idx), "vertices": len(vp)}
     np.savez(
@@ -164,7 +184,11 @@ def convert(
     )
     kinds, base, slots, exponent, specular, tau = zip(*rows, strict=True)
     kinds = np.array(kinds, dtype=np.int32)
+    steps.mark("writing")
     texels, mip, levels = textures.pack()
+    steps.mark("textures")
+    uv = corner_uv(scene, flat, material, has_uv)
+    steps.mark("uv")
     used = np.bincount(kinds[per_triangle], minlength=len(KINDS))
     material_counts = {
         "triangles": len(idx),
@@ -175,7 +199,7 @@ def convert(
     }
     np.savez(
         folder / f"{name}_materials.npz",
-        uv=corner_uv(scene, flat, material, has_uv),
+        uv=uv,
         material=per_triangle,
         light=shade[idx].astype(np.float32),
         kind=kinds,
@@ -191,6 +215,7 @@ def convert(
         texture_names=json.dumps(textures.names()),
         counts=json.dumps(material_counts),
     )
+    steps.mark("writing")
     entry, view, view_notes = entry_of(
         scene, vp, len(idx), camera, licence, attribution
     )
@@ -218,4 +243,6 @@ def convert(
             for n in notes
         ],
     }
+    steps.mark("entry")
+    report["steps"] = {k: round(v, 3) for k, v in steps.seconds.items()}
     return entry, report

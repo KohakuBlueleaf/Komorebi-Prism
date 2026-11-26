@@ -3,6 +3,7 @@ indirect files under the data root: list | fetch | materials | lighting | indire
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 from prism_common.paths import data_root
@@ -14,6 +15,8 @@ from prism_reference.scene.public.mesh import convert, load_mesh
 from prism_reference.scene.public.table import table
 from prism_reference.scene.public.views import make_view
 
+MOST_WORKERS = 32
+
 
 def main():
     """Lists, fetches and converts the public scenes."""
@@ -23,13 +26,26 @@ def main():
     )
     parser.add_argument("scenes", nargs="*")
     parser.add_argument("--data", type=Path, default=None)
-    parser.add_argument("--workers", type=int, default=4, help="processes")
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=min(len(os.sched_getaffinity(0)), MOST_WORKERS),
+        help="processes (the CPUs it may run on, at most 32, if none)",
+    )
     parser.add_argument("--rebake", action="store_true", help="trace visibility again")
+    parser.add_argument(
+        "--visibility",
+        choices=("open", "bake"),
+        default="bake",
+        help="lighting: the sky's visibility baked, or 1 a vertex until baked",
+    )
     args = parser.parse_args()
     data = args.data or data_root()
     if args.command == "lighting":
         for name in args.scenes or [n for n, e in table().items() if "lighting" in e]:
-            out, counts = prepare(name, data, args.workers, args.rebake)
+            out, counts = prepare(
+                name, data, args.workers, args.rebake, visibility=args.visibility
+            )
             print(f"{name}: {out} {counts}")
         return
     if args.command == "indirect":

@@ -7,15 +7,23 @@ import shutil
 import urllib.request
 from pathlib import Path
 
+from prism_common.paths import DATA_VARIABLE
+
 TABLE = Path(__file__).resolve().parent / "public_scenes.json"
 EXTRA_VARIABLE = "PRISM_SCENES_EXTRA"
+OPENED_TABLE = "opened_scenes.json"  # the opened scenes' entries, in the data root
 CHUNK_BYTES = 1 << 20
 
 
 def table():
-    """{scene name: entry} of `public_scenes.json`, plus the entries of the JSON file
-    named by $PRISM_SCENES_EXTRA (same layout) when it is set; not `environments`."""
+    """{scene name: entry} of `public_scenes.json`, plus the opened scenes' (the data
+    root's OPENED_TABLE), then $PRISM_SCENES_EXTRA's (same layout); not `environments`.
+    """
     entries = json.loads(TABLE.read_text())
+    data = os.environ.get(DATA_VARIABLE)
+    opened = Path(data) / OPENED_TABLE if data else None
+    if opened is not None and opened.exists():
+        entries |= json.loads(opened.read_text())
     extra = os.environ.get(EXTRA_VARIABLE)
     if extra:
         entries |= json.loads(Path(extra).read_text())

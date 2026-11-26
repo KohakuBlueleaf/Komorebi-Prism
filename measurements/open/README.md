@@ -1,0 +1,178 @@
+# Opening a scene file: the account of a load
+
+`python -m prism_cli open <file>` ([the command line](../../docs/guides/cli.md#open)) on
+four scenes of the artists' table, each exported by the Blender workbench (`scene.glb`,
+its sidecar and its instance table), at 1,920 x 1,080: where the seconds of one load go,
+part by part, cold and warm, for the presets `textured` and `lit`, and the bake of the
+sky's visibility alone.
+
+- Card: one Blackhole P150A, card 1, a shared card (the wait for its lock is outside
+  every time here: each time is measured inside the command).
+- Host: AMD EPYC 7K62; the command ran on 8 of its CPUs. Date: 2026-11-26 (UTC+8),
+  Komorebi at e908d6d16. Every frame's code 0; no load was refused.
+- Each run: `python -m prism_cli open <folder>/scene.glb --pipeline P --size 1920 1080
+  --card 1 --most-triangles 40000000 --out <folder>` (`--bake background` for `lit`),
+  16 frames on the scene's view. (`--most-triangles 40000000` stood for "no count refused";
+  the command now refuses no count when the option is left out, with the same output.)
+- In order, for each scene: `textured` cold (the data root empty of that scene, the build
+  caches empty: Komorebi's (`KMR_CACHE`) and tt-metal's (`TT_METAL_CACHE`), new for each
+  scene, so its host module and the card's firmware are built too); the same command
+  again, warm; `lit`, whose lights are made with every vertex's sky visibility 1 and whose
+  bake starts as a process of its own; when that bake had ended, `lit` again (lights
+  `baked`). The `lit` program is compiled at its first run (the caches held `textured`'s).
+- The bakes started by the opens ran with 8 processes each (the command's CPUs), moved to
+  32 other CPUs of the host after their start; the bakes of the three larger scenes
+  overlapped there. `hidden_alley`'s bake was stopped at 2,400 s (40 minutes): it had
+  built its tree and its 8 processes had traced for 2,334 s each, no visibility file
+  written; the lights stayed `open`, and the open run after it is the row "lit, again
+  after the bake was stopped".
+
+## What is here
+
+| file | holds |
+| --- | --- |
+| `<scene>_<run>.json` | the command's record (one JSON object): the scene's name and key, converted or found, the lights' state, the frames' codes, the seconds to the first picture, the account (`account.seconds`, `account.tensors`, `account.builds`, the peak memory) |
+| `bake.json` | the bake alone: by scene and process count, the seconds, the rays and the rays a second |
+| `convert_memory.json` | the conversion alone: by scene, its seconds, its steps and the process's peak resident memory after it |
+
+## The columns
+
+Seconds, each part exclusive of the tensor writes inside it (they are their own column):
+
+| column | what it is |
+| --- | --- |
+| digest | the BLAKE2b digest of the scene file, its sidecar and its instance table (the scene's key) |
+| convert | the conversion, summed over its steps (`convert.<step>` in the record: `import`, `flatten`, `materials`, `textures`, `shared_vertices`, `uv`, `writing`, `entry`); 0 when the scene was found |
+| lights | the lights with the sky's visibility 1, less the shadow map (the environment map, the sky's octahedral map, the lamps, the file) |
+| shadow map | the sun's shadow map in those lights |
+| module | Komorebi's host module imported (built first when its cache is empty) |
+| read back | the mesh, the materials and (for `lit`) the lights read back from their files |
+| session | the session's start: the card opened |
+| host models | the tables the stages' hosts make from the scene (`prepare` and `connect`), summed; by implementation in the second table |
+| program made | the assembly less its hosts: the classes made and merged, the thread's layout |
+| program build | the program's builds (compiled, or found in the build's cache: `account.builds`) |
+| program launch | the load less the builds and the binds: the kernels launched, the card opened again when the kernels ask for another kernel buffer, the thread started |
+| tensors GB; s | the bytes and seconds of the tensors written to the card while the pipeline is opened; by implementation in the second table (`load`: outside every host's call, in the cold runs mostly the tensors made again when the card is opened again) |
+| first frame | the first frame and its picture |
+| 16 frames | all 16 frames, the first and the last with their pictures |
+| other | the command's seconds less every part above |
+| first picture | from the command's start to the first frame's picture (the process's start is 0.2 to 0.3 s earlier: `first_picture_seconds_from_process`) |
+| command | the command's seconds, the PNG written |
+| peak RSS GiB | the process's peak resident memory |
+
+## The loads
+
+Each scene: the parts of each run, then the host models and the tensors by implementation.
+
+### classroom
+
+| run | digest | convert | lights | shadow map | module | read back | session | host models | program made | program build | program launch | tensors GB; s | first frame | 16 frames | other | first picture | command | peak RSS GiB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| textured, cold | 0.03 | 2.38 | 0.00 | 0.00 | 17.07 | 0.07 | 3.56 | 1.13 | 3.55 | 5.97 | 8.47 | 1.36; 1.75 | 0.02 | 0.16 | 0.25 | 44.06 | 44.39 | 1.0 |
+| textured, warm | 0.03 | 0.00 | 0.00 | 0.00 | 0.32 | 0.07 | 1.01 | 1.14 | 0.84 | 0.08 | 0.68 | 0.68; 0.21 | 0.02 | 0.16 | 0.24 | 4.48 | 4.80 | 1.0 |
+| lit, lights open | 0.03 | 0.00 | 11.50 | 12.07 | 0.30 | 0.12 | 1.00 | 3.42 | 5.63 | 11.90 | 6.45 | 2.57; 1.78 | 0.03 | 0.30 | 0.25 | 54.29 | 54.75 | 2.0 |
+| lit, lights baked | 0.03 | 0.00 | 0.00 | 0.00 | 0.34 | 0.15 | 1.14 | 3.03 | 1.34 | 0.10 | 0.85 | 1.28; 0.53 | 0.03 | 0.30 | 0.26 | 7.62 | 8.09 | 1.5 |
+
+| run | model raster | model texture | model shadow_pcf | model light | model show | tensors by implementation, MB; s |
+|---|---|---|---|---|---|---|
+| textured, cold | 0.81 | 0.32 | - | - | 0.00 | raster 646; 1.53, material.texture 10; 0.01, post.show 9; 0.01, load 698; 0.20 |
+| textured, warm | 0.81 | 0.32 | - | - | 0.00 | raster 646; 0.18, material.texture 10; 0.01, post.show 9; 0.01, load 18; 0.01 |
+| lit, lights open | 2.48 | 0.69 | 0.06 | 0.18 | 0.01 | raster 1063; 0.29, material.texture 94; 0.24, direct.light 69; 0.04, post.show 9; 0.03, load 1333; 1.18 |
+| lit, lights baked | 2.35 | 0.55 | 0.03 | 0.09 | 0.01 | raster 1063; 0.31, material.texture 94; 0.16, direct.light 69; 0.03, post.show 9; 0.01, load 51; 0.02 |
+
+### italian_flat
+
+| run | digest | convert | lights | shadow map | module | read back | session | host models | program made | program build | program launch | tensors GB; s | first frame | 16 frames | other | first picture | command | peak RSS GiB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| textured, cold | 0.82 | 22.18 | 0.00 | 0.00 | 17.01 | 0.68 | 3.69 | 6.96 | 3.56 | 5.92 | 8.54 | 5.92; 2.52 | 0.04 | 0.56 | 0.38 | 72.04 | 72.82 | 5.0 |
+| textured, warm | 0.79 | 0.00 | 0.00 | 0.00 | 0.32 | 0.68 | 1.06 | 6.92 | 0.84 | 0.08 | 0.67 | 2.96; 0.59 | 0.04 | 0.56 | 0.33 | 12.06 | 12.84 | 4.5 |
+| lit, lights open | 0.79 | 0.00 | 11.86 | 50.99 | 0.30 | 0.74 | 1.04 | 15.54 | 4.79 | 11.82 | 6.21 | 10.89; 3.59 | 0.05 | 0.63 | 0.40 | 107.79 | 108.71 | 6.0 |
+| lit, lights baked | 0.83 | 0.00 | 0.00 | 0.00 | 0.34 | 0.82 | 1.05 | 17.13 | 1.21 | 0.10 | 0.85 | 5.44; 1.49 | 0.05 | 0.62 | 0.38 | 23.93 | 24.81 | 6.0 |
+
+| run | model raster | model texture | model shadow_pcf | model light | model show | tensors by implementation, MB; s |
+|---|---|---|---|---|---|---|
+| textured, cold | 4.59 | 2.36 | - | - | 0.00 | raster 2610; 1.89, material.texture 319; 0.05, post.show 9; 0.01, load 2987; 0.57 |
+| textured, warm | 4.54 | 2.38 | - | - | 0.00 | raster 2610; 0.52, material.texture 319; 0.05, post.show 9; 0.01, load 26; 0.01 |
+| lit, lights open | 11.97 | 2.96 | 0.28 | 0.32 | 0.00 | raster 4788; 1.20, material.texture 487; 0.30, direct.light 69; 0.02, post.show 9; 0.01, load 5533; 2.06 |
+| lit, lights baked | 13.13 | 3.39 | 0.28 | 0.33 | 0.00 | raster 4788; 1.09, material.texture 487; 0.33, direct.light 69; 0.02, post.show 9; 0.01, load 92; 0.03 |
+
+### lynxsdesign
+
+| run | digest | convert | lights | shadow map | module | read back | session | host models | program made | program build | program launch | tensors GB; s | first frame | 16 frames | other | first picture | command | peak RSS GiB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| textured, cold | 0.96 | 46.60 | 0.00 | 0.00 | 19.47 | 1.14 | 4.19 | 18.19 | 3.94 | 6.75 | 9.20 | 9.76; 3.54 | 0.06 | 0.72 | 0.63 | 114.16 | 115.33 | 9.3 |
+| textured, warm | 0.93 | 0.00 | 0.00 | 0.00 | 0.33 | 1.14 | 1.01 | 17.84 | 0.92 | 0.10 | 0.75 | 4.88; 0.98 | 0.06 | 0.72 | 0.58 | 24.13 | 25.30 | 8.8 |
+| lit, lights open | 0.93 | 0.00 | 6.99 | 94.56 | 0.29 | 1.19 | 1.02 | 38.13 | 4.04 | 8.31 | 6.86 | 11.86; 2.72 | 0.07 | 0.82 | 0.64 | 165.19 | 166.51 | 9.2 |
+| lit, lights baked | 0.93 | 0.00 | 0.00 | 0.00 | 0.33 | 1.22 | 1.04 | 38.10 | 1.07 | 0.08 | 0.83 | 5.93; 1.44 | 0.07 | 0.81 | 0.55 | 45.18 | 46.40 | 9.2 |
+
+| run | model raster | model texture | model shadow_pcf | model light | model show | tensors by implementation, MB; s |
+|---|---|---|---|---|---|---|
+| textured, cold | 11.78 | 6.41 | - | - | 0.00 | raster 4457; 2.47, material.texture 389; 0.07, post.show 9; 0.01, load 4904; 0.99 |
+| textured, warm | 11.57 | 6.27 | - | - | 0.00 | raster 4457; 0.89, material.texture 389; 0.07, post.show 9; 0.01, load 26; 0.01 |
+| lit, lights open | 29.03 | 8.13 | 0.46 | 0.51 | 0.00 | raster 5205; 1.00, material.texture 557; 0.33, direct.light 69; 0.02, post.show 9; 0.01, load 6021; 1.36 |
+| lit, lights baked | 29.03 | 8.09 | 0.46 | 0.51 | 0.00 | raster 5205; 1.06, material.texture 557; 0.33, direct.light 69; 0.02, post.show 9; 0.01, load 92; 0.03 |
+
+### hidden_alley
+
+| run | digest | convert | lights | shadow map | module | read back | session | host models | program made | program build | program launch | tensors GB; s | first frame | 16 frames | other | first picture | command | peak RSS GiB |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| textured, cold | 2.48 | 61.67 | 0.00 | 0.00 | 21.15 | 1.81 | 5.22 | 19.66 | 4.03 | 7.22 | 9.73 | 12.73; 4.33 | 0.07 | 0.89 | 0.53 | 137.57 | 138.70 | 10.4 |
+| textured, warm | 2.46 | 0.00 | 0.00 | 0.00 | 0.34 | 1.88 | 1.14 | 20.47 | 1.08 | 0.11 | 0.81 | 6.37; 1.41 | 0.07 | 0.89 | 0.39 | 29.84 | 30.98 | 9.7 |
+| lit, lights open | 2.47 | 0.00 | 14.13 | 98.89 | 0.31 | 1.89 | 1.04 | 32.64 | 4.03 | 7.62 | 4.59 | 13.38; 3.27 | 0.08 | 0.95 | 0.37 | 171.05 | 172.22 | 9.9 |
+| lit, again after the bake was stopped (lights open) | 2.37 | 0.00 | 0.00 | 0.00 | 0.33 | 1.79 | 1.03 | 29.16 | 1.06 | 0.09 | 0.85 | 6.69; 1.51 | 0.08 | 0.95 | 0.37 | 38.33 | 39.51 | 9.9 |
+
+| run | model raster | model texture | model shadow_pcf | model light | model show | tensors by implementation, MB; s |
+|---|---|---|---|---|---|---|
+| textured, cold | 12.09 | 7.56 | - | - | 0.01 | raster 5142; 2.70, material.texture 1188; 0.20, post.show 9; 0.01, load 6389; 1.42 |
+| textured, warm | 12.51 | 7.95 | - | - | 0.00 | raster 5142; 1.16, material.texture 1188; 0.22, post.show 9; 0.01, load 26; 0.02 |
+| lit, lights open | 21.67 | 9.94 | 0.49 | 0.53 | 0.00 | raster 5165; 1.20, material.texture 1357; 0.53, direct.light 69; 0.02, post.show 9; 0.01, load 6780; 1.51 |
+| lit, again after the bake was stopped (lights open) | 19.48 | 8.64 | 0.49 | 0.53 | 0.00 | raster 5165; 1.01, material.texture 1357; 0.44, direct.light 69; 0.03, post.show 9; 0.01, load 92; 0.03 |
+
+## Seconds to the first picture
+
+| scene | triangles drawn | textured, cold | textured, warm | lit, lights open | lit, lights baked |
+|---|---|---|---|---|---|
+| classroom | 607,484 | 44.1 | 4.5 | 54.3 | 7.6 |
+| italian_flat | 3,358,422 | 72.0 | 12.1 | 107.8 | 23.9 |
+| lynxsdesign | 8,806,420 | 114.2 | 24.1 | 165.2 | 45.2 |
+| hidden_alley | 8,994,024 | 137.6 | 29.8 | 171.0 | bake stopped; again, lights open: 38.3 |
+
+## The largest three parts of each warm load
+
+Seconds, the tensor writes counted as one part.
+
+- classroom: textured: `session.start` 1.0, `program.made` 0.8, `model.raster` 0.8; lit, baked: `model.raster` 2.4, `program.made` 1.3, `session.start` 1.1.
+- italian_flat: textured: `model.raster` 4.5, `model.material.texture` 2.4, `session.start` 1.1; lit, baked: `model.raster` 13.1, `model.material.texture` 3.4, `tensors` 1.5.
+- lynxsdesign: textured: `model.raster` 11.6, `model.material.texture` 6.3, `session.start` 1.0; lit, baked: `model.raster` 29.0, `model.material.texture` 8.1, `tensors` 1.4.
+- hidden_alley: textured: `model.raster` 12.5, `model.material.texture` 8.0, `digest` 2.5; lit, open, warm: `model.raster` 19.5, `model.material.texture` 8.6, `digest` 2.4.
+
+## The bake alone
+
+`python scripts/data/public_scenes.py lighting <name> --rebake --workers N` on 32 CPUs of
+the host, nothing else running on them; 64 rays a vertex. The bakes the opens started are
+below them (8 processes; `italian_flat`'s overlapped `lynxsdesign`'s and `hidden_alley`'s;
+`lynxsdesign`'s was moved to 8 other CPUs after 1,150 s).
+
+| scene | vertices | how | processes | seconds | rays | rays a second |
+|---|---|---|---|---|---|---|
+| classroom | 468,446 | alone | 8 | 97.3 | 29,980,544 | 308,039 |
+| classroom | 468,446 | alone | 32 | 39.0 | 29,980,544 | 767,788 |
+| italian_flat | 4,664,706 | alone | 8 | 1,586.9 | 298,541,184 | 188,130 |
+| italian_flat | 4,664,706 | alone | 32 | 572.4 | 298,541,184 | 521,522 |
+| classroom | 468,446 | started by open | 8 | 105.6 | 29,980,544 | 283,872 |
+| italian_flat | 4,664,706 | started by open | 8 | 1,843.9 | 298,541,184 | 161,908 |
+| lynxsdesign | 7,679,078 | started by open | 8 | 2,250.5 | 491,460,992 | 218,382 |
+
+## The conversion's memory
+
+`open_scene` alone (the call `open` makes) in a fresh process on an empty data root, no
+card, on the same 8 CPUs: the conversion's seconds and the process's peak resident memory
+right after it (`peak_rss_convert_mib`, which the command's record now carries too). The
+names are the same as in the loads above.
+
+| scene | triangles | seconds | peak RSS after the conversion, GiB |
+|---|---|---|---|
+| classroom | 607,484 | 2.3 | 0.35 |
+| italian_flat | 3,358,422 | 23.2 | 4.76 |
+| lynxsdesign | 8,806,420 | 46.0 | 5.09 |
+| hidden_alley | 8,994,024 | 58.5 | 6.75 |

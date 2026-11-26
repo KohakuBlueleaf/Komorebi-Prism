@@ -11,7 +11,7 @@ on a card reads.
 | `PRISM_BUILD` | where the compiled helpers (`prism_reference/native`) and the checks' host-built C go | `$PRISM_DATA/build` | `src/prism_common/paths.py` (`build_root`) |
 | `PRISM_CACHE` | where caches go | `$PRISM_DATA/cache` | `src/prism_common/paths.py` (`cache_root`) |
 | `PRISM_THREADS` | the threads of the native batch tracer | the CPUs the process may use, at most 8 | `src/prism_reference/trace/batch.py` (`threads`) |
-| `PRISM_SCENES_EXTRA` | a further JSON file in the layout of `public_scenes.json`, whose scenes are added to the table ([scenes](../concepts/scenes.md)) | none: the table alone | `src/prism_reference/scene/public/table.py` (`table`) |
+| `PRISM_SCENES_EXTRA` | a further JSON file in the layout of `public_scenes.json`, whose scenes are added to the table after the data root's `opened_scenes.json` ([scenes](../concepts/scenes.md)) | none: the table alone | `src/prism_reference/scene/public/table.py` (`table`) |
 | `PRISM_BLENDER` | the Blender the artists' scenes are measured, exported and rendered with ([artist scenes](artist_scenes.md)) | `blender` on the `PATH` | `scripts/data/artist_scenes.py` (`blender`) |
 | `CXX` | the C++ compiler of the native helpers | `g++`, else `c++`, on the `PATH` | `src/prism_reference/native/build.py` (`find_cxx`) |
 | `PRISM_VIEWER_API` | the server `npm run dev` proxies `/api` to, while working on the viewer's page ([viewer](viewer.md)) | `http://127.0.0.1:8790` | `apps/prism_viewer/web/vite.config.js` |

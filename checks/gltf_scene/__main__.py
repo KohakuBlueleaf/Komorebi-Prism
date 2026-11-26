@@ -9,8 +9,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from checks.gltf_scene import cases, scene
-from prism_common.paths import cache_root
+from checks.gltf_scene import cases, opened, scene
+from prism_common.paths import DATA_VARIABLE, cache_root
 from prism_reference.scene.artist.convert import convert
 from prism_reference.scene.public.materials import load_materials
 from prism_reference.scene.public.table import EXTRA_VARIABLE
@@ -41,6 +41,7 @@ def main():
         scene.write_plain(plain)
         convert(plain, PLAIN, data, workers=1)
         cases.untextured_case(PLAIN, data)
+        opened.opened_cases(folder, os.environ.get(DATA_VARIABLE))
     finally:
         if previous is None:
             os.environ.pop(EXTRA_VARIABLE, None)

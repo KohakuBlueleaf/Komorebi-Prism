@@ -52,6 +52,37 @@ The record (one JSON line, and the harness's file under `--out`):
 | `host_ms` | the host's frame (the loop's frame and its picture when taken): median, least, frames a second |
 | `codes`, `codes_not_0`, `reloads`, `retries`, `sizes`, `resized`, `results` | the frames' codes, the loop's reloads and retries, the sizes, each frame's result columns |
 
+## `open`
+
+```
+python -m prism_cli open FILE [--pipeline P] [--size W H] [--camera NODE] [--frames N] \
+    [--card C] [--out DIR] [--bake wait|background|none] [--most-triangles N]
+```
+
+A glTF file drawn by a preset in one command, through the parts `run` uses
+(`preset.opened`, the loop): the file converted once and kept under the data root, or
+found there (`prism_reference.scene.artist.opened`); when the preset takes the lights and
+the scene has no lighting file, the lights made with every vertex's sky visibility 1 and
+the bake by `--bake` (`background`, the default: a detached
+`public_scenes.py lighting NAME --visibility bake`, its log `<data>/public/NAME_bake.log`;
+`wait`: baked first; `none`: not baked); then `--frames` frames (16) on the scene's view,
+the first and the last with their pictures, the last written to
+`DIR/<name>_camera_<pipeline>.png`. `--pipeline` is `textured` by default, `--size` the
+view's own if none, `--out` the current folder; `--most-triangles` refuses a file drawing
+more triangles, and without it no count is refused (what refuses is the card's capacity
+or the host's memory). Exit 0, 1 on a frame code that is not 0,
+2 when the card refused the load. The record, one JSON line:
+
+| key | holds |
+| --- | --- |
+| `name`, `key`, `converted` | the scene's name, its key, whether this open converted it (else it was found) |
+| `lights`, `lights_made` | the lights' state after the open (`none`, `open`, `baked`); what this open made, the bake's PID and log |
+| `codes`, `picture`, `refused` | the frames' codes, the picture's file, the refusal's text |
+| `first_picture_seconds` | from the command's start (`_from_process`: the process's) to the first frame's picture |
+| `account.seconds` | each part of the load, exclusive of the tensor writes inside it: `digest`; `convert.<step>` (`import`, `flatten`, `materials`, `textures`, `shared_vertices`, `uv`, `writing`, `entry`); `lights.open` and `lights.open.shadow_map` (or `lights.bake`); `module` (Komorebi's host module); `read.mesh`, `read.materials`, `read.lights`; `session.start`; `model.<implementation>` (its host's prepare and connect); `program.made` (the assembly less its hosts), `program.build`, `program.launch` (the load less the builds and the binds); `bind.<implementation>`; `frame.first`; `frames` (all of them); `other` (the rest) |
+| `account.tensors` | the tensors written to the card while the pipeline is opened, by implementation (`load`: outside every host): bytes, seconds, calls |
+| `account.builds`, `account.peak_rss_mib` | each program build's seconds and whether it compiled (else found in the cache); the process's peak resident memory (`_convert_mib`: right after a conversion, null when the scene was found; `_children_mib`: its children's) |
+
 ## The preset runner
 
 ```

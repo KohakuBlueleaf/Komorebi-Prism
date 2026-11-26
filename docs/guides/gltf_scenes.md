@@ -7,7 +7,29 @@ After the conversion every preset, check and the viewer open the scene by its na
 unchanged. The code is `src/prism_reference/scene/artist/` (`convert.py`, `materials.py`,
 `entry.py`); the check is `python -m checks.gltf_scene`.
 
-## The command
+## One command
+
+```
+export PRISM_DATA=<data root>
+python -m prism_cli open <file> [--pipeline textured|lit|...] [--size W H] [--card C] \
+    [--bake wait|background|none]
+```
+
+converts the file once and keeps it, makes the lights in two steps when the preset takes
+them, and draws the scene ([the command line](cli.md#open)). The scene's name is
+`<stem>_<10 hex digits>`: the stem is the file's own, its folder's when the file is called
+`scene`; the digits begin the file's key, the BLAKE2b digest of the bytes of the file, of
+its sidecar and the sidecar's instance table when they are there, of the converter's
+version (`opened.CONVERTER`) and of `--camera`. The mesh and materials files are written
+as below; the entry goes into `<data>/opened_scenes.json`, which the table reads whenever
+it exists (`$PRISM_SCENES_EXTRA` is not needed). An open whose key is already in that file
+with its files present converts nothing. When the preset takes the lights and the scene
+has none, the lighting file is first written with every vertex's sky visibility 1, so the
+first lit picture comes before the bake; the bake (`--bake background`, the default) runs
+as a process of its own and replaces the file when it ends, and the next open finds the
+lights baked. The three commands below are the parts it is made of.
+
+## The parts
 
 ```
 export PRISM_DATA=<data root>

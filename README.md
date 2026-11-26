@@ -479,7 +479,7 @@ measurements/              every recorded run
 |---|---|
 | [docs index](docs/README.md) | the pages by kind |
 | [scenes](docs/concepts/scenes.md) | the generated and public scenes, their credits, conversion, materials, lighting and indirect light |
-| [the command line](docs/guides/cli.md) | the presets, `prism_cli run`, the preset runner and the record they write |
+| [the command line](docs/guides/cli.md) | the presets, `prism_cli run`, `prism_cli open` (a scene file in one command), the preset runner and the record they write |
 | [environment](docs/guides/environment.md) | the variables the code reads |
 | [the viewer](docs/guides/viewer.md) | the server, the page, the path of a frame, the controls, the keys |
 | [raster model](docs/internals/raster/model.md) | the raster stage's data on the host: records, lists, costs, heavy tiles, the middle pass, capacity |

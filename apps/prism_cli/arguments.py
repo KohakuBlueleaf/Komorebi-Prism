@@ -1,4 +1,4 @@
-"""The command line's arguments: `run` and its options."""
+"""The command line's arguments: `run`, `open` and their options."""
 
 import argparse
 import ast
@@ -56,4 +56,28 @@ def parser():
     run.add_argument("--card", type=int, default=0)
     run.add_argument("--name", default=None, help="the record's file stem")
     run.add_argument("--out", type=Path, default=None, help="the record's folder")
+    opening(commands)
     return top
+
+
+def opening(commands):
+    """The command `open`: a scene file converted once, its lights, a preset's frames."""
+    one = commands.add_parser("open", help="a scene file converted once and drawn")
+    one.add_argument("file", type=Path, help="a glTF file (.glb or .gltf)")
+    one.add_argument(
+        "--pipeline", default="textured", help="a preset of configs/pipeline"
+    )
+    one.add_argument("--size", type=int, nargs=2, default=None, metavar=("W", "H"))
+    one.add_argument("--camera", default=None, help="the view's camera node")
+    one.add_argument("--frames", type=int, default=16)
+    one.add_argument("--card", type=int, default=0)
+    one.add_argument("--out", type=Path, default=Path("."), help="the picture's folder")
+    one.add_argument(
+        "--bake",
+        choices=("wait", "background", "none"),
+        default="background",
+        help="the sky's visibility: baked first, in a process of its own, or not",
+    )
+    one.add_argument(
+        "--most-triangles", type=int, default=None, help="none refused if none"
+    )

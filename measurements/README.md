@@ -17,3 +17,4 @@ under `docs/performance/` quote from here.
 | [lookup_model](lookup_model/README.md) | the pages a frame's lookups read, modelled on the host and checked against the account: today's passes, an item's pages, the pages a core would keep |
 | [update_beside](update_beside/README.md) | the field's update on the cluster beside the frames' (`gi_tile`): the frames drawn during it, the swap, against `gi`'s blocking update |
 | [viewer](viewer/README.md) | the viewer's field of view at its ends |
+| [open](open/README.md) | `prism_cli open` on four artists' scenes: the account of a load part by part, cold and warm, `textured` and `lit`; the bake of the sky's visibility alone |

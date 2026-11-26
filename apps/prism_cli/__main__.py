@@ -3,9 +3,10 @@
 import sys
 
 from prism_cli.arguments import parser
+from prism_cli.open_file import open_command
 from prism_cli.run import run
 
-COMMANDS = {"run": run}
+COMMANDS = {"run": run, "open": open_command}
 
 
 def main():

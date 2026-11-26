@@ -72,33 +72,43 @@ def scene_sun(entry, env_path):
     return env, turn
 
 
-def prepare(name, data, workers=4, rebake=False, shadow_side=None):
-    """Writes <scene>_lighting.npz: the environment, the visibility bake (kept in
-    <scene>_visibility.npz unless rebake), the lamps and the shadow map; path, counts.
-    """
+def sky_visibility(name, data, mesh, workers, rebake, visibility):
+    """The visibility a vertex and its counts: <scene>_visibility.npz (baked first when
+    missing or rebake, with "bake"); with "open" and no file, 1 everywhere."""
+    vis_path = public_dir(data) / f"{name}_visibility.npz"
+    if visibility not in ("open", "bake"):
+        raise ValueError(f"visibility {visibility!r}: one of open, bake")
+    if visibility == "open" and not vis_path.exists():
+        return np.ones(len(mesh["positions"]), dtype=F), {"visibility": "open"}
+    if visibility == "bake" and (rebake or not vis_path.exists()):
+        tree = scene_tree(name, data, mesh)
+        p = mesh["positions"].astype(np.float64)
+        eps = EPS_SCALE * float(np.linalg.norm(p.max(0) - p.min(0)))
+        started = time.perf_counter()
+        baked = bake_visibility(mesh["positions"], mesh["indices"], tree, eps, workers)
+        bake = {
+            "bake_seconds": time.perf_counter() - started,
+            "rays": len(baked) * VIS_RAYS,
+            "workers": workers,
+            "eps": eps,
+        }
+        part = vis_path.with_name(f"{vis_path.stem}.{os.getpid()}.part.npz")
+        np.savez(part, visibility=baked, counts=json.dumps(bake))
+        part.replace(vis_path)
+    with np.load(vis_path) as f:
+        return f["visibility"], json.loads(str(f["counts"])) | {"visibility": "baked"}
+
+
+def prepare(name, data, workers=4, rebake=False, shadow_side=None, visibility="bake"):
+    """Writes <scene>_lighting.npz: the environment, the sky's visibility (`visibility`
+    "bake": baked and kept in <scene>_visibility.npz unless rebake; "open": the kept
+    one, else 1 a vertex), the lamps and the shadow map; path, counts."""
     entry = table()[name]["lighting"]
     (env_path,) = fetch_environment(entry["environment"], data)
     mesh, _ = load_mesh(name, data)
     materials, _ = load_materials(name, data)
     counts = {"vertices": len(mesh["positions"])}
-    vis_path = public_dir(data) / f"{name}_visibility.npz"
-    if rebake or not vis_path.exists():
-        tree = scene_tree(name, data, mesh)
-        p = mesh["positions"].astype(np.float64)
-        eps = EPS_SCALE * float(np.linalg.norm(p.max(0) - p.min(0)))
-        started = time.perf_counter()
-        visibility = bake_visibility(
-            mesh["positions"], mesh["indices"], tree, eps, workers
-        )
-        bake = {
-            "bake_seconds": time.perf_counter() - started,
-            "rays": len(visibility) * VIS_RAYS,
-            "workers": workers,
-            "eps": eps,
-        }
-        np.savez(vis_path, visibility=visibility, counts=json.dumps(bake))
-    with np.load(vis_path) as f:
-        visibility, bake = f["visibility"], json.loads(str(f["counts"]))
+    visibility, bake = sky_visibility(name, data, mesh, workers, rebake, visibility)
     counts |= bake
     env, turn = scene_sun(entry, env_path)
     up = np.array([[0.0, 1.0, 0.0]], dtype=np.float32)
@@ -119,8 +129,9 @@ def prepare(name, data, workers=4, rebake=False, shadow_side=None):
     counts["sun_share"], counts["turn"] = env["sun_share"], turn
     counts["sky_side"] = side = int(entry.get("sky_side", OCTA_SIDE))
     out = lighting_path(name, data)
+    part = out.with_name(f"{out.stem}.{os.getpid()}.part.npz")
     np.savez(
-        out,
+        part,
         visibility=visibility,
         sh=env["sh"],
         sun_direction=env["sun_direction"],
@@ -136,5 +147,6 @@ def prepare(name, data, workers=4, rebake=False, shadow_side=None):
         lamp_intensity=intensity,
         counts=json.dumps(counts),
     )
+    part.replace(out)
     counts["bytes"] = os.path.getsize(out)
     return out, counts
