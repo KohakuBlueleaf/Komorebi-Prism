@@ -22,6 +22,7 @@ passes' x is stored there) and `light.shadow_map`, and writes `light.field`.
 | `model/regions.py` | the operator by row, each row's place in the pages, the elements' arrays and region, the counts, the work region's layout |
 | `model/header.py` | the header region's words and the sun's words |
 | `model/results.py` | the times rows, the work region's arrays, the field's texels, the reference's numbers (`expected`) |
+| `model/kept.py` | the references the check judges by, kept on disk by what they are made of (the lights, the field model's file, the bounces, the transport set): made before the card's lock (`scripts/run/field.py --reference`), read by the check |
 | `thread/indirect_field_update.h` | the sizes, the times row's words, the steps, the codes |
 | `thread/indirect_field_update_unit.c`, `.h` | the command's steps: the job taken, the sources, a pass, the finish, the step switch |
 | `thread/indirect_field_update_parts.c` | the parts on the four X280 cores and their math |
