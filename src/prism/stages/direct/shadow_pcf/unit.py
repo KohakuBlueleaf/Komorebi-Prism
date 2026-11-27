@@ -8,12 +8,12 @@ from prism.stages.direct.shadow_pcf.model.region import SUN_AT, times_bytes
 UNIT = Unit(
     sources=("thread/direct_shadow_pcf_unit.c",),
     includes=("thread",),
-    serves=("sun", "fit"),
+    serves=("sun", "fit", "lamps"),
     regions={
         "sun": Region(
             lambda host: host.region_bytes(), lambda host: host.region(host.options)
         ),
-        "sun_times": Region(lambda host: times_bytes(len(host.views))),
+        "sun_times": Region(lambda host: times_bytes(host.row_views())),
     },
     columns=("sun_table",),
     shares={"light.shadow_map": ("sun_table",)},

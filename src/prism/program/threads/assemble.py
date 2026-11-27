@@ -12,9 +12,9 @@ from prism.program.frame import device
 from prism.program.frame.generate import MEMORY
 from prism.program.threads import program
 from prism.program.threads.implementations import JOBS
+from prism.program.threads.tile_option import TILE_THREAD
 from prism_common.build import located
 
-TILE_THREAD = "tile_thread"  # the option naming the tile thread: a dotted path
 DEADLINE = "deadline"  # the option: seconds a command may take (else Komorebi's)
 WAIT_ABOVE = 1.0  # seconds the kernels' wait limit is above the deadline
 RECOVER = "recover"  # the option: false keeps a core that gave up as it stood

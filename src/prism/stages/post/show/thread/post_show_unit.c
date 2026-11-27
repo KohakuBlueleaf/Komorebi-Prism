@@ -62,7 +62,8 @@ static uint32_t copy(dr_frame_t* frame, const dr_view_t* view) {
         frame->workers,
         view->target_first,
         view->target_across,
-        view->target_pages
+        view->target_pages,
+        view->grid
     );
     dr_word(&command, DR_PLACE(COPY_DIRECTORY), first_directory(view));
     dr_word(&command, DR_PLACE(COPY_TARGET), view->target);

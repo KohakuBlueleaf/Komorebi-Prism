@@ -27,7 +27,7 @@ into the display's 8-bit page of each tile, and no SHOW command follows.
 | `kernels/unpack.hpp` | the unpack CPU: the pack CPU's mails served (a buffer's front page, a pop) |
 | `kernels/pack/dst.hpp` | Dst for a quarter tile, the numbers the row's steps share |
 | `kernels/pack/floats.hpp` | a float's bits and back, rsqrt on the vector unit |
-| `kernels/pack/keys.hpp` | a row's point and texel keys: the shadow's taps, the background's, the glass's mirrored view |
+| `kernels/pack/keys.hpp` | a row's point and texel keys: the shadow's taps (the shadow stage's `kernels/share.hpp`), the background's, the glass's mirrored view |
 | `kernels/pack/row.hpp` | a row's colour: sun, lamps, specular, sky, ambient, emissive, background |
 | `kernels/pack/field.hpp` | the indirect field: the cell, the corners' keys, the weights, an axis's blend, I |
 | `kernels/pack/tone.hpp` | the command's numbers, the tone step, graded rows, the glass's C toned |

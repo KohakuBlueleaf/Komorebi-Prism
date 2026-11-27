@@ -1,6 +1,7 @@
 """The page of maps on the host: the whole map's record and each fitted map's, two halves
-of them (the frames read one, a redraw writes the other), the fits kept while they hold
-the eye's slices, the FIT commands a redraw asks for and the half they swap in."""
+of them (the frames read one, a redraw writes the other; the lamps' faces' records after
+them, the same in both), the fits kept while they hold the eye's slices, the FIT
+commands a redraw asks for and the half they swap in."""
 
 import numpy as np
 
@@ -31,9 +32,10 @@ def bias_of(lights, texel):
 class Fits:
     """`count` maps of `side` fitted to the eye's slices widened by `margin`, the reach
     `reach` (None: the scene box's along the view), with their levels when `levels`;
-    `scene` the frame's scene, `first_view` the first fitted view's index."""
+    `scene` the frame's scene, `first_view` the first fitted view's index, `grid` a
+    fitted view's (grid word, tiles)."""
 
-    def __init__(self, scene, count, side, margin, levels, reach, first_view):
+    def __init__(self, scene, count, side, margin, levels, reach, first_view, grid):
         corners = scene["positions"]
         box = np.stack([corners.min(0), corners.max(0)])
         self.scene = {**scene, "positions": box}  # the box's corners: the fits read it
@@ -43,6 +45,8 @@ class Fits:
         self.levels = levels
         self.reach = reach
         self.first_view = first_view
+        self.grid = grid
+        self.tail = []  # the records after the fitted maps' in both halves (faces')
         self.half = 0  # the half the frames read
         self.cameras = [None] * count  # each fitted map's camera in that half
         self.places = [0] * count  # each fitted map's pages (0 or 1) in that half
@@ -112,6 +116,7 @@ class Fits:
             "tensor": target.address,
             "first": 0,
             "across": side // PAGE,
+            "down": side // PAGE,
             "side": side,
             "texel": lights["shadow_texel"],
             "bias": lights["shadow_bias"],
@@ -132,7 +137,10 @@ class Fits:
             "tensor": fitted["maps"].address,
             "first": self.first_of(index, place),
             "across": self.side // PAGE,
+            "down": self.side // PAGE,
             "side": self.side,
+            "grid": self.grid[0],
+            "tiles": self.grid[1],
             "texel": texel,
             "bias": bias_of(lights, texel),
             "margin": LOOKUP_MARGIN,
@@ -148,23 +156,27 @@ class Fits:
         )
         return record_words(camera, record)
 
+    def records(self):
+        """The records a half: the whole map's, the fitted maps', the tail's."""
+        return 1 + self.count + len(self.tail)
+
     def half_records(self, lights, target, fitted, cameras, places):
-        """A half's records: the whole map's, then each fitted map's."""
+        """A half's records: the whole map's, then each fitted map's, then the tail."""
         out = [self.whole_record(lights, target, fitted)]
         for index, (camera, place) in enumerate(zip(cameras, places, strict=True)):
             out.append(self.fit_record(lights, fitted, index, camera, place))
-        return out
+        return out + list(self.tail)
 
-    def words(self, lights, target, fitted, grid, tiles):
+    def words(self, lights, target, fitted):
         """The page of maps' words: both halves as the frames read now (no fit yet)."""
         records = self.half_records(lights, target, fitted, self.cameras, self.places)
         pages = fitted["maps"].pages if fitted else 0
-        return maps_words(1 + self.count, grid, tiles, pages, [records, records])
+        return maps_words(self.records(), pages, [records, records])
 
     def half_words(self, lights, target, fitted, cameras, places, half):
         """(byte, words) of half `half`'s records in the page of maps."""
         records = self.half_records(lights, target, fitted, cameras, places)
-        at = record_at(1 + self.count, half, 0)
+        at = record_at(self.records(), half, 0)
         return 4 * at, np.concatenate(records)
 
     def view_of(self, camera, size):

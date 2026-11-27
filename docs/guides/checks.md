@@ -45,6 +45,7 @@ python scripts/run/preset.py --pipeline lit --scene sponza --view overview --siz
 | `raster` | `prism.stages.raster.check.thread_frame` | the preset `raster`'s frames: the first, second and last pictures against the reference's vertex-colour frame, pixel for pixel |
 | `material.texture` | `prism.stages.material.texture.check.thread_frame` | the first and last pictures against the reference's shaded frame |
 | `direct.shadow_pcf` | `prism.stages.direct.shadow_pcf.check.sun_map` | the sun set, the card's shadow map against the reference's at that sun |
+| `direct.shadow_pcf` (`--check`) | `prism.stages.direct.shadow_pcf.check.lamp_maps.check` | frames until every lamp face is drawn (LAMPS before them; a scene with lamp shapes, `--option file_lights=True`), each face's map against `lamp_maps.face_map` at every texel and its levels (exact), the faces' times |
 | `direct.light` | `prism.stages.direct.light.check.thread_frame` | the first and last pictures against the reference's lit frame at the loop's sun, tone and terms, the sun's map when its pass ran |
 | `indirect.transport` | `prism.stages.indirect.transport.check` | one apply against the emulation and the set's float result, then the run's applies timed (the preset `apply`) |
 | `indirect.field_update` | `prism.stages.indirect.field_update.check` | the field's texels, sky and L0 after the updates against the reference's, whole or stepped (the preset `field`) |

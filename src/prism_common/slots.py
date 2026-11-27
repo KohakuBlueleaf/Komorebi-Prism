@@ -109,6 +109,13 @@ slot(
     "then each fitted map's: camera, pages, side, texel, bias, levels)",
 )
 slot(
+    "light.lamp_faces",
+    "u32",
+    "page",
+    "each lamp's faces in the page of maps, in lamp_faces' order: its first face "
+    "record and its faces (0, 0 without faces)",
+)
+slot(
     "light.field",
     "u32",
     "page",
