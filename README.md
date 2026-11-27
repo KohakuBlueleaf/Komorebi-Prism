@@ -128,7 +128,7 @@ thread with the tile's planes in its L1.*
 | `light` | the sun through its shadow map's filter, the lamps, the specular terms, the sky, the indirect field, emissive, the background, the tone step | the same core |
 | `post` | the colour as 8-bit pixels, written to the tile's display page | the same core |
 | the sun's shadow map | DEPTH views of the sun after it moves: `visibility`, `material_lit`, `depth_out` | the frame's thread hands them out; the Tensix cores draw them |
-| the indirect field | the sources, a transport apply a bounce, the field's pages; swapped in between two frames | the job thread, X280 clusters 2 and 3; the applies on the lowest ranks |
+| the indirect field | the sources, a transport apply a bounce, the field's pages; swapped in between two frames | the job thread, X280 clusters 2 and 3; the applies on every core, between two frames |
 
 The parts, the slots between them and the presets are in
 [the renderer](docs/concepts/renderer.md); who hands out what and what a core keeps in

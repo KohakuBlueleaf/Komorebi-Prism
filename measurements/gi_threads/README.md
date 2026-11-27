@@ -119,6 +119,31 @@ run on the cores the graph queues them on and are not in it, so it is not the up
 span, and it does not stand against `gi`'s total, which holds its applies. The update's
 span as the host sees it is the column "sun set to swap frame's end".
 
+## The update with no reserved cores
+
+The table above was taken while an update's applies were queued on the lowest 30 ranks
+and the frames ran on the 90 above. Since then each apply is the frame's thread's
+`core_step` on every core, run between two frames. One run a tree a scene, 2026-11-27,
+card 1 at 16 GT/s, AICLK 1,350 MHz, the account and the trace on: the preset loaded, 4
+frames, the sun moved to (120, 40) through the loop's control, frames back to back until
+past the swap. "Card span" is from the job thread's first command to the end of the first
+frame with the new field, on the card's clock (the trace); "host" from the control set to
+that frame's end. Every code 0; the swap frame's picture equal, byte for byte, to `gi`'s
+first frame at that sun on all three scenes and both trees.
+
+| scene | frames during, before | ms (steady) | after | ms (steady) | applies after, ms each | card span before | after | host before | after |
+|---|---:|---|---:|---|---:|---:|---:|---:|---:|
+| sponza | 3 | 23.64 to 23.94 (18.65 to 18.77) | 5 | 18.63 to 19.55 (18.70 to 18.88) | 2.60 | 125.2 | 145.3 | 306.4 | 348.0 |
+| italian_flat_97f97a20ba | 1 | 55.95 (42.03 to 42.54) | 2 | 42.26 (41.93 to 42.68) | 2.70 | 144.6 | 178.0 | 375.2 | 494.1 |
+| lynxsdesign_a01894bbb8 | 2 | 133.80 to 139.21 (101.69 to 102.26) | 4 | 101.70 to 102.33 (102.06 to 102.24) | 3.92 | 386.0 | 528.8 | 702.3 | 797.3 |
+
+The frames during the update now run on every core at the steady frame's time; each
+apply (two at 2 bounces) is a stall between two frames, the apply's time on every core.
+An apply waits for the frame in progress to end, and the field's hand-over waits behind
+a frame already sent, so the span grows by part of a frame per apply and by up to one
+frame at the swap: 20 ms on Sponza, 143 ms on the largest scene. The host span holds the
+host's own work of the sun change (110 to 280 ms before the first frame).
+
 ## What it does not show
 
 - The frames are at the view's camera with no sun moved and no camera move: what a

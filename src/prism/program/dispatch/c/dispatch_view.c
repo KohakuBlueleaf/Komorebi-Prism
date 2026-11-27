@@ -86,33 +86,18 @@ static uint32_t pull(
     }
 }
 
-/* The first rank of the frame's pulls: above the cores a waiting update wants, when
- * the program has the job thread's unit; else 0. */
-static uint32_t first_rank(const dr_frame_t* frame) {
-#ifdef DP_JOBS
-    return jobs_unit_frame_first(frame->cores);
-#else
-    (void)frame;
-    return 0;
-#endif
-}
-
 /* The page's words of the view and its layers (a DEPTH view: the layers with depth),
- * the group above the update's cores; the count ranges. 0, or the code. */
+ * the group of every core; the count ranges. 0, or the code. */
 static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t* out) {
     volatile uint32_t* page = page_of();
-    const uint32_t first = first_rank(frame);
     const uint32_t range_blocks = dr_number(frame, DP_N_RANGE_BLOCKS);
     const uint32_t across = DP_GRID_ACROSS(view->grid);
     const uint32_t down = DP_GRID_DOWN(view->grid);
-    if (first >= frame->cores) {
-        return DP_NO_CORES;
-    }
     if (range_blocks == 0 || across * down > 0xFFFFu) {
         return DP_BAD_NUMBERS;
     }
-    out->first = first;
-    out->count = frame->cores - first;
+    out->first = 0;
+    out->count = frame->cores;
     /* runs of DP_SLICE_TILES along a row (stages/raster/threads/layout.py slices_of) */
     out->slices_across = (across + DP_SLICE_TILES - 1u) / DP_SLICE_TILES;
     out->slices = out->slices_across * down;
@@ -295,9 +280,6 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     uint32_t code = phases_of(frame, &phases);
     if (code == 0) {
         code = view_page(frame, view, &one);
-    }
-    if (code == DP_NO_CORES) {
-        frame->times[DP_R_WANTED] = first_rank(frame);
     }
     if (code == 0 && (phases & DP_PHASE_COUNT)) {
         code = work_command(&command, &one, TP_COUNT);
