@@ -37,6 +37,7 @@ OPTION = "near_tile"  # the pipeline's option: the one-tile product on
 WORKERS = "near_tile_workers"  # the option: the build's processes (else the CPUs')
 THREAD = "prism.program.threads.tiles:GI_NEAR"  # the tile thread the option needs
 NEAR_TAPS = NS["kNearTaps"]  # the upsample's taps a pixel
+QUARTERS = NS["kNearQuarters"]  # the upsample's pages a tile
 
 
 def half_word(size):
@@ -172,7 +173,11 @@ class NearTileHost:
         shapes = {
             "weights": ((tiles * RECORD_TILES, TILE, TILE), "bfp8_b", "tile"),
             "operand": ((tiles, TILE, TILE), "bf16", "tile"),
-            "upsample": ((tiles, NEAR_TAPS * TILE * TILE), "fp32", "row"),
+            "upsample": (
+                (tiles * QUARTERS, NEAR_TAPS * TILE * TILE // QUARTERS),
+                "fp32",
+                "row",
+            ),
         }
         for name, (shape, format, layout) in shapes.items():
             tensor = self.tensors.get(name)

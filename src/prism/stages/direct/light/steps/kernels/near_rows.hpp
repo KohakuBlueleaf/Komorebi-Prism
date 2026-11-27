@@ -1,7 +1,7 @@
 // The light step on the pack CPU with the one-tile product: a row's I at kSxIndirect
 // from the plane near.light, E at the tile's half pixels joined to the full pixels by
-// the upsample's four taps a pixel and their weights (both in the plane), then the
-// row's colour.
+// the upsample's four taps a pixel and their weights (the quarter's page, asked into
+// the plane), then the row's colour.
 #pragma once
 
 #include <stdint.h>
@@ -9,23 +9,29 @@
 #include <riscv_vector.h>
 
 #include "../../../../indirect/near_tile/steps/kernels/near_tile_step.h"
+#include "../../../../../program/frame/kernels/pack.hpp"
 #include "../../kernels/pack/passes.hpp"
 
 namespace light_step {
 
     using near_tile_step::kHalfTile;
     using near_tile_step::kNearCols;
+    using near_tile_step::kNearQuarterRows;
+    using near_tile_step::kNearQuarters;
     using near_tile_step::kNearRows;
     using near_tile_step::kNearTaps;
+    using near_tile_step::kNearUpsample;
     using near_tile_step::kNearWeightsAt;
+    using near_tile_step::kNearWeightsBytes;
+    static_assert(kNearQuarterRows == kLightRows);
 
     // The plane near.light as the upsample reads it: E (a channel's 256 half pixels
-    // after another), the taps' weights (a tap's 1,024 pixels after another), the
-    // tile's last half row and half column inside the frame.
+    // after another), the quarter's taps' weights (a tap's 8 rows after another), the
+    // tile's last half row and half column inside the frame, the weights' tensor.
     struct NearPlanes {
         const float* e;
         const float* weights;
-        uint32_t last_row, last_col;
+        uint32_t last_row, last_col, upsample;
     };
 
     inline NearPlanes near_planes(uint32_t plane) {
@@ -34,9 +40,29 @@ namespace light_step {
             reinterpret_cast<const float*>(words),
             reinterpret_cast<const float*>(words + kNearWeightsAt),
             words[kNearRows] - 1,
-            words[kNearCols] - 1
+            words[kNearCols] - 1,
+            words[kNearUpsample]
         };
     }
+
+#if defined(TRISC_PACK)
+    // The weights of quarter `quarter` of tile `tile` asked into the plane and served.
+    // False: gave up.
+    template <typename Ctx>
+    bool near_quarter(Ctx& ctx, const NearPlanes& p, uint32_t tile, uint32_t quarter) {
+        const uint32_t ask = prism_frame::ask_begin(ctx, p.upsample, kNearWeightsBytes);
+        if (ask == 0) {
+            return false;
+        }
+        prism_frame::ask_entry(
+            ask,
+            0,
+            kNearQuarters * tile + quarter,
+            reinterpret_cast<uint32_t>(p.weights)
+        );
+        return prism_frame::ask_wait(ctx, prism_frame::ask_post(ctx, ask, 1));
+    }
+#endif
 
     // Row r's I, channel `channel`, into Dst vector `vector`, its 32 lanes in two
     // halves of 16 (each 4 vector registers): the sum over the taps (dy, dx) of
@@ -70,7 +96,9 @@ namespace light_step {
                 sum = __riscv_vfmacc_vv_f32m4(
                     sum,
                     __riscv_vle32_v_f32m4(
-                        p.weights + 1024 * tap + 32 * r + kHalf * h, kHalf
+                        p.weights + 32 * kNearQuarterRows * tap +
+                            32 * (r % kNearQuarterRows) + kHalf * h,
+                        kHalf
                     ),
                     e,
                     kHalf

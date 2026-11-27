@@ -1,7 +1,8 @@
 """W_T as the card holds it: a screen tile's record of RECORD_TILES bfp8_b tiles, tile k
 the half rows 2k and 2k + 1 (a half pixel a row, its WIDTH columns), one record after
 another in the screen's tiles' order; encoded and decoded. The upsample's weights a
-screen tile: a tap's 32 x 32 pixels after another, float32."""
+screen tile: its quarters of rows in turn, in each a tap's rows after another, float32.
+"""
 
 import numpy as np
 from komorebi import formats
@@ -43,12 +44,15 @@ def decode(raw):
     return values.reshape(-1, RECORD_TILES, TILE, TILE)
 
 
-def upsample_records(weights, size):
-    """The upsample's weights (H, W, taps) as (tiles, taps x 1,024) float32 of a frame
-    of `size`, the screen's tiles row by row, 0 past the frame."""
+def upsample_records(weights, size, quarters):
+    """The upsample's weights (H, W, taps) as pages (tiles x quarters, taps x 1,024 /
+    quarters) float32 of a frame of `size`: a tile's quarters of rows in turn, in a
+    quarter each tap's rows after another; the screen's tiles row by row, 0 past it."""
     across, down = frame_grid(size)
     taps = weights.shape[-1]
     full = np.zeros((down * TILE, across * TILE, taps), np.float32)
     full[: weights.shape[0], : weights.shape[1]] = weights
-    blocks = full.reshape(down, TILE, across, TILE, taps).transpose(0, 2, 4, 1, 3)
-    return blocks.reshape(down * across, taps * TILE * TILE)
+    rows = TILE // quarters
+    blocks = full.reshape(down, quarters, rows, across, TILE, taps)
+    blocks = blocks.transpose(0, 3, 1, 5, 2, 4)
+    return blocks.reshape(down * across * quarters, taps * rows * TILE)

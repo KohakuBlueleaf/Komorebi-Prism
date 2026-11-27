@@ -1,8 +1,8 @@
-// The near tile step on the compute CPUs. The pack CPU asks the tile's record of W_T,
-// its S_T and its page of the upsample's weights (the unpack CPU serving the asks'
-// mails), then the matrix engine makes E = W_T . S_T a record tile at a time: unpack
-// and math the product, pack E's tile into its ring and from there the three channels'
-// columns into the plane near.light, marked on (or marked off).
+// The near tile step on the compute CPUs. The pack CPU asks the tile's record of W_T
+// and its S_T (the unpack CPU serving the asks' mails), then the matrix engine makes E
+// = W_T . S_T a record tile at a time: unpack and math the product, pack E's tile into
+// its ring and from there the three channels' columns into the plane near.light, marked
+// on (or marked off).
 #pragma once
 
 #include <stdint.h>
@@ -62,8 +62,8 @@ namespace near_tile_step {
     }
 
     // Half `part` of the tile's record asked into its ring (with the first: the
-    // operand into its ring, the upsample page and the tile's half rows and columns
-    // into the plane), pushed once reserved. False: gave up.
+    // operand into its ring; the tile's half rows and columns and the upsample's
+    // tensor into the plane), pushed once reserved. False: gave up.
     template <typename Ctx, typename Tile>
     bool near_asks(Ctx& ctx, const Tile& tile, uint32_t plane, uint32_t part) {
         const compute_mail::Waits waits = waits_of(ctx.compute.control());
@@ -74,7 +74,7 @@ namespace near_tile_step {
         }
         const uint32_t w = compute_mail::write_ptr(kW);
         const uint32_t s = compute_mail::write_ptr(kS);
-        uint32_t halves[3] = {
+        uint32_t halves[2] = {
             ask_pages(
                 ctx,
                 ctx.page[PRISM_TF_NEAR_TILE_WEIGHTS],
@@ -83,7 +83,6 @@ namespace near_tile_step {
                 kNearPartTiles,
                 w
             ),
-            2,
             2
         };
         if (first) {
@@ -95,17 +94,9 @@ namespace near_tile_step {
                 1,
                 s
             );
-            halves[2] = ask_pages(
-                ctx,
-                ctx.page[PRISM_TF_NEAR_TILE_UPSAMPLE],
-                kNearWeightsBytes,
-                tile.tile,
-                1,
-                plane + kNearPageBytes
-            );
         }
         bool served = true;
-        for (uint32_t i = 0; i < (first ? 3u : 1u); ++i) {
+        for (uint32_t i = 0; i < (first ? 2u : 1u); ++i) {
             served = served && halves[i] <= 1 && prism_frame::ask_wait(ctx, halves[i]);
         }
         if (first) {  // Dst zero before the products accumulate into it
@@ -130,6 +121,7 @@ namespace near_tile_step {
         volatile uint32_t* words = reinterpret_cast<volatile uint32_t*>(plane);
         words[kNearRows] = rows - y0 < kHalfTile ? rows - y0 : kHalfTile;
         words[kNearCols] = cols - x0 < kHalfTile ? cols - x0 : kHalfTile;
+        words[kNearUpsample] = ctx.page[PRISM_TF_NEAR_TILE_UPSAMPLE];
         return true;
     }
 

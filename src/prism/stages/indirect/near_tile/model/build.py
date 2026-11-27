@@ -9,6 +9,7 @@ from prism.stages.indirect.near_tile.model.weights import (
     records,
     upsample_records,
 )
+from prism.stages.indirect.near_tile.steps.step import NS
 from prism_reference.indirect.near.half import upsample_weights
 from prism_reference.indirect.near.one_tile import FORM
 from prism_reference.indirect.near.view import furnace_values, view_frame, view_operator
@@ -32,7 +33,7 @@ def built(scene, materials, lights, model, workers=1, furnace=None, terms=("ambi
     return {
         "bytes": encode(values),
         "values": values,
-        "upsample": upsample_records(taps, scene["size"]),
+        "upsample": upsample_records(taps, scene["size"], NS["kNearQuarters"]),
         "operator": t_op,
         "marched": marched,
         "frame": frame,

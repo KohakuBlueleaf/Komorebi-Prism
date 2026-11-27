@@ -11,7 +11,7 @@ stands and held in the card's memory; `S_T` follows the light.
 | File | What it holds |
 | --- | --- |
 | `__init__.py` | the declaration (`NEAR_TILE`), registered as `indirect.near_tile` |
-| `host.py` | `NearTileHost`: with the pipeline's option `near_tile` (False by default), `W_T` built by the reference when a camera is asked twice in a row and is not the one built (`near_tile_workers` processes); its records written into the tensor of slot `near.weights`, `S_T` a tile (a bfloat16 tile, the operand) and the upsample's weights into their tensors (written live, made at the frame's size before the load); the unit's numbers `near_weights`, `near_operand`, `near_upsample`, `near_half` (the frame's half columns and rows), `near_on`; refused unless the tile thread is `GI_NEAR`; without it, nothing |
+| `host.py` | `NearTileHost`: with the pipeline's option `near_tile` (False by default), `W_T` built by the reference when a camera is asked twice in a row and is not the one built (`near_tile_workers` processes); its records written into the tensor of slot `near.weights`, `S_T` a tile (a bfloat16 tile, the operand) and the upsample's weights (a page a quarter tile) into their tensors (written live, made at the frame's size before the load); the unit's numbers `near_weights`, `near_operand`, `near_upsample`, `near_half` (the frame's half columns and rows), `near_on`; refused unless the tile thread is `GI_NEAR`; without it, nothing |
 | `model/operand.py` | `S_T` as the card holds it (bfloat16): the cells' means of the frame's lit radiance, the far groups of the field's packed values, the ambient; its tiles' pages; `E` a tile from the records' values (the host's form of the product) |
 | `steps/` | the step `near_tile` of the tile thread `GI_NEAR`: the tile's record, `S_T` and page of the upsample's weights asked, `E = W_T . S_T` made on the matrix engine into the plane `near.light`, marked on; the light step `LIGHT_NEAR` then takes a row's `I` from it (`direct/light/steps/kernels/near_rows.hpp`) in place of the field lookup |
 | `thread/` | the unit's header and the step's frame words (the three tensors' addresses, the frame's half size, on) |
@@ -28,15 +28,17 @@ share their exponent.
 ## On the card, this step
 
 With the option on and the camera standing, the pack CPU asks the tile's record in two
-halves of 4 tiles into the step's ring `w` (bfp8_b), its `S_T` into the ring `s`
-(bfloat16) and its page of the upsample's weights into the plane; the unpack CPU serves
-the asks' mails. The three compute CPUs then make `E` a record tile at a time on the
+halves of 4 tiles into the step's ring `w` (bfp8_b) and its `S_T` into the ring `s`
+(bfloat16), and writes the upsample's tensor address into the plane; the unpack CPU
+serves the asks' mails. The three compute CPUs then make `E` a record tile at a time on the
 matrix engine (unpack, math and pack: `matmul_block` of W's tile k by S into Dst, float32
 accumulation at HiFi4), the pack CPU packs it into the ring `e` (float32) and copies its
 three columns into the plane, half rows 2k and 2k + 1. Dst is zeroed before the first
 product: the products add into Dst, and the light step leaves it holding its scratch.
 
-The light step's `I` of a pixel is then the sum over its four taps of the upsample's
+The light step asks the upsample's weights a quarter tile at a time (8 rows, 4 KB)
+into the plane before it lights that quarter, so the plane holds E and one quarter's
+weights (8 KB). The light step's `I` of a pixel is then the sum over its four taps of the upsample's
 weight times `E` at the tap's half pixel, in float32 (a fused multiply-add a tap, the
 taps in the order (0, 0), (0, 1), (1, 0), (1, 1)). On any other frame the light step
 does the field's lookup. A glass surface's own light keeps the lookup.

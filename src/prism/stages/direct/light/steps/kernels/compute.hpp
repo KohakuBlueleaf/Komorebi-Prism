@@ -202,6 +202,14 @@ namespace light_step {
             const uint32_t now = km::wall();
             values[kLightProfCopyIn] += now - mark;
             pass.mark = now;
+#if defined(PRISM_LIGHT_NEAR)
+            if (near != nullptr &&
+                !near_quarter(
+                    ctx, *static_cast<const NearPlanes*>(near), tile.tile, quarter
+                )) {
+                return false;
+            }
+#endif
             if (!lit_quarter(lit, in_front, keyed, pointed, field)) {
                 return false;
             }

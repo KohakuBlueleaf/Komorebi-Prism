@@ -8,20 +8,24 @@ namespace near_tile_step {
 
     // The plane near.light: E, a channel's 256 half pixels (16 x 16, row by row) after
     // another as float32 from word 0; the tile's half rows and half columns inside the
-    // frame (uint32); kNearOn (1 when they are the frame's: the step's mark); then from
-    // word kNearWeightsAt the tile's page of the upsample's weights (a tap's 1,024
-    // pixels, row by row, after another, float32).
+    // frame (uint32); kNearOn (1 when they are the frame's: the step's mark); the
+    // upsample's tensor address; then from word kNearWeightsAt the light step's page
+    // of the upsample's weights for the quarter it lights (a tap's 8 rows of 32
+    // pixels after another, float32). The tensor: a tile's 4 quarters' pages in turn.
     constexpr uint32_t kHalfTile = 16;
     constexpr uint32_t kNearWords = 3 * kHalfTile * kHalfTile;
     constexpr uint32_t kNearRows = kNearWords;
     constexpr uint32_t kNearCols = kNearWords + 1;
     constexpr uint32_t kNearOn = kNearWords + 2;
+    constexpr uint32_t kNearUpsample = kNearWords + 3;
     constexpr uint32_t kNearPageBytes = 4096;
     constexpr uint32_t kNearTaps = 4;
+    constexpr uint32_t kNearQuarters = 4;
+    constexpr uint32_t kNearQuarterRows = 32 / kNearQuarters;
     constexpr uint32_t kNearWeightsAt = kNearPageBytes / 4;
-    constexpr uint32_t kNearWeightsBytes = 16384;
-    constexpr uint32_t kNearPlaneBytes = 20480;
-    static_assert(kNearWeightsBytes == 4 * kNearTaps * 1024);
+    constexpr uint32_t kNearWeightsBytes = 4096;
+    constexpr uint32_t kNearPlaneBytes = 8192;
+    static_assert(kNearWeightsBytes == 4 * kNearTaps * kNearQuarterRows * 32);
     static_assert(kNearPlaneBytes == kNearPageBytes + kNearWeightsBytes);
 
     // The rings: half of W_T's record (kNearPartTiles bfp8_b tiles of the record's 8,
