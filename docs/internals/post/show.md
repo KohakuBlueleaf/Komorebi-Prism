@@ -75,6 +75,32 @@ frame's size of them (H, W, 4); without the push it reads the display's pages ba
 instead. `display()` is that read-back, which the check compares as well. Being the last
 host that gives pictures, it is the only one the loop asks (`Host.pictures`).
 
+## A file's view transform (the reference)
+
+Blender's view transforms (AgX, Filmic, their looks) are not a curve of their own here.
+They are the operations Blender's OpenColorIO evaluates, read from the scene's files.
+`scripts/blender/view.py` runs inside the Blender that wrote the scene's sidecar. It asks
+that Blender's configuration for its optimized processor, from scene linear through the
+display, view and look. It writes the processor's operations to `<stem>.view.npz` beside
+the sidecar, and the sidecar names that file in `render.view_tables`; `export.py` does
+this for every scene it writes. The operations are matrices, logarithms, powers, powers
+with a linear segment, 1D tables and 3D tables. A look with an operation outside these
+(AgX's looks use OpenColorIO's grading operations) is dropped, and the sidecar's
+`render.view_notes` says so; a view with one is written as no tables.
+
+`prism_reference.post.view` evaluates the operations in float32. Its 3D tables use
+OpenColorIO's tetrahedral interpolation. `view_of(sidecar)` gives the operations, or None
+with a notice when the sidecar names a transform but no tables are beside it; the
+standard sRGB transfer is then used. `post.described.displayed` takes them as `view`.
+The check `checks.view_transform` compares them with Blender's own 8-bit save and with
+OpenColorIO's values (at most 1 apart in 8 bits).
+
+AgX is a 57^3 table addressed in the log2 of E-Gamut. Its generator mixes 40 % of the
+HSV hue between the inset and the outset, and adds guard rails, so no 3 x 3, 1D table,
+3 x 3 form reproduces it. Filmic is a 33^3 desaturation table addressed in log2, followed
+by a 4,096-entry curve. Its looks replace the curve: Blender applies the desaturation
+twice, and the reference reproduces that because it follows the operations.
+
 ## The check
 
 `check.py` compares, in the frames it checks, the pushed picture and the display read back

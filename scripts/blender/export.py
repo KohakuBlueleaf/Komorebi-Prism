@@ -1,5 +1,6 @@
 """Run inside Blender: the open scene as a .glb (one node a geometry key), its sidecar
-JSON, its instance table and the world's map; `--plain` leaves the materials as they are.
+JSON, its instance table, the world's map and its view transform's tables (`view.py`);
+`--plain` leaves the materials as they are.
 `blender --background <file.blend> --python export.py -- <out_stem> [--frame N] [--plain]`
 """
 
@@ -17,6 +18,7 @@ import bpy
 import common
 import materials
 import numpy
+import view as view_tables
 
 PUNCTUAL = {"SUN", "POINT", "SPOT"}
 NAMES_LISTED = 200
@@ -241,6 +243,14 @@ def main():
     depsgraph = bpy.context.evaluated_depsgraph_get()
     found, bases, left = common.copies(depsgraph, keep=True)
     record = sidecar(source, depsgraph, args.stem, frame, left)
+    shown = record["render"]
+    shown["display"] = source.display_settings.display_device
+    shown["view_tables"], shown["view_notes"] = view_tables.write(
+        args.stem + view_tables.SUFFIX,
+        shown["display"],
+        shown["view_transform"],
+        shown["look"],
+    )
     scene, names = build_scene(found, depsgraph, source)
     rewritten, material_seconds, bakes = {}, 0.0, 0
     if not args.plain:
