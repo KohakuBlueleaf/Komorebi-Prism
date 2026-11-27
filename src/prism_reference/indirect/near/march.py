@@ -9,6 +9,7 @@ from prism_reference.indirect.near.measure import (
     BITS,
     bit_range,
     side_share,
+    side_share_free,
     side_total,
     slice_frame,
 )
@@ -23,6 +24,8 @@ SETTINGS = {
     "halo": 16,
     "coarse_level": 3,
     "reach_px": 512,
+    "tile": TILE,
+    "angles": "exact",
 }
 
 
@@ -74,12 +77,47 @@ def sample(frame, settings, short, sx, sy, thickness, cap):
     return q, qb, src, valid, iy, ix, facing
 
 
+def sample_previous(previous, settings, short, sx, sy, thickness, cap):
+    """`sample` read from the previous frame at its screen (sx, sy): points and normal
+    turned into the current camera's axes; sources index the previous frame."""
+    q, qb, src, valid, iy, ix, facing = sample(
+        previous["frame"], settings, short, sx, sy, thickness, cap
+    )
+    turn, offset = previous["rotation"], previous["offset"]
+    q, qb = q @ turn.T + offset, qb @ turn.T + offset
+    facing = None if facing is None else facing @ turn.T
+    return q, qb, src, valid, iy, ix, facing
+
+
+def previous_shift(previous, p):
+    """Each receiver's offset (n, 2) from its screen position to its place in the
+    previous frame, and whether it lies in front of the previous camera."""
+    old = (p - previous["offset"]) @ previous["rotation"]
+    f = previous["frame"]
+    z = np.where(old[:, 2] > 0, old[:, 2], 1.0)
+    u = f["cx"] + f["focal"] * old[:, 0] / z
+    v = f["cy"] - f["focal"] * old[:, 1] / z
+    return np.stack([u, v], 1), old[:, 2] > 0
+
+
+def shares(delta, v, d, side, gs, t_side, settings):
+    """A sample's share of the side's measure below its angle, by atan2 and the closed
+    form (`exact`) or by `side_share_free`."""
+    if settings["angles"] == "free":
+        x, y = (delta * v).sum(1), side * (delta * d).sum(1)
+        return side_share_free(x, y, gs, t_side)
+    return side_share(side_angle(delta, v, d, side), gs, t_side)
+
+
 def march_rows(frame, receivers, y0, ranges, settings):
-    """The march of the receivers in rows [y0, y0 + TILE): entries (pixel, source,
-    weight, level) and the reads of each level."""
+    """The march of the receivers in rows [y0, y0 + tile): entries (pixel, source,
+    weight, level) and the reads of each level; with frame["previous"], what lies
+    outside a receiver's tile is read from the previous frame (levels 2 and 3)."""
     z = frame["depth"]
     h, w = z.shape
-    ys, xs = np.nonzero(receivers[y0 : y0 + TILE])
+    tile = settings["tile"]
+    previous = frame.get("previous")
+    ys, xs = np.nonzero(receivers[y0 : y0 + tile])
     ys = ys + y0
     pixel = ys * w + xs
     p, n = frame["point"][ys, xs], frame["normal"][ys, xs]
@@ -97,6 +135,11 @@ def march_rows(frame, receivers, y0, ranges, settings):
         total += length * (side_total(g) + side_total(-g))
         slices.append((phi, v, d, length, g))
     total = np.maximum(total, 1e-30)
+    if previous is not None:
+        old_at, seen = previous_shift(previous, p)
+        shift = old_at - np.stack([xs + 0.5, ys + 0.5], 1)
+        pw = previous["frame"]["depth"].shape[1]
+        ph = previous["frame"]["depth"].shape[0]
     entries, reads = [], {"short": [], "coarse": [], "off": 0, "samples": 0}
     for phi, v, d, length, g in slices:
         for side in (1.0, -1.0):
@@ -116,17 +159,34 @@ def march_rows(frame, receivers, y0, ranges, settings):
                 q, qb, src, valid, iy, ix, facing = sample(
                     frame, settings, short, sx, sy, thickness, cap
                 )
+                level = np.full(len(ys), 0 if short else 1, np.int8)
+                if previous is not None:
+                    own = short & (np.floor(sy) // tile == ys // tile)
+                    own = own & (np.floor(sx) // tile == xs // tile)
+                    ox, oy = sx + shift[:, 0], sy + shift[:, 1]
+                    old = sample_previous(
+                        previous, settings, short, ox, oy, thickness, cap
+                    )
+                    there = seen & (ox >= 0) & (ox < pw) & (oy >= 0) & (oy < ph)
+                    inside = np.where(own, inside, active & there)
+                    q, qb = np.where(own[:, None], q, old[0]), np.where(
+                        own[:, None], qb, old[1]
+                    )
+                    src = np.where(own, src, old[2])
+                    valid = np.where(own, valid, old[3])
+                    iy, ix = np.where(own, iy, old[4]), np.where(own, ix, old[5])
+                    if short:
+                        facing = np.where(own[:, None], facing, old[6])
+                    level = np.where(own, level, level + 2).astype(np.int8)
                 reads["short" if short else "coarse"].append(
-                    (xs[inside] // TILE, iy[inside], ix[inside])
+                    (xs[inside] // tile, iy[inside], ix[inside])
                 )
                 delta = q - p
                 dist = np.linalg.norm(delta, axis=1)
                 above = (delta * geo).sum(1) > ranges["plane"] * dist
                 valid = inside & valid & (dist < near_range) & (dist > 0) & above
-                a_front = side_angle(delta, v, d, side)
-                a_back = side_angle(qb - p, v, d, side)
-                u_front = side_share(a_front, gs, t_side)
-                u_back = side_share(a_back, gs, t_side)
+                u_front = shares(delta, v, d, side, gs, t_side, settings)
+                u_back = shares(qb - p, v, d, side, gs, t_side, settings)
                 mask = bit_range(
                     np.minimum(u_front, u_back), np.maximum(u_front, u_back)
                 )
@@ -145,12 +205,11 @@ def march_rows(frame, receivers, y0, ranges, settings):
                     if facing is not None and ranges["facing"]:
                         cos = -(facing[got] * delta[got]).sum(1) / dist[got]
                         weight = weight * np.clip(cos, 0.0, 1.0)
-                    level = np.full(len(got), 0 if short else 1, np.int8)
-                    entries.append((pixel[got], src[got], weight, level))
+                    entries.append((pixel[got], src[got], weight, level[got]))
     return entries, reads
 
 
-def tile_reads(reads, level, y_tile, coarse_shape):
+def tile_reads(reads, level, y_tile, coarse_shape, tile=TILE):
     """Per tile of the row (dict tile x -> count): the distinct pixels read outside the
     tile (short level) or the distinct coarse cells read (coarse level)."""
     if not reads:
@@ -159,7 +218,7 @@ def tile_reads(reads, level, y_tile, coarse_shape):
     iy = np.concatenate([r[1] for r in reads])
     ix = np.concatenate([r[2] for r in reads])
     if level == "short":
-        outside = (iy // TILE != y_tile) | (ix // TILE != tx)
+        outside = (iy // tile != y_tile) | (ix // tile != tx)
         tx, key = tx[outside], (iy * 100000 + ix)[outside]
     else:
         key = (iy >> coarse_shape) * 100000 + (ix >> coarse_shape)
@@ -169,7 +228,8 @@ def tile_reads(reads, level, y_tile, coarse_shape):
 
 
 def march(frame, receivers, ranges, settings=None, log=None):
-    """The near operator of a frame: entries (pixel, source, weight, level) as arrays,
+    """The near operator of a frame: entries (pixel, source, weight, level: 0 short, 1
+    coarse, + 2 read from frame["previous"] outside the receiver's tile) as arrays,
     the blocked share (H W,), and per tile the distinct reads of each level; `ranges`:
     near range, thickness, coarse cap (world), plane (the least rise over the surface),
     backface (0: a sample seen from behind brings the radiance the frame shows; 1: its
@@ -180,17 +240,18 @@ def march(frame, receivers, ranges, settings=None, log=None):
     h, w = frame["depth"].shape
     parts, per_tile = [], {"short": [], "coarse": []}
     samples = off = 0
-    for y0 in range(0, h, TILE):
+    tile = settings["tile"]
+    for y0 in range(0, h, tile):
         entries, reads = march_rows(frame, receivers, y0, ranges, settings)
         parts.extend(entries)
         samples, off = samples + reads["samples"], off + reads["off"]
         for level in ("short", "coarse"):
             counts = tile_reads(
-                reads[level], level, y0 // TILE, settings["coarse_level"]
+                reads[level], level, y0 // tile, settings["coarse_level"], tile
             )
-            per_tile[level].extend(counts.get(t, 0) for t in range(-(-w // TILE)))
+            per_tile[level].extend(counts.get(t, 0) for t in range(-(-w // tile)))
         if log:
-            log(f"near: rows {y0 + TILE} of {h}")
+            log(f"near: rows {y0 + tile} of {h}")
     pixel, src, weight, level = (np.concatenate(c) for c in zip(*parts))
     blocked = np.bincount(pixel, weight, h * w)
     return {

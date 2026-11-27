@@ -27,11 +27,8 @@ chooses from the scene's blocks and the cores (`range_blocks_of`, the rule in
 | scene | blocks | pose | range_blocks | frame | count | sums | place | tile |
 |---|---:|---|---:|---:|---:|---:|---:|---:|
 | sponza | 8,196 | view camera | 4 | 18.6 | 1.04 | 0.37 | 1.84 | 15.43 |
-| | | | 8 | 18.8 | 1.08 | 0.37 | 1.90 | 15.48 |
 | | | viewer first pose | 4 | 18.6 | 1.04 | 0.37 | 1.82 | 15.46 |
-| | | | 8 | 18.7 | 1.09 | 0.37 | 1.82 | 15.44 |
 | | | turned 90 | 4 | 14.1 | 0.92 | 0.37 | 1.32 | 11.60 |
-| | | | 8 | 14.0 | 0.85 | 0.37 | 1.30 | 11.58 |
 | italian_flat_97f97a20ba | 150,673 | view camera | 4 | 42.3 | 5.42 | 0.37 | 8.20 | 28.37 |
 | | | | 16 | 40.5 | 4.18 | 0.37 | 7.76 | 28.21 |
 | | | viewer first pose | 4 | 40.1 | 5.37 | 0.37 | 7.80 | 26.61 |
@@ -55,10 +52,15 @@ chooses from the scene's blocks and the cores (`range_blocks_of`, the rule in
 
 | scene | range_blocks | runs | frame | count | place |
 |---|---:|---:|---:|---:|---:|
+| sponza | 8 | 3 | 18.7 | 1.09 | 1.82 |
 | italian_flat_97f97a20ba | 35 | 3 | 39.2 | 4.48 | 7.68 |
 | lynxsdesign_a01894bbb8 | 64 | 1 | 85.0 | 18.58 | 31.20 |
 
 On the 4.8 M triangle scene 35 blocks a range (36 ranges a core) count more slowly than
 16 (78 a core) although they ask less: the end's imbalance outweighs the ranges' own
-cost there, which is what the balance's bound of the rule weighs. On the 29.8 M triangle
+cost there, the two costs the rule weighs. On the 29.8 M triangle
 scene 39 and 64 are within 0.2 ms of each other.
+
+Sponza at larger sizes, measured the same day at the view's camera by another account of
+the frame (`scripts/run/threads_account.py`, one run, 15 frames): the frame 18.74, 19.26
+and 20.19 ms at 4, 16 and 64 blocks; at 64 one range a core, its longest range 1.83 ms.

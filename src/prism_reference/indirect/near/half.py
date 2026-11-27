@@ -28,9 +28,10 @@ def half_of(image):
     return image[::2, ::2]
 
 
-def upsample(images, depth_half, depth, normal):
+def upsample(images, depth_half, depth, normal, tile=0):
     """Half-resolution images (h, w, ...) at full resolution (H, W, ...): the 4 nearest
-    half pixels, bilinear weights times depth agreement (2 % of depth) and normal^8."""
+    half pixels, bilinear weights times depth agreement (2 % of depth) and normal^8;
+    with tile > 0 (half pixels), only half pixels of the full pixel's own tile."""
     h, w = depth_half.shape
     zh = np.where(np.isfinite(depth_half), depth_half, 1e30)
     nh = half_of(normal)
@@ -43,6 +44,13 @@ def upsample(images, depth_half, depth, normal):
     for dy in (0, 1):
         for dx in (0, 1):
             yy, xx = np.clip(y0 + dy, 0, h - 1), np.clip(x0 + dx, 0, w - 1)
+            if tile > 0:
+                yy = np.clip(
+                    yy, (gy // 2) // tile * tile, (gy // 2) // tile * tile + tile - 1
+                )
+                xx = np.clip(
+                    xx, (gx // 2) // tile * tile, (gx // 2) // tile * tile + tile - 1
+                )
             bw = (1 - np.abs(fy - (y0 + dy))) * (1 - np.abs(fx - (x0 + dx)))
             rel = (zh[yy, xx] - depth) / (0.02 * np.abs(depth) + 1e-9)
             agree = np.maximum((nh[yy, xx] * normal).sum(-1), 0.0) ** 8
