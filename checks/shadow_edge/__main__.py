@@ -22,6 +22,7 @@ METHODS = {
     "2x2": {"kind": "box", "width": 1},
     "box5": {"kind": "box", "width": 5},
     "pcss": {"kind": "pcss", "angle": written.ANGLE, "taps": 32},
+    "pcss levels": {"kind": "pcss", "angle": written.ANGLE, "taps": 32, "levels": True},
 }
 
 
@@ -64,7 +65,8 @@ def checks():
         )
         for name, m in METHODS.items()
     }
-    out["pcss fits the penumbra"] = (mads["pcss"] < 0.5 * mads["2x2"], mads)
+    fits = max(mads["pcss"], mads["pcss levels"]) < 0.5 * mads["2x2"]
+    out["pcss fits the penumbra"] = (fits, mads)
     seen = (0.5, 12.0)
     maps = cascade.cascade_maps(view, None, lights, 2, 1024, seen)
     cam = view["camera"]
@@ -78,7 +80,8 @@ def checks():
     numbers = {"texels": texels, "choice": int(choice[0]), "lit, shadow": lit.tolist()}
     out["cascade"] = (fine and lit.tolist() == [1.0, 0.0], numbers)
     reads = {name: filters.taps_of(m) for name, m in METHODS.items()}
-    out["texel reads"] = (reads == {"2x2": 4, "box5": 36, "pcss": 160}, reads)
+    want = {"2x2": 4, "box5": 36, "pcss": 160, "pcss levels": 160}
+    out["texel reads"] = (reads == want, reads)
     return out
 
 

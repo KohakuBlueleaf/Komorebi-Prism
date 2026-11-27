@@ -12,6 +12,8 @@ from prism_reference.scene.frame import frame_size
 F = np.float32
 # The practical split's share of the logarithmic split.
 SPLIT_LOG = 0.75
+# A fitted map's half width steps: 2^(1/HALF_STEPS) apart.
+HALF_STEPS = 8
 
 
 def view_reach(view):
@@ -54,56 +56,114 @@ def slice_corners(view, start, end):
     return np.array(out)
 
 
-def fitted_camera(positions, sun, corners, side):
-    """A sun camera (16,) float32 of side x side whose frame covers the corners'
-    extent across the sun, cut to the scene box's, at SUN_DISTANCE radii (as
-    `sun_camera`, the same axes)."""
+def sun_frame(positions, sun):
+    """The scene box's centre and radius, the sun camera's distance and axes (right,
+    up, forward) as `sun_camera` has them (float64)."""
     lo, hi = positions.min(0).astype(np.float64), positions.max(0).astype(np.float64)
     centre, radius = (lo + hi) / 2, np.linalg.norm(hi - lo) / 2
-    distance = SUN_DISTANCE * radius
     fwd = -np.asarray(sun, np.float64)
     helper = np.array([0.0, 1.0, 0.0]) if abs(fwd[1]) < 0.99 else np.array([1, 0, 0])
     right = np.cross(helper, fwd)
     right /= np.linalg.norm(right)
     up = np.cross(fwd, right)
+    return centre, radius, SUN_DISTANCE * radius, right, up, fwd
+
+
+def slice_span(positions, sun, corners, margin=0.0):
+    """The corners' extent (low, high) (2,) each across the sun, widened by `margin`
+    times itself on each side and cut to the scene box's."""
+    lo, hi = positions.min(0).astype(np.float64), positions.max(0).astype(np.float64)
+    centre, _, _, right, up, _ = sun_frame(positions, sun)
     box = np.stack(np.meshgrid(*zip(lo, hi), indexing="ij"), -1).reshape(-1, 3)
     axes = np.stack([right, up])
     box_span = (box - centre) @ axes.T
     span = (corners - centre) @ axes.T
-    low = np.maximum(span.min(0), box_span.min(0))
-    high = np.minimum(span.max(0), box_span.max(0))
-    high = np.maximum(high, low)
-    middle = (low + high) / 2
+    low, high = span.min(0), span.max(0)
+    wide = (high - low) * margin
+    low = np.maximum(low - wide, box_span.min(0))
+    high = np.minimum(high + wide, box_span.max(0))
+    return low, np.maximum(high, low)
+
+
+def fitted_camera(positions, sun, corners, side, margin=0.0):
+    """A sun camera (16,) float32 of side x side whose frame covers the corners'
+    extent across the sun, widened by `margin` (`slice_span`), at SUN_DISTANCE radii
+    (as `sun_camera`, the same axes); its half width on steps of 2^(1/HALF_STEPS) and
+    its centre on its own texel grid, so a fit made again from nearby corners draws
+    the same texels."""
+    centre, radius, distance, right, up, fwd = sun_frame(positions, sun)
+    low, high = slice_span(positions, sun, corners, margin)
     half = max(float((high - low).max()) / 2, 1e-6 * radius)
     half = half * side / (side - 2)
-    target = centre + middle @ axes
+    half = 2.0 ** (np.ceil(np.log2(half) * HALF_STEPS) / HALF_STEPS)
+    texel = 2 * half / side
+    middle = np.round((low + high) / 2 / texel) * texel
+    target = centre + middle @ np.stack([right, up])
     focal = (side / 2) * (distance - radius) / half
     eye = target - fwd * distance
     tail = [focal, side / 2, side / 2, distance - 2 * radius]
     return np.concatenate([eye, right, up, fwd, tail]).astype(np.float32)
 
 
-def cascade_cameras(view, sun, count, side, reach=None):
-    """The cameras of `count` maps fitted to the practical split of `reach` (near, far;
-    None: `view_reach`), finest first, and the split distances (count + 2)."""
+def fit_holds(camera, positions, sun, corners):
+    """Whether a fitted camera's frame still covers the corners' extent (cut to the
+    scene box's) across the sun."""
+    centre, _, distance, right, up, fwd = sun_frame(positions, sun)
+    cam = camera.astype(np.float64)
+    target = cam[0:3] + fwd * distance - centre
+    middle = np.array([target @ right, target @ up])
+    half = cam[13] * (distance - (distance - cam[15]) / 2) / cam[12]
+    low, high = slice_span(positions, sun, corners)
+    return bool(((low >= middle - half) & (high <= middle + half)).all())
+
+
+def slices_of(view, count, reach=None):
+    """The corners (8, 3) of each of the `count` slices of the practical split of
+    `reach` (near, far; None: `view_reach`), finest first, and the cuts (count + 2)."""
     near, far = reach or view_reach(view)
     cuts = splits(near, far, count + 1)
-    cameras = [
-        fitted_camera(view["positions"], sun, slice_corners(view, a, b), side)
-        for a, b in itertools.pairwise(cuts[:-1])
-    ]
-    return cameras, cuts
+    return [slice_corners(view, a, b) for a, b in itertools.pairwise(cuts[:-1])], cuts
 
 
-def cascade_maps(view, materials, lights, count, side, reach=None):
+def cascade_cameras(view, sun, count, side, reach=None, margin=0.0):
+    """The cameras of `count` maps fitted to the practical split of `reach` (near, far;
+    None: `view_reach`), each widened by `margin`, finest first, and the split
+    distances (count + 2)."""
+    corners, cuts = slices_of(view, count, reach)
+    p = view["positions"]
+    return [fitted_camera(p, sun, c, side, margin) for c in corners], cuts
+
+
+def kept_cameras(cameras, view, sun, side, reach=None, margin=0.0):
+    """The fit for `view`: each of `cameras` kept while it still covers its slice
+    (`fit_holds`), else (or None) fitted again with `margin`; and which were fitted
+    again."""
+    corners, _ = slices_of(view, len(cameras), reach)
+    p = view["positions"]
+    out, again = [], []
+    for camera, c in zip(cameras, corners, strict=True):
+        hold = camera is not None and fit_holds(camera, p, sun, c)
+        out.append(camera if hold else fitted_camera(p, sun, c, side, margin))
+        again.append(not hold)
+    return out, again
+
+
+def cascade_maps(view, materials, lights, count, side, reach=None, margin=0.0):
     """The cascade's maps as filters read them (`sun_map`'s keys), finest first, then
-    the lights' whole-box map; each map's bias is the lights' in texels; reach as
-    `cascade_cameras`."""
+    the lights' whole-box map; each map's bias is the lights' in texels; reach and
+    margin as `cascade_cameras`."""
+    sun = lights["sun_direction"]
+    cameras, _ = cascade_cameras(view, sun, count, side, reach, margin)
+    return maps_of(view, materials, lights, cameras, side)
+
+
+def maps_of(view, materials, lights, cameras, side):
+    """The maps of fitted `cameras` (finest first) as `cascade_maps` gives them, then
+    the lights' whole-box map."""
     whole = sun_map(lights)
     centre = (view["positions"].min(0) + view["positions"].max(0)) / 2
     distance = float(np.linalg.norm(lights["shadow_camera"][0:3] - centre))
     texels = float(lights["shadow_bias"]) * distance**2 / float(lights["shadow_texel"])
-    cameras, _ = cascade_cameras(view, lights["sun_direction"], count, side, reach)
     maps = []
     for camera in cameras:
         texel = F(distance / camera[12])

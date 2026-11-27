@@ -11,6 +11,8 @@ GOLDEN = F(np.pi * (3.0 - np.sqrt(5.0)))
 NOISE = (F(52.9829189), F(0.06711056), F(0.00583715))
 # The receiver plane's steepest slope, in texel widths of distance a texel.
 STEEPEST = F(10)
+# A blocker search on the nearest-depth levels: its reach at its level, in texels.
+SEARCH_TEXELS = 4
 
 
 def sun_map(lights):
@@ -86,6 +88,51 @@ def bilinear(smap, sx, sy, w):
     return box_pcf(smap, sx, sy, w, 1)
 
 
+def nearest_levels(depth):
+    """The map's levels of nearest depth: level 0 the map, each next the largest 1/z
+    (the nearest surface) of 2 x 2 texels of the one before, down to 1 x 1."""
+    levels = [depth]
+    while levels[-1].shape[0] > 1:
+        top = levels[-1]
+        side = (top.shape[0] + 1) // 2
+        padded = np.zeros((2 * side, 2 * side), dtype=top.dtype)
+        padded[: top.shape[0], : top.shape[1]] = top
+        quads = padded.reshape(side, 2, side, 2)
+        levels.append(quads.max(axis=(1, 3)))
+    return levels
+
+
+def level_search(smap, sx, sy, w, offsets, plane, reach):
+    """Blockers found and their summed distance before the receiver, each pixel's
+    search on the level where its reach spans SEARCH_TEXELS texels: a tap blocks where
+    the level's nearest 1/z is nearer than the receiver's nearest in that cell."""
+    levels = smap.setdefault("levels", nearest_levels(smap["depth"]))
+    level = np.ceil(np.log2(np.maximum(reach / F(SEARCH_TEXELS), F(1))))
+    level = np.minimum(level, len(levels) - 1).astype(np.int64)
+    gx, gy = (np.zeros_like(w), np.zeros_like(w)) if plane is None else plane
+    found = np.zeros_like(sx)
+    nearer = np.zeros_like(sx)
+    for k in np.unique(level):
+        take = level == k
+        depth, scale = levels[k], F(2**k)
+        side = depth.shape[0]
+        slack = (np.abs(gx[take]) + np.abs(gy[take])) * scale * F(0.5)
+        for t in range(offsets.shape[1]):
+            ox, oy = offsets[take, t, 0], offsets[take, t, 1]
+            ix = np.floor((sx[take] + ox) / scale).astype(np.int64)
+            iy = np.floor((sy[take] + oy) / scale).astype(np.int64)
+            inside = (ix >= 0) & (ix < side) & (iy >= 0) & (iy < side)
+            stored = depth[np.clip(iy, 0, side - 1), np.clip(ix, 0, side - 1)]
+            sub = None if plane is None else (gx[take], gy[take])
+            at = shifted(w[take], sub, ox, oy)
+            closest = F(1) / np.maximum(F(1) / at - slack, F(1e-30))
+            block = inside & (closest < stored - smap["bias"])
+            gap = F(1) / at - F(1) / np.maximum(stored, F(1e-30))
+            found[take] += block
+            nearer[take] += np.where(block, gap, F(0))
+    return found, nearer
+
+
 def pixel_turn(px, py):
     """A turn in [0, 2 pi) per pixel centre (px, py): interleaved gradient noise."""
     a, b, c = NOISE
@@ -114,16 +161,22 @@ def disk_pcf(smap, sx, sy, w, radius, taps, turn, plane=None):
     return total / F(taps)
 
 
-def pcss(smap, sx, sy, w, angle, taps, turn, plane=None, search_taps=None):
+def pcss(
+    smap, sx, sy, w, angle, taps, turn, plane=None, search_taps=None, levels=False
+):
     """Sun share from a blocker search over the disk the sun of `angle` (radians, its
-    diameter) spans from the camera's near distance, then a disk filter of the
-    penumbra's half width; search_taps + 4 taps texel reads. Returns share, radius."""
+    diameter) spans from the camera's near distance (`levels`: on the nearest-depth
+    levels, `level_search`), then a disk filter of the penumbra's half width;
+    search_taps + 4 taps texel reads. Returns share, radius."""
     search_taps = search_taps or taps
     focal = smap["camera"][12]
     receiver = F(1) / w
     spread = F(np.tan(angle / 2))
     reach = np.maximum((receiver - smap["camera"][15]) * spread * focal / receiver, 1)
     offsets = disk_offsets(search_taps, turn) * reach[:, None, None]
+    if levels:
+        found, nearer = level_search(smap, sx, sy, w, offsets, plane, reach)
+        return finish_pcss(smap, sx, sy, w, found, nearer, spread, taps, turn, plane)
     depth = smap["depth"]
     side = depth.shape[0]
     found = np.zeros_like(sx)
@@ -138,7 +191,14 @@ def pcss(smap, sx, sy, w, angle, taps, turn, plane=None, search_taps=None):
         found = found + block
         gap = F(1) / at - F(1) / np.maximum(stored, F(1e-30))
         nearer = nearer + np.where(block, gap, F(0))
-    half = nearer / np.maximum(found, F(1)) * spread * focal / receiver
+    return finish_pcss(smap, sx, sy, w, found, nearer, spread, taps, turn, plane)
+
+
+def finish_pcss(smap, sx, sy, w, found, nearer, spread, taps, turn, plane):
+    """PCSS's filter from its search: the mean blocker's penumbra half width, the disk
+    filter of it; lit where no blocker was found. Returns share, radius."""
+    receiver = F(1) / w
+    half = nearer / np.maximum(found, F(1)) * spread * smap["camera"][12] / receiver
     radius = np.where(found > 0, np.maximum(half, F(0)), F(0))
     share = disk_pcf(smap, sx, sy, w, radius, taps, turn, plane)
     return np.where(found > 0, share, F(1)), radius
@@ -147,8 +207,9 @@ def pcss(smap, sx, sy, w, angle, taps, turn, plane=None, search_taps=None):
 def filtered_shadow(smap, points, normals, method, pixels=None):
     """Sun share (n,) at points (n, 3), normals (n, 3) through one map by `method`:
     {"kind": "box", "width"} | {"kind": "disk", "radius", "taps"} | {"kind": "pcss",
-    "angle", "taps"}; pixels (n, 2) the pixel centres the disk's turn hashes. All but
-    the 2 x 2 filter compare each tap at the receiver's plane."""
+    "angle", "taps", "levels" (optional: the search on the nearest-depth levels)};
+    pixels (n, 2) the pixel centres the disk's turn hashes. All but the 2 x 2 filter
+    compare each tap at the receiver's plane."""
     sx, sy, w = sun_screen(smap["camera"], smap["texel"], points, normals)
     plane = receiver_plane(smap, normals, w)
     turn = np.zeros(len(points), dtype=np.float32)
@@ -163,7 +224,8 @@ def filtered_shadow(smap, points, normals, method, pixels=None):
             return disk_pcf(smap, sx, sy, w, radius, method["taps"], turn, plane)
         case "pcss":
             angle, taps = method["angle"], method["taps"]
-            share, _ = pcss(smap, sx, sy, w, angle, taps, turn, plane)
+            levels = method.get("levels", False)
+            share, _ = pcss(smap, sx, sy, w, angle, taps, turn, plane, levels=levels)
             return share
     raise ValueError(f"unknown shadow filter {method['kind']!r}")
 
