@@ -66,6 +66,15 @@ The place pull replays the count pull's log, so a core places exactly the ranges
 counted: its counts, row histograms and positions pages of a layer (a page a core of the
 layer's tensors `counts`, `rows`, `positions`) describe its own ranges.
 
+A record goes to its list slot as a posted 128-byte write (`noc_async_write_one_packet<false,
+true>`: no acknowledgement). Writes on one NoC and one virtual channel to one destination
+arrive in the order issued, so at the end of each page of records the integer mover sends
+each DRAM bank it wrote its last record again as an acknowledged write and waits for those
+acknowledgements (`list_close`); the page's posted writes to a bank have then reached it
+and left L1, and the page's buffer is released. Acknowledged writes, one for each record,
+jam the NoC when 120 cores have tens of them in flight: the acknowledgements and the read
+responses stop returning and the chip stops, at 2,400 x 1,350 (about 340,000 writes a frame) and above.
+
 The sums and the running sum are the only places the frame waits for every core at once
 inside a view; between the pulls the cores take the next command as soon as they are done
 with the last.
