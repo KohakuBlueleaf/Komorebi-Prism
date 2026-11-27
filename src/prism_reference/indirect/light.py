@@ -4,8 +4,9 @@ field holds, and the indirect irradiance a pixel receives."""
 import numpy as np
 
 from prism_reference.direct.lamps import point_irradiance
-from prism_reference.direct.lights import BOUNCES, bounce_count
+from prism_reference.direct.lights import bounce_count
 from prism_reference.direct.shadow import sun_shadow
+from prism_reference.indirect.bounces import bounces_of
 from prism_reference.indirect.field.pack import pack_field, unpack_field
 from prism_reference.indirect.field.values import field_values, lookup
 from prism_reference.indirect.files import load_model
@@ -32,9 +33,10 @@ def lamp_irradiance(lights, position, normal):
     return out
 
 
-def element_light(lights, model, bounces=BOUNCES):
+def element_light(lights, model, bounces=None, product=apply):
     """Each element's sky irradiance, its direct light, L0 = emission x scale + albedo /
-    pi direct, and the `bounces` passes E1 = M L0, E_k = M (albedo / pi E_(k-1))."""
+    pi direct, and the `bounces` passes E1 = M L0, E_k = M (albedo / pi E_(k-1)) by
+    `product(blocks, weights, x)`; bounces None: bounces_of the lights and the model."""
     p, n = model["position"], model["normal"]
     sun = sun_shadow(lights, p, n) * np.maximum(
         dot3(n, lights["sun_direction"][None, :]), F(0)
@@ -46,10 +48,12 @@ def element_light(lights, model, bounces=BOUNCES):
     scale = F(lights["emissive_scale"])
     l0 = model["emission"] * scale + model["albedo"] * F(1 / np.pi) * direct
     l0 = np.where(model["real"][:, None], l0, F(0)).astype(F)
+    if bounces is None:
+        bounces = bounces_of(lights, model)
     passes = []
     for _ in range(bounce_count(bounces)):
         x = l0 if not passes else model["albedo"] * F(1 / np.pi) * passes[-1]
-        passes.append(apply(model["blocks"], model["weights"], x))
+        passes.append(product(model["blocks"], model["weights"], x))
     return {"sky": sky, "direct": direct, "l0": l0, "passes": passes}
 
 
@@ -83,8 +87,8 @@ def field_for(lights):
             "python scripts/data/public_scenes.py indirect <scene> (lights.load "
             "finds it)"
         )
-    bounces = bounce_count(lights.get("bounces", BOUNCES))
     model = load_model(lights["indirect"])
+    bounces = bounces_of(lights, model)
     key = (signature(lights), id(lights["shadow_map"]), id(lights["octahedral"]))
     key += (bounces,)
     cache = model.setdefault("cache", [])

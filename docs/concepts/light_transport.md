@@ -16,9 +16,37 @@ parts are and where each runs.
 | elements | points sampled over the surfaces by area (the lighting entry's count, 50,000 by default, then those that see only the void or are buried dropped; 36,832 kept for Sponza), each with a position, a normal, an albedo or an emission and a sky transfer row (25 spherical harmonics' coefficients over the 1,024 stratified cosine rays from the element that escape: one in each cell of a 32 x 32 grid); padded to whole units of 32 and ordered by a cluster tree | once, on the host, by `public_scenes.py indirect <scene>` (the far field: until it is made, `gi` and its forms draw the scene without the indirect light, [presets](../guides/cli.md#the-presets)) |
 | the transport matrix `M = pi F` | what each element receives from every other: `F` the form factors with one visibility ray each, stored as a hierarchical matrix; built dense then compressed, or block by block without the dense matrix (`--transport sketch`) | once, with the elements |
 | the sources `L0` | each element's outgoing light for the current lights: emission, and albedo / pi times the sun (through the shadow map), the lamps and the sky | at every update |
-| the bounce passes | `E1 = M L0`, `E_k = M (albedo / pi E_(k-1))`, `E = E1 + ... + E_b`, `b` the control `bounces` (2 by default) | at every update, each one apply |
+| the bounce passes | `E1 = M L0`, `E_k = M (albedo / pi E_(k-1))`, `E = E1 + ... + E_b`, `b` the control `bounces`, else the lighting entry's `bounces`, else the scene's own ([the number of bounces](#the-number-of-bounces)) | at every update, each one apply |
 | the field | voxels of the element spacing, six directions a voxel, each holding `E` plus the element's own sky irradiance, averaged over the elements within 2 spacings of the voxel's centre that the centre sees (one ray each); texels of a has-data bit and three square-root codes, in light pages (slot `light.field`) | at every update |
 | the lookup | at a pixel, the eight voxel centres around `P + n h / 2` with trilinear weights, a direction a voxel by the normal's sign on each axis | in LIGHT, every pixel |
+
+## The number of bounces
+
+When neither the control nor the scene's lighting entry gives `bounces`, the count comes
+from the scene's transport, once per process (`prism_reference.indirect.bounces`, the same
+call in the reference and in the field update's host, so the card and the reference apply
+the matrix the same number of times). The series is started with every real element lit
+by unit irradiance (`E1 = M albedo / pi`, then `E_k = M (albedo / pi E_(k-1))`), and its
+power is the elements' area-weighted luminance. After each pass from the second, the rest
+of the series is estimated as a geometric tail at the ratio of its last two terms,
+`p_b r / (1 - r)`. The count is the first `b` whose estimated rest is at most 5 % of the
+estimated sum. Its cost is that many applies on the host at load.
+
+The start does not depend on the sun, so the count is a property of the scene. Its
+ratio grows from pass to pass, so the tail at the last ratio can fall short. Measured against the bounce light of the scene's own lights carried to 40 passes (the elements'
+area-weighted luminance), the chosen count leaves 1.4 % (Sponza, 3) to 4.5 %
+(italian_flat_97f97a20ba, 8) out on the scenes of the viewer's data, where 2 passes
+left 5.2 % and 38 %. A bright scene takes more passes and a longer update: its light
+converges slowly (modern_living_room, mean albedo 0.85: 15).
+
+What a user sees: after the sun moves, the frames go on with the field they hold, and
+the indirect light of a bright scene settles when the update ends. In the threads' form
+that takes about a third of a second on italian_flat_97f97a20ba (8 passes) and about
+two thirds on lynxsdesign_a01894bbb8 (8 passes), against about a tenth at 2 passes.
+Beside the frames, each pass costs about 7 ms on Sponza, 37 ms on italian_flat_97f97a20ba
+and 75 ms on lynxsdesign_a01894bbb8. An update that has the card alone (the first one,
+before the first frame) costs 7 to 8 ms a pass. The choice costs 1.6 s (Sponza) to
+9.6 s (modern_living_room) on the host at load, once per process.
 
 ## The matrix as blocks
 

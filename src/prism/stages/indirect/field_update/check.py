@@ -1,6 +1,8 @@
 """The field update's check: `updates` update commands (whole, or stepped with the
 host's float apply between the steps), then, after the stop, the field's texels, sky and
-L0 against the reference's (`expected`), each command's code and its times."""
+L0 against the reference's (`expected`; whole with passes, with the card's apply
+emulated, and that against float32's as the format's error), each command's code and its
+times."""
 
 import numpy as np
 
@@ -13,10 +15,12 @@ from prism.stages.indirect.field_update.model.results import (
     times,
     work_arrays,
 )
+from prism.stages.indirect.transport.plan.emulate import emulate
+from prism.stages.indirect.transport.plan.weights import decode_weights
 from prism_reference.indirect.field.pack import PACK_BITS, PACK_SHIFTS
 
-CODE_MOST_ALONE = 1  # the largest code difference without the card's apply
-CODE_MOST_PASSES = 12  # with it (the card's tile formats): the largest recorded is 10
+CODE_MOST = 1  # the largest code difference against the reference judged by
+FORMAT_LIT = 0.01  # a value counted in the format's per cent: this share of the scale
 NAME = "indirect.field_update"
 TRANSPORT = "indirect.transport"
 
@@ -45,6 +49,29 @@ def field_numbers(got, want):
     }
 
 
+def card_product(transport):
+    """The product as the card's apply computes it: `transport`'s set and its encoded
+    weights, emulated."""
+    s, w = transport.set, decode_weights(transport.raw)
+    return lambda blocks, weights, x: emulate(s, w, x)
+
+
+def format_error(card, exact):
+    """The field with the card's apply emulated (`card`, expected's) against float32's
+    (`exact`): p99 and largest code difference of a channel, and p99 and largest of the
+    value's relative difference in per cent where float32's is FORMAT_LIT of its scale.
+    """
+    gap = np.abs(codes(card["texels"]) - codes(exact["texels"])).ravel()
+    lit = exact["values"] >= FORMAT_LIT * float(exact["scale"])
+    rel = np.abs(card["values"][lit] - exact["values"][lit]) / exact["values"][lit]
+    return {
+        "code_p99": float(np.percentile(gap, 99)) if gap.size else 0.0,
+        "code_most": int(gap.max(initial=0)),
+        "percent_p99": float(100 * np.percentile(rel, 99)) if rel.size else 0.0,
+        "percent_most": float(100 * rel.max(initial=0.0)),
+    }
+
+
 def relative_most(got, want):
     """The largest |got - want| / |want| over the entries where want is not 0, and the
     count of entries that differ."""
@@ -58,17 +85,23 @@ def relative_most(got, want):
 
 
 def verdict(out):
-    """Passing: every code 0 and the largest code difference of the field at most
-    CODE_MOST_ALONE at 0 bounces or stepped, CODE_MOST_PASSES whole with passes (the
-    card's apply in them). {ok, rule, failed}."""
+    """Passing: every code 0 and the largest code difference of the field against the
+    reference it is judged by at most CODE_MOST. {ok, rule, failed}."""
     failed = [f"code {c}" for c in out["codes"] + out["row_codes"] if c != 0]
     if "field" not in out:
         return {"ok": False, "rule": "codes", "failed": failed + ["no field"]}
     code = out["field"]["code_most"]
-    alone = out["bounces"] == 0 or out["stepped"]
-    most = CODE_MOST_ALONE if alone else CODE_MOST_PASSES
-    failed += [f"code most {code}"] if code > most else []
-    return {"ok": not failed, "rule": f"code most <= {most}", "failed": failed}
+    failed += [f"code most {code}"] if code > CODE_MOST else []
+    return {"ok": not failed, "rule": f"code most <= {CODE_MOST}", "failed": failed}
+
+
+def judged_by(lights, model, bounces, transport, stepped):
+    """The reference the field is judged by and float32's: with passes and whole, the
+    card's apply emulated (`card_product`), else float32's own."""
+    exact = expected(lights, model, bounces)
+    if stepped or not exact["passes"]:
+        return exact, exact
+    return expected(lights, model, bounces, card_product(transport)), exact
 
 
 def update_times(rows):
@@ -114,7 +147,9 @@ def check(loaded):
     rows = times(loaded.region("field_times"))
     work = work_arrays(loaded.region("field_work"), host.model)
     transport = loaded.hosts[TRANSPORT].results(loaded)
-    want = expected(host.lights, host.model, host.bounces)
+    want, exact = judged_by(
+        host.lights, host.model, host.bounces, loaded.hosts[TRANSPORT], stepped
+    )
     out = {
         "scene": host.scene,
         "sun": host.sun,
@@ -132,6 +167,9 @@ def check(loaded):
     got = field_texels(pages, host.model)
     scale = rows[-1]["scale"]
     out["field"] = field_numbers(got, want["texels"])
+    out["judged_by"] = "float32" if want is exact else "the card's apply emulated"
+    if want is not exact:
+        out["format"] = format_error(want, exact)
     out["pages_equal"] = bool(np.array_equal(pages, want["pages"]))
     out["scale"] = {
         "card": scale,

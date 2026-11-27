@@ -107,7 +107,23 @@ cosine rays about the pixel's normal from its point moved `eps` along the triang
 normal; an escape adds the sky (the same map, sun removed), a hit its sun (shadow ray),
 lamps and emission, then one cosine ray from it adds the sky times its albedo (the first
 bounce of every source), its hit's direct light times the albedo, and one more ray the
-sky times both albedos (the second bounce).
+sky times both albedos (the second bounce). Past the second bounce, each further bounce
+repeats the same steps from the last hit. The count is its argument `bounces` (2 by
+default), and a check against a frame passes it the frame's count (`bounces_of` the lights
+and the model). Bounces past the first trace one more ray each: on 8 CPUs, at 640 x 360
+and every second pixel, a pixel-ray took 3.0 us at 3 bounces on Sponza and 9.4 us at 8
+on italian_flat_97f97a20ba, or 0.8 ms and 2.4 ms a pixel at 256 rays.
+
+The field alone against the truth, as the ratio of the means of the irradiance's
+luminance, at the same 640 x 360 (32 rays a pixel, the view's own shadow map):
+
+| view | field 2 / truth 2 | field at the scene's count / truth at it |
+|---|---:|---:|
+| Sponza overview (3) | 0.914 | 0.910 |
+| italian_flat_97f97a20ba, its camera (8) | 0.841 | 0.794 |
+
+On italian_flat_97f97a20ba, the truth at 8 bounces holds 1.53 times its light at 2: a field
+of 8 bounces against a truth of 2 reads 1.21.
 
 What it gets wrong: the light bounced within
 one element spacing is missed: walls next to sunlit ledges and sills, column bases,

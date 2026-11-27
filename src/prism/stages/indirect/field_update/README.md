@@ -17,7 +17,7 @@ passes' x is stored there) and `light.shadow_map`, and writes `light.field`.
 | `unit.py` | the unit: its sources, the command `update`, the slot it takes, its six regions, its numbers, the header's word places as defines |
 | `host.py` | `FieldUpdateHost`: the lights at the sun, the field model, the light pages, the regions' contents, the numbers, the sun's words written live, the steps run, the field read back |
 | `graph.py` | the update as the job thread's job and a kept graph (`gi_threads`): the job's C, commands and regions, the graph, its host side |
-| `check.py` | the update against the reference: the texels, the scale and units, sky and L0, the codes, the times, the verdict (codes 0; the field's code difference at most 1 at 0 bounces or stepped, at most 12 whole with passes: the card applies the matrix in its tile formats, and the largest difference recorded is 10 of 255) |
+| `check.py` | the update against the reference: the texels, the scale and units, sky and L0, the codes, the times, the verdict (codes 0; the field's code difference at most 1 against the reference it is judged by: whole with passes, the reference with the card's apply emulated in its tile formats, `transport/plan/emulate.py`; stepped or at 0 bounces, float32's); the format's error, the emulated field against float32's, reported apart (p99 and largest in codes and in per cent of the values above 1 % of the scale), not judged |
 | `model/numbers.py` | the C header's numbers, the header region's words and places, the numbers it asks for |
 | `model/regions.py` | the operator by row, each row's place in the pages, the elements' arrays and region, the counts, the work region's layout |
 | `model/header.py` | the header region's words and the sun's words |

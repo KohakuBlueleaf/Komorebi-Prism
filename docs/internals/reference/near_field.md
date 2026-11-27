@@ -106,8 +106,9 @@ that fails brings no light and blocks nothing (its bits go to the far mean).
 ## Against the truth
 
 Host, 2026-11-27, 1,280 x 720 (the raster's 1,280 x 736, rows under 720), every second
-pixel against `indirect.truth` (256 rays, two bounces); the sun at the elements and at the
-frame's pixels traced (italian_flat's file has no shadow map of its own). Scores on the
+pixel against `indirect.truth` (256 rays, two bounces: the field's count before it
+followed the scene; [indirect](indirect.md) gives the field against the truth at the
+scene's count); the sun at the elements and at the frame's pixels traced (italian_flat's file has no shadow map of its own). Scores on the
 irradiance's luminance: ratio of the means / PSNR on `E / p99.5(truth)` clipped to 1 /
 the same PSNR after the truth's 4 x 4 samples are averaged (8 x 8 pixels; the truth's own
 noise dominates the first PSNR). Pixels where the truth reads 0 are left out (a Sponza

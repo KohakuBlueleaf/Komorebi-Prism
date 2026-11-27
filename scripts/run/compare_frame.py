@@ -8,8 +8,8 @@ from prism_cli.preset import opened
 
 from prism.stages.direct.light.model.expect import with_map
 from prism_reference.direct.frame import rasterize_lighted
-from prism_reference.direct.lights import BOUNCES, bounce_count
 from prism_reference.direct.lights import load as load_lights
+from prism_reference.indirect.bounces import bounces_of
 from prism_reference.indirect.field.values import field_values
 from prism_reference.indirect.files import load_model
 from prism_reference.indirect.light import element_light, signature
@@ -30,7 +30,7 @@ def bounces_only(lights):
     irradiance) and no ambient where no voxel has data: a field entered under its key.
     """
     model = load_model(lights["indirect"])
-    bounces = bounce_count(lights.get("bounces", BOUNCES))
+    bounces = bounces_of(lights, model)
     light = element_light(lights, model, bounces)
     source = sum(light["passes"], np.zeros_like(light["sky"]))
     own = {**lights, "shadow_map": np.array(lights["shadow_map"], copy=True)}

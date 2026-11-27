@@ -15,11 +15,16 @@ from prism.core.unit import BESIDE
 from prism.loop.report import columns, medians
 from prism.program.loaded import MICROSECONDS
 from prism.stages.direct.light.check.thread_frame import lit
-from prism.stages.indirect.field_update.check import field_numbers, update_times
+from prism.stages.indirect.field_update.check import (
+    TRANSPORT,
+    field_numbers,
+    format_error,
+    judged_by,
+    update_times,
+)
 from prism.stages.indirect.field_update.check import verdict as field_verdict
 from prism.stages.indirect.field_update.model.numbers import F32
 from prism.stages.indirect.field_update.model.results import (
-    expected,
     field_texels,
     times,
 )
@@ -44,14 +49,17 @@ def units_of(scale):
 
 def field_now(loop):
     """The field in the light pages against the reference's for the update's lights
-    with the card's shadow map: field_check's numbers and the scale's."""
+    with the card's shadow map (`judged_by`): field_check's numbers, the format's error
+    and the scale's."""
     host = loop.loaded.hosts[UPDATE]
     lights = {**host.lights, "shadow_map": loop.loaded.hosts[SUN].map(loop.loaded)}
-    want = expected(lights, host.model, host.bounces)
+    transport = loop.loaded.hosts[TRANSPORT]
+    want, exact = judged_by(lights, host.model, host.bounces, transport, False)
     got = field_texels(host.field_pages(), host.model)
     scale = float(host.given["scale"])
     return {
         "field": field_numbers(got, want["texels"]),
+        **({} if want is exact else {"format": format_error(want, exact)}),
         "scale": {
             "card": scale,
             "reference": float(want["scale"]),

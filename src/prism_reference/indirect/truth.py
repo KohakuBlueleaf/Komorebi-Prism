@@ -18,15 +18,27 @@ from prism_reference.raster.vector import dot3
 from prism_reference.trace.batch import trace
 
 F = np.float32
-# Rays a pixel and the seeds of the three path segments.
+# Rays a pixel, the bounces of a path by default and the seed of its first segment (a
+# segment's seed the one before it plus 1).
 TRUTH_RAYS = 256
-TRUTH_SEEDS = (21, 22, 23)
+TRUTH_BOUNCES = 2
+TRUTH_SEED = 21
 
 
-def truth(scene, materials, lights, frame, tree, rays=TRUTH_RAYS, step=2, log=print):
+def truth(
+    scene,
+    materials,
+    lights,
+    frame,
+    tree,
+    rays=TRUTH_RAYS,
+    step=2,
+    log=print,
+    bounces=TRUTH_BOUNCES,
+):
     """At the frame's visible non-emissive pixels (every `step`-th) `rays` cosine rays
-    about the pixel's normal; per pixel the sky with visibility and one and two bounces
-    of the sources (`path`)."""
+    about the pixel's normal; per pixel the sky with visibility and each of `bounces`
+    bounces of the sources (`bounce1` ... , `path`)."""
     cam, eps = scene["camera"], F(scene["eps"][0])
     tri = frame["tri"][::step, ::step]
     kind = materials["kind"][materials["material"]]
@@ -45,7 +57,8 @@ def truth(scene, materials, lights, frame, tree, rays=TRUTH_RAYS, step=2, log=pr
     }
     origin = position + g * eps
     pixel = (iy * (tri.shape[1]) + ix).astype(np.int64)
-    sums = {k: np.zeros((len(iy), 3)) for k in ("sky", "bounce1", "bounce2")}
+    names = ("sky", *(f"bounce{k}" for k in range(1, bounces + 1)))
+    sums = {k: np.zeros((len(iy), 3)) for k in names}
     escape = np.zeros(len(iy))
     started = time.perf_counter()
     for k0 in range(0, rays, 4):
@@ -53,8 +66,9 @@ def truth(scene, materials, lights, frame, tree, rays=TRUTH_RAYS, step=2, log=pr
         ii = np.repeat(np.arange(len(iy)), len(ks))
         index = np.repeat(pixel * rays, len(ks)) + np.tile(ks, len(iy))
         path(
-            tree, lights, surfaces, origin[ii], normal[ii], index, eps, ii, sums, escape
-        )
+            tree, lights, surfaces, origin[ii], normal[ii], index, eps, ii, sums, escape,
+            bounces,
+        )  # fmt: skip
         if k0 % 64 == 60:
             log(
                 f"truth: {k0 + 4} of {rays} rays, {time.perf_counter() - started:.0f} s"
@@ -93,33 +107,34 @@ def hit_direct(tree, lights, surfaces, origin, d, t, tri, eps):
     return point + n * eps, n, albedo, out
 
 
-def path(tree, lights, surfaces, origin, normal, index, eps, owner, sums, escape):
-    """One path per ray, added to `sums` by `owner`: the sky where it escapes; at its
-    first hit the direct light and one more cosine ray (`bounce1`), then one more hit
-    and ray (`bounce2`)."""
-    seed1, seed2, seed3 = TRUTH_SEEDS
-    d = cosine_directions(index, normal, seed1)
+def path(
+    tree, lights, surfaces, origin, normal, index, eps, owner, sums, escape, bounces
+):
+    """One path per ray, added to `sums` by `owner`: the sky where its first segment
+    escapes; at its k-th hit (k up to `bounces`) the direct light there and the sky
+    where the next segment escapes, both times the albedos before it (`bounce<k>`)."""
+    d = cosine_directions(index, normal, TRUTH_SEED)
     t, tri, _, _ = trace(tree, origin, d, 1e30)
     out = tri < 0
     np.add.at(sums["sky"], owner[out], sky_radiance(lights, d[out]))
     escape += np.bincount(owner[out], minlength=len(escape))
-    h = np.nonzero(~out)[0]
-    o1, n1, a1, l1 = hit_direct(
-        tree, lights, surfaces, origin[h], d[h], t[h], tri[h], eps
-    )
-    np.add.at(sums["bounce1"], owner[h], l1)
-    d2 = cosine_directions(index[h], n1, seed2)
-    t2, tri2, _, _ = trace(tree, o1, d2, 1e30)
-    out2 = tri2 < 0
-    np.add.at(
-        sums["bounce1"], owner[h[out2]], a1[out2] * sky_radiance(lights, d2[out2])
-    )
-    g = np.nonzero(~out2)[0]
-    hit2 = hit_direct(tree, lights, surfaces, o1[g], d2[g], t2[g], tri2[g], eps)
-    o2, n2, a2, l2 = hit2
-    np.add.at(sums["bounce2"], owner[h[g]], a1[g] * l2)
-    d3 = cosine_directions(index[h[g]], n2, seed3)
-    _, tri3, _, _ = trace(tree, o2, d3, 1e30, any_hit=True)
-    out3 = np.nonzero(tri3 < 0)[0]
-    gain = a1[g[out3]] * a2[out3]
-    np.add.at(sums["bounce2"], owner[h[g[out3]]], gain * sky_radiance(lights, d3[out3]))
+    live = np.nonzero(~out)[0]  # the rays still on their path
+    gain = np.ones((len(live), 1), F)
+    o, t, tri = origin[live], t[live], tri[live]
+    for k in range(1, bounces + 1):
+        o, n, albedo, light = hit_direct(
+            tree, lights, surfaces, o, d[live], t, tri, eps
+        )
+        np.add.at(sums[f"bounce{k}"], owner[live], gain * light)
+        gain = gain * albedo
+        d = np.zeros_like(d)
+        d[live] = cosine_directions(index[live], n, TRUTH_SEED + k)
+        last = k == bounces
+        t, tri, _, _ = trace(tree, o, d[live], 1e30, any_hit=last)
+        out = tri < 0
+        sky = gain[out] * sky_radiance(lights, d[live][out])
+        np.add.at(sums[f"bounce{k}"], owner[live[out]], sky)
+        if last:
+            break
+        keep = ~out
+        live, gain, o, t, tri = live[keep], gain[keep], o[keep], t[keep], tri[keep]

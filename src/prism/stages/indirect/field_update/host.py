@@ -32,8 +32,9 @@ from prism.stages.indirect.field_update.model.regions import (
 from prism.stages.indirect.transport.host import scene_name
 from prism.stages.indirect.transport.plan.emulate import x_tiles
 from prism_common.paths import data_root
-from prism_reference.direct.lights import BOUNCES, bounce_count, moved, placeholder
+from prism_reference.direct.lights import bounce_count, moved, placeholder
 from prism_reference.direct.lights import load as load_lights
+from prism_reference.indirect.bounces import bounces_of
 from prism_reference.indirect.files import load_model
 from prism_reference.indirect.hmatrix.apply import apply
 from prism_reference.scene.public.materials import load_materials
@@ -63,7 +64,8 @@ class FieldUpdateHost:
     the option `name`) on `session`: after `prepare()`, the lights, the field model and
     the regions' contents; after `connect()`, the light pages tensor. In a loop, an
     update after each change of the option `sun` (azimuth, elevation) or of the
-    bounces (the option `bounces`, a control). Option `update_beside`: its unit on the
+    bounces (the option `bounces`, a control; none given: the scene's, bounces_of).
+    Option `update_beside`: its unit on the
     cluster beside the frames', the update submitted beside them, the field's pages
     twice (the half LIGHT reads, the half the update writes)."""
 
@@ -73,7 +75,8 @@ class FieldUpdateHost:
         self.box = None if isinstance(scene, str) else scene_box(scene)
         self.cores = options.get("cores") or session.ranks
         self.sun = options.get("sun")
-        self.bounces = bounce_count(options.get("bounces", BOUNCES))
+        given = options.get("bounces")  # None: the scene's (prepare)
+        self.bounces = None if given is None else bounce_count(given)
         self.beside = bool(options.get("update_beside", False))
         self.cluster = BESIDE if self.beside else FRAMES
         self.halves = 2 if self.beside else 1  # the field's pages in the light pages
@@ -91,16 +94,17 @@ class FieldUpdateHost:
         """The lights at the sun, the model, the regions' contents, the light pages'
         layout."""
         self.own_lights = sun_moved(self.scene, None)
-        bounces = bounce_count(self.own_lights.get("bounces", BOUNCES))
+        if "indirect" not in self.own_lights:
+            raise ValueError(f"{self.scene}: no indirect field model in the data root")
+        self.model = load_model(self.own_lights["indirect"])
+        bounces = bounces_of(self.own_lights, self.model)
+        self.bounces = bounces if self.bounces is None else self.bounces
         self.made = (None, bounces)
         if placeholder(self.own_lights) and self.own_lights["sun_direction"][1] > 0:
             self.made = None  # no valid field: the first update comes before a frame
         self.lights = self.own_lights
         if self.sun is not None:
             self.lights = sun_moved(self.scene, self.sun)
-        if "indirect" not in self.lights:
-            raise ValueError(f"{self.scene}: no indirect field model in the data root")
-        self.model = load_model(self.lights["indirect"])
         self.counts = counts(self.model)
         self.elements, element_offsets = elements_region(self.model, self.lights)
         self.work_offsets, self.work_bytes = work_layout(self.model)
