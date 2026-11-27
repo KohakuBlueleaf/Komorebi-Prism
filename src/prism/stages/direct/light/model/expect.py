@@ -18,7 +18,7 @@ from prism.stages.direct.light.model.surface import (
 from prism.stages.material.texture.model.layers import later_pieces
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.lights import placeholder, shadow_side
-from prism_reference.direct.shadow import FILL_SIDE, shadow_map
+from prism_reference.direct.shadow import FILL_SIDE, map_at
 from prism_reference.indirect.field.build import voxel_keys
 from prism_reference.indirect.field.values import FIELD_SHIFT
 from prism_reference.indirect.light import field_for
@@ -29,12 +29,12 @@ from prism_reference.raster.setup import setup, world_points
 
 
 def with_map(view, materials, lights):
-    """`lights` with their shadow map: a placeholder (the sun above the horizon) made
-    by shadow_map at their sun and side now; else as they are."""
+    """`lights` with their shadow map: a stand-in (the sun above the horizon) made by
+    map_at at their sun's camera and side now; else (a map drawn so) as they are."""
     if not placeholder(lights) or lights["sun_direction"][1] <= 0:
         return lights
     side = shadow_side(lights)
-    depth, _, _ = shadow_map(view, lights["sun_direction"], materials, side)
+    depth = map_at(view, lights["shadow_camera"], materials, side)
     return {**lights, "shadow_map": depth}
 
 

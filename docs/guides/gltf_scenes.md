@@ -99,7 +99,7 @@ When `prism_cli open` or the viewer opens a scene converted from a file (its ent
 (`apps/prism_cli/far_field.py`) as a process of its own under `nice -n 19` and the idle
 scheduling class, so the frames keep their CPUs; the frames go on without the far field
 meanwhile. The build runs the steps of the commands below: the sky's visibility bake and
-the lights (`--visibility bake --shadow card`) when the lighting file is not baked, then
+the lights (`--visibility bake`) when the lighting file is not baked, then
 the block-by-block transport (`--transport sketch`). It writes into a folder of its own,
 `<data>/public/.far_field/<name>/`, which links the scene's mesh, materials and
 downloads; when every file is written it renames the visibility and lighting files, the
@@ -266,6 +266,6 @@ python -m prism_cli run --pipeline gi_threads --scene NAME --view camera --card 
 
 The lighting command is the public scenes' own: it downloads the environment map once,
 bakes the visibility with the host's tracer and writes `<data>/public/NAME_lighting.npz`
-(`--visibility open` and `--shadow card` as `open` makes them:
+(`--visibility open` as `open` makes them:
 [scenes](../concepts/scenes.md#lighting)). Both read the entry through
 `$PRISM_SCENES_EXTRA`, which must stay set.

@@ -47,11 +47,12 @@ SCALE_COMMAND = "field_scale"  # the command returning the last update's scale w
 MS = 1e3
 
 
-def sun_moved(scene, sun):
-    """The scene's lights, with the sun at `sun` (azimuth, elevation; None: as loaded)
-    and its shadow map as the reference makes it of the scene's first view's scene."""
+def sun_moved(scene, sun, lights=None):
+    """The scene's lights (`lights`, else loaded), with the sun at `sun` (azimuth,
+    elevation; None: as they are) and its shadow map as the reference makes it of the
+    scene's first view's scene."""
     data = data_root()
-    lights = load_lights(scene, data)
+    lights = load_lights(scene, data) if lights is None else lights
     if sun is None:
         return lights
     view = f"{scene}_{next(iter(table()[scene]['views']))}"
@@ -60,7 +61,8 @@ def sun_moved(scene, sun):
 
 class FieldUpdateHost:
     """What the update needs on the host for `scene` (a name, or a view's scene with
-    the option `name`) on `session`: after `prepare()`, the lights, the field model and
+    the option `name`; options `lights` and `shadow_side`: its lights and the map's
+    side, as LIGHT's) on `session`: after `prepare()`, the lights, the field model and
     the regions' contents; after `connect()`, the light pages tensor. In a loop, an
     update after each change of the option `sun` (azimuth, elevation) or of the
     bounces (the option `bounces`, a control). Option `update_beside`: its unit on the
@@ -73,6 +75,8 @@ class FieldUpdateHost:
         self.box = None if isinstance(scene, str) else scene_box(scene)
         self.cores = options.get("cores") or session.ranks
         self.sun = options.get("sun")
+        self.given_lights = options.get("lights")  # the scene's lights, when given
+        self.side = options.get("shadow_side")  # the shadow map's side, when given
         self.bounces = bounce_count(options.get("bounces", BOUNCES))
         self.beside = bool(options.get("update_beside", False))
         self.cluster = BESIDE if self.beside else FRAMES
@@ -90,14 +94,16 @@ class FieldUpdateHost:
     def prepare(self):
         """The lights at the sun, the model, the regions' contents, the light pages'
         layout."""
-        self.own_lights = sun_moved(self.scene, None)
+        self.own_lights = sun_moved(self.scene, None, self.given_lights)
+        if self.side is not None:
+            self.own_lights = {**self.own_lights, "shadow_side": np.int32(self.side)}
         bounces = bounce_count(self.own_lights.get("bounces", BOUNCES))
         self.made = (None, bounces)
         if placeholder(self.own_lights) and self.own_lights["sun_direction"][1] > 0:
             self.made = None  # no valid field: the first update comes before a frame
         self.lights = self.own_lights
         if self.sun is not None:
-            self.lights = sun_moved(self.scene, self.sun)
+            self.lights = sun_moved(self.scene, self.sun, self.own_lights)
         if "indirect" not in self.lights:
             raise ValueError(f"{self.scene}: no indirect field model in the data root")
         self.model = load_model(self.lights["indirect"])

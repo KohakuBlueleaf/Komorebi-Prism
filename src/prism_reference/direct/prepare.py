@@ -8,7 +8,7 @@ import time
 import numpy as np
 
 from prism_reference.direct.lamps import find_lamps
-from prism_reference.direct.shadow import SHADOW_SIDE, shadow_map, sun_view
+from prism_reference.direct.shadow import SHADOW_SIDE, sun_view
 from prism_reference.direct.sky import (
     LUMINANCE,
     OCTA_SIDE,
@@ -102,18 +102,14 @@ def prepare(
     rebake=False,
     shadow_side=None,
     visibility="bake",
-    shadow="host",
 ):
     """Writes <scene>_lighting.npz: the environment, the sky's visibility (`visibility`
     "bake": baked, kept in <scene>_visibility.npz unless rebake; "open": the kept one,
-    else 1), the lamps, the shadow map (`shadow` "card": 1 x 1 of 0); path, counts."""
-    if shadow not in ("host", "card"):
-        raise ValueError(f"shadow {shadow!r}: one of host, card")
+    else 1), the lamps, the sun's camera and a 1 x 1 shadow map of 0; path, counts."""
     entry = table()[name]["lighting"]
     (env_path,) = fetch_environment(entry["environment"], data)
     mesh, _ = load_mesh(name, data)
-    wanted = shadow == "host" or "lights" not in entry
-    materials = load_materials(name, data)[0] if wanted else None
+    materials = load_materials(name, data)[0] if "lights" not in entry else None
     counts = {"vertices": len(mesh["positions"])}
     visibility, bake = sky_visibility(name, data, mesh, workers, rebake, visibility)
     counts |= bake
@@ -127,14 +123,8 @@ def prepare(
     if shadow_side is None:
         shadow_side = entry.get("shadow_side", SHADOW_SIDE)
     counts["shadow_side"] = shadow_side = int(shadow_side)
-    counts["shadow"] = shadow
-    if shadow == "card":
-        camera, texel = sun_view(mesh, env["sun_direction"], shadow_side)
-        depth = np.zeros((1, 1), dtype=F)
-    else:
-        depth, camera, texel = shadow_map(
-            mesh, env["sun_direction"], materials, shadow_side
-        )
+    camera, texel = sun_view(mesh, env["sun_direction"], shadow_side)
+    depth = np.zeros((1, 1), dtype=F)
     counts["shadow_seconds"] = time.perf_counter() - started
     position, colour, intensity, lamps = scene_lamps(entry, mesh, materials)
     counts |= lamps

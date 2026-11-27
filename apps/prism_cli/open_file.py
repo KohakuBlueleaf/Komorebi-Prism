@@ -68,10 +68,10 @@ def lights(args, name, data, account):
     if args.bake == "wait":
         workers = min(len(os.sched_getaffinity(0)), MOST_WORKERS)
         with account.part("lights.bake"):
-            _, counts = prepare(name, data, workers, visibility="bake", shadow="card")
+            _, counts = prepare(name, data, workers, visibility="bake")
         return done | {"made": "bake", "counts": counts}
     with account.part("lights.open"):
-        _, counts = prepare(name, data, visibility="open", shadow="card")
+        _, counts = prepare(name, data, visibility="open")
     account.add("lights.open", -counts["shadow_seconds"])
     account.add("lights.open.shadow_map", counts["shadow_seconds"])
     done |= {"made": "open", "counts": counts}

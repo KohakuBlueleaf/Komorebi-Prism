@@ -100,8 +100,8 @@ def bounce_count(value):
 
 def load(name, data):
     """The lights of a scene (or a view's scene): the arrays of LIGHT_KEYS, the table's
-    numbers, the shadow bias as 1/z and the path of the indirect file when there is one.
-    """
+    numbers, the shadow bias as 1/z and the path of the indirect file when there is one;
+    the shadow map a 1 x 1 stand-in of 0 whatever map the file holds."""
     if is_view(name):
         name = views()[name][0]
     path = lighting_path(name, data)
@@ -112,6 +112,7 @@ def load(name, data):
         )
     with np.load(path) as f:
         lights = {k: f[k] for k in LIGHT_KEYS}
+        lights["shadow_map"] = np.zeros((1, 1), dtype=np.float32)
         lights["shadow_side"] = np.int32(
             f["shadow_side"] if "shadow_side" in f.files else len(f["shadow_map"])
         )

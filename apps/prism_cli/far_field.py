@@ -186,7 +186,7 @@ def build(name, data, workers):
         record = {"name": name, "state": "built", "seconds": {}}
         if not baked(name, data):
             at = time.perf_counter()
-            _, counts = prepare(name, work, workers, visibility="bake", shadow="card")
+            _, counts = prepare(name, work, workers, visibility="bake")
             record["seconds"]["lights"] = round(time.perf_counter() - at, 3)
             record["lights"] = {"visibility": counts.get("visibility"), "made": True}
         at = time.perf_counter()

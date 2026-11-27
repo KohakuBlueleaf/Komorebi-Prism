@@ -295,20 +295,23 @@ entry, its page, licence and SHA-256; the file is saved in `downloads/` like the
 files and never committed), bakes the sky visibility per vertex (`<scene>_visibility.npz`,
 reused unless `--rebake`; traced by the compiled batch tracer (`trace.batch`, the
 reference's triangle test over the host's own tree), 16,384 vertices at a time on `--workers` threads, by
-default the CPUs the process may run on, at most 32), finds the lamps, renders the sun's shadow map and writes
+default the CPUs the process may run on, at most 32), finds the lamps, places the sun's camera and writes
 `<scene>_lighting.npz` (to a temporary name, then renamed). With `--visibility open` and
 no visibility file yet, every vertex's visibility is 1 and the file's `counts` say
 `"visibility": "open"`; a later `--visibility bake` (the default) replaces it.
-`--shadow card` (the default is `host`) does not render the sun's shadow map: the file
-holds the map's camera and texel from the same `sun_view` the map is drawn from, its
-`shadow_side`, and a 1 x 1 map of 0 in its place, and its `counts` say `"shadow": "card"`
-(`"host"` otherwise). Such lights hold a placeholder (`lights.placeholder`: the map smaller
-than `shadow_side`): the light pages give the map zero pages of the full count, the
-pipeline's `direct.shadow_pcf` sends its SUN command at the run's first view, as after a
-moved sun, so the card draws the map before the first frame is lit, and a check that
+The sun's shadow map is never baked: the file holds the map's camera and texel from the
+`sun_view` the map is drawn from, its `shadow_side`, and a 1 x 1 map of 0 in its place. A
+map baked into an older file is a fault of the code that baked it, kept on disk where no
+re-bake reaches it; so `lights.load` puts the same 1 x 1 stand-in in place of whatever map
+the file holds, and an old file loads as before with its map ignored. Loaded lights hold a
+stand-in (`lights.placeholder`: the map smaller than `shadow_side`): the light pages give
+the map zero pages of the full count, the pipeline's `direct.shadow_pcf` sends its SUN
+command at every load, so the card draws the map before the first frame is lit, the
+field's update makes the field from the card's map before that frame, and a check that
 compares with the reference's map (`direct/light/model/expect.py`'s `with_map`) draws it
-with `shadow_map` at that moment. A pipeline that lights without `direct.shadow_pcf`
-needs `--shadow host`. The maps used:
+with `map_at` at the lights' sun camera at that moment. The reference's far field
+(`indirect/light.py`) takes the map of the lights it is given: from a stand-in, the sun
+without a shadow. The maps used:
 
 | name | page | licence |
 |---|---|---|

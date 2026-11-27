@@ -33,8 +33,9 @@ def lamp_irradiance(lights, position, normal):
 
 
 def element_light(lights, model, bounces=BOUNCES):
-    """Each element's sky irradiance, its direct light, L0 = emission x scale + albedo /
-    pi direct, and the `bounces` passes E1 = M L0, E_k = M (albedo / pi E_(k-1))."""
+    """Each element's sky irradiance, its direct light (the sun's shadow from the lights'
+    map: none from a 1 x 1 stand-in), L0 = emission x scale + albedo / pi direct, and the
+    `bounces` passes E1 = M L0, E_k = M (albedo / pi E_(k-1))."""
     p, n = model["position"], model["normal"]
     sun = sun_shadow(lights, p, n) * np.maximum(
         dot3(n, lights["sun_direction"][None, :]), F(0)

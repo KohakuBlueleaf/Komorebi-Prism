@@ -41,12 +41,6 @@ def main():
         help="lighting: the sky's visibility baked, or 1 a vertex until baked",
     )
     parser.add_argument(
-        "--shadow",
-        choices=("host", "card"),
-        default="host",
-        help="lighting: the sun's shadow map rendered here, or left to the card",
-    )
-    parser.add_argument(
         "--transport",
         choices=("dense", "sketch", "cross"),
         default="dense",
@@ -68,7 +62,6 @@ def main():
                 args.workers,
                 args.rebake,
                 visibility=args.visibility,
-                shadow=args.shadow,
             )
             print(f"{name}: {out} {counts}")
         return

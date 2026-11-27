@@ -11,9 +11,12 @@ import numpy as np
 from checks.gltf_scene import scene
 from checks.gltf_scene.cases import same
 from prism_common.paths import DATA_VARIABLE
+from prism_reference.direct.lights import load as load_lights
 from prism_reference.direct.prepare import prepare
+from prism_reference.direct.shadow import SHADOW_SIDE, sun_view
 from prism_reference.scene.artist.opened import open_scene
 from prism_reference.scene.public.lighting import environments, lighting_path
+from prism_reference.scene.public.mesh import load_mesh
 from prism_reference.scene.public.table import public_dir, table
 
 SIDECAR = {"version": 1, "source": {"file": "first"}}
@@ -40,34 +43,29 @@ def seed_environment(source, data):
 
 
 def shadow_of(name, data):
-    """The shadow map, camera, texel and side of the scene's lighting file, and its
-    counts' `shadow`."""
+    """The shadow map, camera, texel and side of the scene's lighting file."""
     with np.load(lighting_path(name, data)) as f:
         arrays = [f[k] for k in ("shadow_map", "shadow_camera", "shadow_texel")]
-        return arrays + [f["shadow_side"], json.loads(str(f["counts"]))["shadow"]]
+        return arrays + [f["shadow_side"]]
 
 
 def shadow_cases(name, data):
-    """The lights with shadow "card" (visibility open): the camera, texel and side of
-    shadow "host" and a 1 x 1 map of 0."""
-    host_map, camera, texel, side, shadow = shadow_of(name, data)
-    same("lights host: counted host", shadow, "host")
-    same("lights host: the map's side", host_map.shape, (int(side), int(side)))
-    prepare(name, data, workers=1, visibility="open", shadow="card")
-    card_map, card_camera, card_texel, card_side, shadow = shadow_of(name, data)
-    same("lights card: counted card", shadow, "card")
+    """The lighting file's sun: the camera and texel of sun_view at the table's side, a
+    1 x 1 map of 0; the lights loaded: that stand-in."""
+    depth, camera, texel, side = shadow_of(name, data)
+    sun = table()[name]["lighting"]
+    want_side = int(sun.get("shadow_side", SHADOW_SIDE))
+    with np.load(lighting_path(name, data)) as f:
+        direction = f["sun_direction"]
+    want_camera, want_texel = sun_view(load_mesh(name, data)[0], direction, want_side)
+    same("lights: the table's side", int(side), want_side)
     same(
-        "lights card: the host's camera",
-        card_camera.view(np.uint32),
-        camera.view(np.uint32),
+        "lights: sun_view's camera", camera.view(np.uint32), want_camera.view(np.uint32)
     )
-    same(
-        "lights card: the host's texel",
-        card_texel.view(np.uint32),
-        texel.view(np.uint32),
-    )
-    same("lights card: the host's side", int(card_side), int(side))
-    same("lights card: a 1 x 1 map of 0", card_map, np.zeros((1, 1), np.float32))
+    same("lights: sun_view's texel", texel.view(np.uint32), want_texel.view(np.uint32))
+    same("lights: a 1 x 1 map of 0", depth, np.zeros((1, 1), np.float32))
+    loaded = load_lights(name, data)["shadow_map"]
+    same("lights loaded: a 1 x 1 map of 0", loaded, np.zeros((1, 1), np.float32))
 
 
 def opened_cases(folder, source):

@@ -115,7 +115,7 @@ textures decoded on the CPUs the command may run on, at most 32), or found there
 (`prism_reference.scene.artist.opened`, [glTF scenes](gltf_scenes.md)); when the preset
 takes the lights and the scene has no lighting file, the lights made with every vertex's
 sky visibility 1 and the bake by `--bake` (`background`, the default: a detached
-`public_scenes.py lighting NAME --visibility bake --shadow card`, its log
+`public_scenes.py lighting NAME --visibility bake`, its log
 `<data>/public/NAME_bake.log`, or, when the open starts the far field's build, that
 build's own bake under its lock and no other ([built at open](gltf_scenes.md#built-at-open));
 `wait`: baked first; `none`: not baked), both with the
