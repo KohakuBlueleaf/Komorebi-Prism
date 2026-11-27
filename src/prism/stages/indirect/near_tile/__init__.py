@@ -6,11 +6,11 @@ from prism.core.implementation import IMPLEMENTATIONS, Implementation
 from prism.core.unit import Unit
 from prism.stages.indirect.near_tile.host import NearTileHost
 
-# the near tile step's numbers its frame words read (the light pages, the upsample's
-# weights, on)
+# the near tile step's numbers its frame words read (the records, the operands, the
+# upsample's weights, the frame's half size, on)
 UNIT = Unit(
     includes=("thread",),
-    numbers=("near_light", "near_upsample", "near_on"),
+    numbers=("near_weights", "near_operand", "near_upsample", "near_half", "near_on"),
 )
 
 NEAR_TILE = IMPLEMENTATIONS.register(

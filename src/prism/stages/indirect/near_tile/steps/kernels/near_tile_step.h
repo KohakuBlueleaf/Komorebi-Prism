@@ -1,17 +1,16 @@
-// The near tile step of the tile thread: its plane's words and its give-up places.
-// Its words are the build's defines (PRISM_TF_NEAR_TILE_*).
+// The near tile step of the tile thread: its rings, its plane's words and its give-up
+// places. Its words are the build's defines (PRISM_TF_NEAR_TILE_*).
 #pragma once
 
 #include <stdint.h>
 
 namespace near_tile_step {
 
-    // The plane near.light: a tile's page of the light pages' tensor (a channel's
-    // 256 half pixels (16 x 16, row by row) of E after another as float32 from word
-    // 0, then the tile's half rows and half columns in the frame, uint32), kNearOn (1
-    // when they are the frame's: the step's mark, 0 in the tensor), then from word
-    // kNearWeightsAt the tile's page of the upsample's weights (a tap's 1,024 pixels,
-    // row by row, after another, float32).
+    // The plane near.light: E, a channel's 256 half pixels (16 x 16, row by row) after
+    // another as float32 from word 0; the tile's half rows and half columns inside the
+    // frame (uint32); kNearOn (1 when they are the frame's: the step's mark); then from
+    // word kNearWeightsAt the tile's page of the upsample's weights (a tap's 1,024
+    // pixels, row by row, after another, float32).
     constexpr uint32_t kHalfTile = 16;
     constexpr uint32_t kNearWords = 3 * kHalfTile * kHalfTile;
     constexpr uint32_t kNearRows = kNearWords;
@@ -24,6 +23,21 @@ namespace near_tile_step {
     constexpr uint32_t kNearPlaneBytes = 20480;
     static_assert(kNearWeightsBytes == 4 * kNearTaps * 1024);
     static_assert(kNearPlaneBytes == kNearPageBytes + kNearWeightsBytes);
+
+    // The rings: half of W_T's record (kNearPartTiles bfp8_b tiles of the record's 8,
+    // tile k the half rows 2k and 2k + 1, a half pixel a row), S_T (a bfloat16 tile,
+    // its rows W's columns, columns 0 to 2 the channels), E of one record tile (a
+    // float32 tile).
+    constexpr uint32_t kNearRecordTiles = 8;
+    constexpr uint32_t kNearParts = 2;  // the record asked and multiplied in halves
+    constexpr uint32_t kNearPartTiles = 4;
+    static_assert(kNearPartTiles * kNearParts == kNearRecordTiles);
+    constexpr uint32_t kNearWTileBytes = 1088;
+    constexpr uint32_t kNearSTileBytes = 2048;
+    constexpr uint32_t kNearETileBytes = 4096;
+
+    // The frame word half: the frame's half columns << 16 | its half rows.
+    constexpr uint32_t kNearHalfShift = 16;
 
     // Give-up places (the writer's word): a bad record.
     constexpr uint32_t kWhereNearTileBad = 56;

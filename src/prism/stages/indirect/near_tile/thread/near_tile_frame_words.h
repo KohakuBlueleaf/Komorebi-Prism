@@ -1,5 +1,6 @@
-/* The near tile step's words of a view's frame's page: the light pages' tensor and
- * whether they hold the standing camera's (PRISM_TF_NEAR_TILE_*). */
+/* The near tile step's words of a view's frame's page: the records', operands' and
+ * upsample weights' tensors, the frame's half size and whether they hold the standing
+ * camera's (PRISM_TF_NEAR_TILE_*). */
 #pragma once
 
 #include <stdint.h>

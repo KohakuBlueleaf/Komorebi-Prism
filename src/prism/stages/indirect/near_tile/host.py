@@ -1,7 +1,8 @@
 """The one-tile product's host: with the option near_tile, W_T built by the reference
-for the camera once it stands, its records in a bfp8_b tensor (slot near.weights) and,
-from the reference's frame lit through the field and the field as the card holds it,
-the product's E a tile (the light pages); the unit's numbers; without it, nothing."""
+for the camera once it stands, its records in a bfp8_b tensor (slot near.weights), the
+upsample's weights and, from the reference's frame lit through the field and the field
+as the card holds it, S_T a tile (the operands, bfloat16); the unit's numbers; without
+it, nothing."""
 
 import os
 
@@ -9,9 +10,8 @@ import numpy as np
 
 from prism.stages.indirect.near_tile.model.build import built
 from prism.stages.indirect.near_tile.model.operand import (
-    LIGHT_WORDS,
-    PAGE_WORDS,
     light_pages,
+    operand_raw,
     operands,
 )
 from prism.stages.indirect.near_tile.model.weights import (
@@ -39,24 +39,24 @@ THREAD = "prism.program.threads.tiles:GI_NEAR"  # the tile thread the option nee
 NEAR_TAPS = NS["kNearTaps"]  # the upsample's taps a pixel
 
 
-def light_words(e, size):
-    """The light pages (tiles, PAGE_WORDS) uint32: E's float32 bits, then each tile's
-    half rows and half columns inside the frame of `size`."""
-    across, down = frame_grid(size)
-    rows = np.minimum(HALF_TILE, (int(size[1]) + 1) // 2 - HALF_TILE * np.arange(down))
-    cols = np.minimum(
-        HALF_TILE, (int(size[0]) + 1) // 2 - HALF_TILE * np.arange(across)
-    )
-    out = np.asarray(e, np.float32).view(np.uint32).copy()
-    out[:, LIGHT_WORDS] = np.repeat(rows, across)
-    out[:, LIGHT_WORDS + 1] = np.tile(cols, down)
+def half_word(size):
+    """The frame word half: the frame's half columns << 16 | its half rows."""
+    return ((int(size[0]) + 1) // 2) << NS["kNearHalfShift"] | (int(size[1]) + 1) // 2
+
+
+def operand_tiles(s):
+    """S_T (tiles, WIDTH, 3) as the operands' bfloat16 tiles (tiles, 32, 32): its rows
+    W's columns, columns 0 to 2 the channels, the rest 0."""
+    out = np.zeros((len(s), TILE, TILE), np.float32)
+    out[:, : s.shape[1], : s.shape[2]] = s
     return out
 
 
 class NearTileHost:
     """W_T of the standing camera: built when a camera is asked twice in a row and is
-    not the one built; its records and the product's E written into tensors, the
-    unit's numbers (the light pages' address, on) written each frame."""
+    not the one built; its records, operands and upsample weights written into tensors,
+    the unit's numbers (their addresses, the frame's half size, on) written each
+    frame."""
 
     def __init__(self, session, scene, options):
         self.session = session
@@ -128,14 +128,16 @@ class NearTileHost:
             self.build(np.asarray(camera, np.float32), eye[1])
             self.standing = eye
         self.last = eye
-        on = "light" in self.tensors and eye == self.standing
-        for name in ("light", "upsample"):
+        on = self.standing is not None and eye == self.standing
+        for name in ("weights", "operand", "upsample"):
             tensor = self.tensors.get(name)
             loaded.number(f"near_{name}", 0 if tensor is None else tensor.address)
+        loaded.number("near_half", half_word(eye[1]))
         loaded.number("near_on", int(on))
 
     def build(self, camera, size):
-        """The records and the light pages of `camera` at `size` in their tensors."""
+        """The records, the operands and the upsample's weights of `camera` at `size`
+        in their tensors."""
         scene = {**self.scene, "camera": camera, "size": size}
         out = built(
             scene,
@@ -154,22 +156,22 @@ class NearTileHost:
             self.lights["ambient"],
             size,
         )
-        e = light_pages(decode(raw), s)
+        e = light_pages(decode(raw), s)  # the product as the host makes it
         self.made(size)
         self.write("weights", raw)
-        self.write("light", light_words(e, size))
+        self.write("operand", operand_raw(operand_tiles(s)))
         self.write("upsample", out["upsample"])
-        self.built = {**out, "s": s, "e": e[:, :LIGHT_WORDS]}
+        self.built = {**out, "s": s, "e": e[:, : 3 * HALF_TILE * HALF_TILE]}
         self.seconds = out["seconds"]
 
     def made(self, size):
-        """The tensors of a frame of `size`: the records, the light pages, the
-        upsample's weights, zero, made again when the size changes (before a load)."""
+        """The tensors of a frame of `size`: the records, the operands, the upsample's
+        weights, zero, made again when the size changes (before a load)."""
         across, down = frame_grid(size)
         tiles = across * down
         shapes = {
             "weights": ((tiles * RECORD_TILES, TILE, TILE), "bfp8_b", "tile"),
-            "light": ((tiles, PAGE_WORDS), "u32", "row"),
+            "operand": ((tiles, TILE, TILE), "bf16", "tile"),
             "upsample": ((tiles, NEAR_TAPS * TILE * TILE), "fp32", "row"),
         }
         for name, (shape, format, layout) in shapes.items():

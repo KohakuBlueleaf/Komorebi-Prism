@@ -43,3 +43,9 @@ def light_pages(weights, s):
     out = np.zeros((len(s), PAGE_WORDS), np.float32)
     out[:, :LIGHT_WORDS] = e.reshape(len(s), LIGHT_WORDS)
     return out
+
+
+def operand_raw(tiles):
+    """The operands' tiles (tiles, 32, 32) as their bfloat16 pages (tiles, 2,048) uint8."""
+    data, _ = formats.to_bytes(np.asarray(tiles, np.float32), "bfloat16", "tile")
+    return data.reshape(len(tiles), -1)
