@@ -43,7 +43,6 @@ def setup_writes_lists_case(scene):
     recs = setup(scene)
     _, offsets, members = bin_triangles(recs)
     plain = records.pack_records(recs)
-    plain[:, numbers.K["kRecIndex"]] = 0
     triangles, cores = len(scene["indices"]), 7
     counts, rows = count.counters(recs, triangles, cores)
     mid = middle.middle(counts, rows, 5)

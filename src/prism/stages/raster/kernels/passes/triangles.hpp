@@ -212,9 +212,27 @@ namespace setup_k {
             TT_SFPAND(0, work, L6, 0);
         }
 
+        // The least of the corners' screen 1/z times kHeldLeast and the most times
+        // kHeldMost (raster.h), to the slots `least` and `most`.
+        inline void corner_depths(uint32_t least, uint32_t most) {
+            load(L0, kSlotScreen + 2);
+            load(L1, kSlotScreen + 5);
+            load(L2, kSlotScreen + 8);
+            order_pair(L1, L0);
+            order_pair(L2, L0);
+            order_pair(L2, L1);
+            TTI_SFPNOP;
+            immediate(L3, fill_k::kHeldLeast);
+            mul(L0, L3, L0);
+            immediate(L3, fill_k::kHeldMost);
+            mul(L2, L3, L2);
+            store(L0, least);
+            store(L2, most);
+        }
+
         // Per lane: kept and crossing flags, box as integers and float16 columns; with
-        // `records` the thresholds, triangle word (first_word + lane), words 29 to 31
-        // as 0.
+        // `records` the thresholds, triangle word (first_word + lane), word 30 as 0 and
+        // the corners' least and most 1/z (raster.h kRecWLeast, kRecWMost).
         inline void finish_lanes(bool records, uint32_t first_word) {
             // beyond the near distance, per corner (float order, near > 0)
             load(L7, kSlotCamera + 15);
@@ -305,9 +323,10 @@ namespace setup_k {
             TT_SFPIADD(0, L0, L1, kCcNone);
             store(L1, kSlotRecords + 28);
             TT_SFPMOV(0, ZERO, L0, 0);
-            store(L0, kSlotRecords + 29);
             store(L0, kSlotRecords + 30);
-            store(L0, kSlotRecords + 31);
+            corner_depths(
+                kSlotRecords + fill_k::kRecWLeast, kSlotRecords + fill_k::kRecWMost
+            );
         }
 
         // Slots first_slot (even) on, 2 count of them, as window pairs (slot 2 j + s,

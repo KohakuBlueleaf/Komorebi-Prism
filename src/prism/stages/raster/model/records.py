@@ -72,7 +72,8 @@ def pack_records(records, wide=False):
     packed[:, K["kRecY0"]] = box[:, 2].astype(np.uint32)
     packed[:, K["kRecY1"]] = box[:, 3].astype(np.uint32)
     packed[:, K["kRecTri"]] = triangle_words(records["tri"])
-    packed[:, K["kRecIndex"]] = np.arange(count, dtype=np.uint32)
+    packed[:, K["kRecWLeast"]] = bits(records["w_range"][:, 0])
+    packed[:, K["kRecWMost"]] = bits(records["w_range"][:, 1])
     return packed
 
 

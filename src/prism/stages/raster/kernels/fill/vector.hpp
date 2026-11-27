@@ -56,6 +56,8 @@ namespace fill_k {
         constexpr uint32_t kConstColourB = 15;
         constexpr uint32_t kConstColourC = 18;
         constexpr uint32_t kConstPx = 21;
+        constexpr uint32_t kConstWLeast = 22;  // the corners' least 1/z, then most
+        constexpr uint32_t kConstWMost = 23;
 
         // Dst address of `vector`: an aligned group of four rows, even or odd columns.
         constexpr uint32_t dst_address(uint32_t vector) {

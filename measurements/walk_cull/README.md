@@ -140,3 +140,12 @@ to the stage-wise frame, its map equal:
 | lynx_a01 | view camera | 65.89 / 63.11 | 11.42 / 9.58 | 19.85 / 18.91 |
 | lynx_a01 | first pose | 66.57 / 63.82 | 11.43 / 9.58 | 20.01 / 19.10 |
 | lynx_a01 | turned 90 | 30.88 / 26.26 | 4.85 / 2.19 | 4.67 / 2.74 |
+
+The account at each scene's view camera (sponza: overview), 1,024 x 1,024, card 1, one
+group a layer against groups of 16 ranges, frame 6 of 6:
+
+| scene | count span ms | count X280 ms | count standing, asked core-ms | place span ms | frame ms |
+|---|---:|---:|---:|---:|---:|
+| sponza | 0.717 / 0.696 | 0.773 / 0.768 | 2.4 / 2.1 | 1.290 / 1.247 | 11.81 / 11.57 |
+| italian_flat | 3.532 / 3.303 | 3.654 / 3.493 | 11.4 / 1.6 | 6.080 / 5.995 | 28.70 / 26.14 |
+| lynx_a01 | 9.891 / 7.972 | 10.197 / 8.349 | 113.5 / 1.7 | 15.084 / 13.934 | 45.87 / 44.38 |

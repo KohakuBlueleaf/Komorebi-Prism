@@ -77,6 +77,10 @@ namespace fill_k {
             immediate(L3, record_words[kRecW + 2]);
             TTI_SFPSTORE(L3, kInt32, kAddressMode, constant_address(kConstW + 2));
             TTI_SFPSTORE(L0, kInt32, kAddressMode, constant_address(kConstW));
+            immediate(L2, record_words[kRecWLeast]);
+            TTI_SFPSTORE(L2, kInt32, kAddressMode, constant_address(kConstWLeast));
+            immediate(L3, record_words[kRecWMost]);
+            TTI_SFPSTORE(L3, kInt32, kAddressMode, constant_address(kConstWMost));
             FILL_TRI_COLOUR(0, L1);
             FILL_TRI_COLOUR(1, L0);
             FILL_TRI_COLOUR(2, L1);
@@ -157,13 +161,26 @@ namespace fill_k {
 #define FILL_DEPTH(pixel_row) TTI_SFPGT(0, L1, L0, kSetCC)
 #endif
 
+        // The row's 1/z in L0 held between the corners' least and most (L1 free): two
+        // swaps, each leaving the larger in its first register.
+        inline void held_depth() {
+            TTI_SFPLOAD(L1, kInt32, kAddressMode, constant_address(kConstWMost));
+            TTI_SFPNOP;
+            TTI_SFPSWAP(0, L1, L0, 1);
+            TTI_SFPNOP;
+            TTI_SFPLOAD(L1, kInt32, kAddressMode, constant_address(kConstWLeast));
+            TTI_SFPSWAP(0, L0, L1, 1);
+            TTI_SFPNOP;
+        }
+
         // Row `pixel_row` (masked to its field) against the triangle in the constant
-        // vectors: the inside lanes nearer than the depth take its depth, number,
-        // colour.
+        // vectors: the inside lanes nearer than the depth take its depth (held between
+        // its corners'), number, colour.
         inline void row(uint32_t pixel_row) {
             pixel_row &= 31;
             TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(kVecPy + pixel_row));
             edges(false);
+            held_depth();
             TT_SFPLOAD(L1, kInt32, kAddressMode, dst_address(pixel_row));
             FILL_DEPTH(pixel_row);
             TT_SFPSTORE(L0, kInt32, kAddressMode, dst_address(pixel_row));
