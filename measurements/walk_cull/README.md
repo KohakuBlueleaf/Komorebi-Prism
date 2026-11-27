@@ -99,3 +99,44 @@ The account of lynxsdesign_a01894bbb8 at its view camera and the scene's own siz
 
 With the cull a cut range still costs its ask: count's cores wait 82.2 core-ms for
 X280's answers against 1.6 without it, as cut ranges end at once and ask again.
+
+## Groups cut where the ranges are dealt
+
+A box a group of `group_ranges` consecutive ranges, tested on the cluster's four X280
+cores before the count pull; only the ranges of the groups not cut are dealt, and a
+dealt range is still tested by its core. Three ways of dealing were tried on the account
+above (lynxsdesign_a01894bbb8, 1,024 x 1,024; the first three rows on card 0, the last
+on card 1, both at 16.0 GT/s):
+
+| dealing | count span ms | count X280 ms | count standing, asked core-ms | place span ms | frame ms |
+|---|---:|---:|---:|---:|---:|
+| every range dealt, cut by its core | 9.63 | 9.74 | 82.2 | 15.10 | 45.95 |
+| every range's box tested in `pick` as it is asked | 10.06 | - | 258 | 13.99 | 46.9 |
+| every range's box tested first on 4 X280 cores | 7.92 | 12.35 | 1.7 | 14.01 | 46.5 |
+| a box a group of 16 ranges tested first on 4 X280 cores | 7.96 | 8.34 | 1.6 | 13.97 | 44.40 |
+
+The X280 reads its region at about 0.74 us a box a core: testing all 23,845 range
+boxes there (559 KB) took 4.4 ms of the count phase, a box a group of 16 ranges (1,491
+boxes, 35 KB) about 0.3 ms, while the cores' asks for cut ranges disappear in both.
+
+Whole frames as in the first table (card 1, 16.0 GT/s, 2026-11-28, `keep_lists` False,
+the median of three runs), with one group a layer (no range dealt is cut at the deal:
+the cores' test alone) against groups of 16 ranges; the last picture of each pose of
+every run equal byte for byte (36 of 36); `checks.threads_frame whole` on sponza,
+italian_flat_97f97a20ba and lynxsdesign_411c9daef8 with groups of 16: every policy equal
+to the stage-wise frame, its map equal:
+
+| scene | pose | frame one group / 16 | count one group / 16 | place one group / 16 |
+|---|---|---:|---:|---:|
+| sponza | view camera | 18.63 / 18.60 | 1.08 / 1.08 | 1.77 / 1.81 |
+| sponza | first pose | 18.67 / 18.63 | 1.08 / 1.08 | 1.81 / 1.80 |
+| sponza | turned 90 | 13.96 / 13.74 | 0.87 / 0.74 | 1.16 / 1.09 |
+| italian_flat | view camera | 39.75 / 39.38 | 3.98 / 3.78 | 7.20 / 6.96 |
+| italian_flat | first pose | 37.28 / 36.86 | 3.71 / 3.46 | 6.54 / 6.40 |
+| italian_flat | turned 90 | 17.53 / 15.30 | 2.11 / 0.96 | 2.22 / 1.15 |
+| lynx_411 | view camera | 41.75 / 40.87 | 5.18 / 4.61 | 9.42 / 9.06 |
+| lynx_411 | first pose | 42.16 / 41.17 | 5.18 / 4.61 | 9.50 / 9.13 |
+| lynx_411 | turned 90 | 19.66 / 16.61 | 2.80 / 1.07 | 2.74 / 1.41 |
+| lynx_a01 | view camera | 65.89 / 63.11 | 11.42 / 9.58 | 19.85 / 18.91 |
+| lynx_a01 | first pose | 66.57 / 63.82 | 11.43 / 9.58 | 20.01 / 19.10 |
+| lynx_a01 | turned 90 | 30.88 / 26.26 | 4.85 / 2.19 | 4.67 / 2.74 |

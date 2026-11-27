@@ -16,12 +16,14 @@ from prism.stages.raster.threads import layout as geometry
 from prism_common.paths import build_root
 
 RUNTIME = Path(__file__).resolve().parent / "c"
-SOURCES = ("dispatch_choose.c", "dispatch_view.c")
+SOURCES = ("dispatch_choose.c", "dispatch_cull.c", "dispatch_view.c")
 SRC = Path(__file__).resolve().parents[3]  # src/: a step's `thread` is from src/prism/
 FRAME = defined(INCLUDE / "thread" / "frame.h")
 RECORD = defined(INCLUDE / "thread" / "record.h")
 CHOOSE = defined(RUNTIME / "dispatch_choose.h")
 NEED = defined(RUNTIME / "dispatch.h")  # the need page's words (DP_NEED_*)
+CULL_H = defined(RUNTIME / "dispatch_cull.h")
+BOX_WORDS = CULL_H["DP_BOX_WORDS"]  # a group's box
 PORTS_CORES = km_thread.layout()["KMX_PORTS_CORES"]
 STEP_AT = (
     FRAME["TF_LAYER_AT"] + RECORD["TR_LAYERS"] * FRAME["TF_LAYER_WORDS"]
@@ -58,10 +60,15 @@ COLUMNS = tuple(
         "rows",
         "positions",
         "boxes",
+        "groups",
     )
 )
 PHASES = P + "phases"  # a view's phases (dispatch.h DP_PHASE_*; 0: every phase)
 KEEP = P + "keep"  # 1: the eye's view stands, its lists kept when they hold it
+CULL = P + "cull"  # the groups' boxes' generation (a new one each write; 0: none)
+GROUP = P + "group_ranges"  # the count ranges a group's box holds
+BOXES = P + "group_boxes"  # the region of the groups' boxes
+SURVIVORS = P + "survivors"  # the ranges of the groups a view's boxes do not cut
 TIMES = tuple(
     P + name for name in ("count", "sums", "running", "place", "words", "tile")
 )
@@ -103,6 +110,16 @@ def need_bytes(capacity):
     return NEED["DP_NEED_BYTES"]
 
 
+def boxes_bytes(capacity):
+    """The groups' boxes: BOX_WORDS a group, at most a group a range of a view."""
+    return 4 * BOX_WORDS * capacity.ranges
+
+
+def survivors_bytes(capacity):
+    """The ranges a view walks: a word a range."""
+    return 4 * capacity.ranges
+
+
 def log_bytes(capacity):
     """The count pull's log: a count a port's core, then its ranges (KMX_PULL_LOG_BYTES
     of the ranges a view)."""
@@ -137,8 +154,10 @@ UNIT = Unit(
         P + "log": Region(log_bytes),
         P + "state": Region(state_bytes),
         P + "need": Region(need_bytes),
+        BOXES: Region(boxes_bytes),
+        SURVIVORS: Region(survivors_bytes),
     },
-    numbers=(*NUMBERS, PHASES, KEEP),
+    numbers=(*NUMBERS, PHASES, KEEP, CULL, GROUP),
     columns=COLUMNS,
     times=TIMES,
     results=RESULTS,
@@ -180,12 +199,16 @@ def numbers(
     return dict(zip(NUMBERS, (int(value) for value in values), strict=True))
 
 
-def columns(mesh, blocks, shade, lists, list_slots, counts, rows, positions, boxes=0):
+def columns(
+    mesh, blocks, shade, lists, list_slots, counts, rows, positions, boxes=0, groups=0
+):
     """{column: value} of a (view, layer)'s row: its triangle blocks' address and
     count, its shade blocks' address (0: not shaded), its lists' address and slots, its
     counts', row histograms' and positions' addresses, its ranges' boxes' address (0:
-    none)."""
-    values = (mesh, blocks, shade, lists, list_slots, counts, rows, positions, boxes)
+    none), its first group's box in the groups' region."""
+    values = (
+        mesh, blocks, shade, lists, list_slots, counts, rows, positions, boxes, groups
+    )  # fmt: skip
     return dict(zip(COLUMNS, (int(value) for value in values), strict=True))
 
 

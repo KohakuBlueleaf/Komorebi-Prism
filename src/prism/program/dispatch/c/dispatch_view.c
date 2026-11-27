@@ -1,6 +1,7 @@
 /* A view as Komorebi's pulls (dispatch.h): the frame's page, then the phases asked:
  * count, sums, the slices' places, place, the steps' words, tiles. */
 #include "dispatch.h"
+#include "dispatch_cull.h"
 
 /* The work handler's and the sums' commands carry the page as their block */
 #define PAGE_BYTES (4u * TF_WORDS)
@@ -16,12 +17,18 @@ _Static_assert(DP_NEED_ENTRIES + DR_LAYERS <= DP_NEED_WORDS, "the need page's la
 typedef struct {
     uint32_t first, count, layers, ranges, slices, slices_across;
     uint32_t list_slots[TR_LAYERS], rows[TR_LAYERS], entries[TR_LAYERS];
+    uint32_t groups[TR_LAYERS];
 } view_t;
 
 /* Whether the records, slices' words and lists hold the eye's view as the last COLOUR
  * view drew it whole: set by that view, cleared by any view that counts, any DEPTH
  * view and any view that ends with a code */
 static uint32_t g_eye_held __attribute__((section(".data"))) = 0;
+
+/* The count pull's deal of the view (dispatch_cull.h) and the groups' boxes'
+ * generation the region was last read at (the number DP_N_CULL) */
+static dp_cull_t g_cull __attribute__((section(".data"))) = {0};
+static uint32_t g_boxes_seen __attribute__((section(".data"))) = 0;
 
 static volatile uint32_t* page_of(void) {
     return (volatile uint32_t*)DR_REGION(DP_REGION_PAGE);
@@ -42,6 +49,7 @@ uint32_t dp_setup(dr_frame_t* frame) {
     /* lines an earlier image left dirty would be written over what the cores write */
     kmx_flush(DP_REGION_SLICES);
     g_eye_held = 0;
+    g_boxes_seen = 0;
     return 0;
 }
 
@@ -154,11 +162,71 @@ static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t
         at[TF_L_POSITIONS] = words[DP_L_POSITIONS];
         at[TF_L_BOXES] = words[DP_L_BOXES];
         out->rows[out->layers] = layer;
+        out->groups[out->layers] = words[DP_L_GROUPS];
         out->list_slots[out->layers++] = words[DP_L_LIST_SLOTS];
         out->ranges += (blocks + range_blocks - 1u) / range_blocks;
     }
     page[TF_LAYER_COUNT] = out->layers;
     return out->ranges > DP_RANGES_MOST ? DP_TOO_MANY : 0u;
+}
+
+/* The count pull's deal of the view `one` when the number DP_N_CULL (the groups'
+ * boxes' generation; 0: none) is set: its ranges and groups, its layers' first ranges,
+ * groups and boxes, its camera and padded frame; the region read again at a new
+ * generation; the groups tested, the survivors written. `culled` 1 when the deal is
+ * culled. 0, DP_BAD_NUMBERS (no ranges a group, boxes past the region),
+ * DP_SMALL_REGION, or the director's code. */
+static uint32_t cull_view(
+    const dr_frame_t* frame, const dr_view_t* view, const view_t* one, uint32_t* culled
+) {
+    const uint32_t generation = dr_number(frame, DP_N_CULL);
+    const uint32_t group_ranges = dr_number(frame, DP_N_GROUP_RANGES);
+    *culled = 0;
+    if (generation == 0) {
+        return 0;
+    }
+    const uint64_t bytes = frame->bytes[DP_REGION_GROUP_BOXES];
+    if (group_ranges == 0) {
+        return DP_BAD_NUMBERS;
+    }
+    if (generation != g_boxes_seen) {
+        dr_invalidate(DP_REGION_GROUP_BOXES, DP_REGION_GROUP_BOXES_AT, (uint32_t)bytes);
+        g_boxes_seen = generation;
+    }
+    const volatile uint32_t* page = page_of();
+    g_cull.ranges = one->ranges;
+    g_cull.group_ranges = group_ranges;
+    g_cull.layers = one->layers;
+    g_cull.groups = 0;
+    for (uint32_t layer = 0; layer < one->layers; layer++) {
+        g_cull.range_first[layer] = page
+            [TF_LAYER_AT + TF_LAYER_WORDS * layer + TF_L_RANGE_FIRST];
+    }
+    g_cull.range_first[one->layers] = one->ranges;
+    for (uint32_t layer = 0; layer < one->layers; layer++) {
+        const uint32_t ranges = g_cull.range_first[layer + 1u] -
+            g_cull.range_first[layer];
+        const uint32_t groups = (ranges + group_ranges - 1u) / group_ranges;
+        g_cull.group_first[layer] = g_cull.groups;
+        g_cull.box_first[layer] = one->groups[layer];
+        g_cull.groups += groups;
+        if (4ull * DP_BOX_WORDS * ((uint64_t)one->groups[layer] + groups) > bytes) {
+            return DP_BAD_NUMBERS;
+        }
+    }
+    g_cull.group_first[one->layers] = g_cull.groups;
+    for (uint32_t i = 0; i < DR_N_CAMERA_WORDS; i++) {
+        __builtin_memcpy(&g_cull.camera[i], &view->camera[i], 4);
+    }
+    g_cull.width = (float)(32u * DP_GRID_ACROSS(view->grid));
+    g_cull.height = (float)(32u * DP_GRID_DOWN(view->grid));
+    g_cull.boxes = (const float*)DR_REGION(DP_REGION_GROUP_BOXES);
+    g_cull.survivors = (uint32_t*)DR_REGION(DP_REGION_SURVIVORS);
+    if (frame->bytes[DP_REGION_SURVIVORS] < 4ull * one->ranges) {
+        return DP_SMALL_REGION;
+    }
+    *culled = 1;
+    return dp_cull_test(&g_cull);
 }
 
 /* The work handler's command on the view's group, the page (its pull `kind`) its
@@ -300,9 +368,19 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     if (code == 0 && (phases & DP_PHASE_COUNT)) {
         code = work_command(&command, &one, TP_COUNT);
     }
+    uint32_t culled = 0;
+    if (code == 0 && (phases & DP_PHASE_COUNT)) {
+        code = cull_view(frame, view, &one, &culled);
+    }
     if (code == 0 && (phases & DP_PHASE_COUNT)) {
         const kmx_pull counting = {
-            one.ranges, 1u, KMX_PULL_LOG, DP_REGION_LOG, 0, 0, 0
+            one.ranges,
+            1u,
+            KMX_PULL_LOG,
+            DP_REGION_LOG,
+            culled ? dp_cull_pick : 0,
+            (uint64_t)(uintptr_t)&g_cull,
+            0
         };
         code = pull(&command, &counting, DP_WHERE_COUNT, DP_LATE_COUNT);
         frame->times[DP_R_RANGES] += one.ranges;
