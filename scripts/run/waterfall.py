@@ -509,6 +509,8 @@ def main():
         f"{case['size'][0]} x {case['size'][1]}, frame {frame + 1} of "
         f"{len(record['rows'])}: {row['frame']:.3f} ms"
     )
+    if lost:
+        title += f" ({lost} records lost: threads missing)"
     note = (
         f"AICLK {case['aiclk_mhz'][0]} MHz, Komorebi {case['komorebi']}, "
         f"{case['date'][:10]}, records lost {lost}. {args.note}"

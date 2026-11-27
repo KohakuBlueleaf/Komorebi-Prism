@@ -11,7 +11,7 @@ from prism_reference.direct.frame import TERMS
 from prism_reference.direct.glass import GLASS_F0
 from prism_reference.direct.lights import shadow_side
 from prism_reference.direct.sky import C1, C2, C3, C4, C5
-from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN
+from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN, CURVE_VIEW
 from prism_reference.raster.fill import BACKGROUND
 
 
@@ -56,8 +56,8 @@ def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
     if not indirect:
         words[LH["kLtTerms"]] &= ~np.uint32(LH["kTermIndirect"])
     saturation, curve = F32(lights.get("saturation", 1.0)), lights.get("curve", 0)
-    if curve not in (CURVE_PLAIN, CURVE_FILMIC):
-        raise ValueError(f"tone curve {curve}: 0 (plain) or 1 (filmic)")
+    if curve not in (CURVE_PLAIN, CURVE_FILMIC, CURVE_VIEW):
+        raise ValueError(f"tone curve {curve}: 0 (plain), 1 (filmic) or 2 (view)")
     put(LH["kLtSaturation"], saturation)
     words[LH["kLtCurve"]] = int(curve)
     words[LH["kLtExponentBits"]] = int(exponents(materials).max(initial=0)).bit_length()

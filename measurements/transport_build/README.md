@@ -75,3 +75,56 @@ The interpreter's own time is under 0.2 s in every phase.
 | pool (thread-seconds) | 1,150 | waiting for the interpreter's lock 640; numpy 100; BLAS 50 (compute) |
 | checks | 13 to 21 | data layout: the card's numbers emulated in numpy |
 | order, sample, probe, transfer, field, write | 25 | mixed; write is the files' I/O |
+
+## The batch tracer over the host's own tree
+
+`trace.batch` walking the box tree's nodes (before) against the host's own tree of its
+triangles (after: [trace](../../docs/internals/reference/trace.md#the-batch-tracer)).
+One process under `taskset` of 10 CPUs, other accounts' jobs on the host. Date
+2026-11-27 (UTC+8). The artists' flat (4.8 M triangles, 5.4 M vertices) and an artists'
+house (29.8 M triangles, 19.7 M vertices).
+
+Rays a second a thread, millions, 8 threads in one call: the bake's rays (64 cosine
+rays a vertex) of 100,000 random vertices, any hit and closest hit; segments between
+4 M random pairs of vertices, any hit; the bake's rays of 100,000 consecutive vertices
+(the bake's own order):
+
+| scene | bake, any hit | bake, closest hit | random segments | the bake's order |
+| --- | --- | --- | --- | --- |
+| flat | 0.293 -> 0.566 | 0.147 -> 0.391 | 0.107 -> 0.350 | 0.255 -> 0.411 |
+| house | 0.531 -> 0.961 | 0.258 -> 0.697 | 0.147 -> 0.336 | 0.786 -> 1.476 |
+
+The house's whole bake (`visibility._bake_chunk` over every vertex on 10 threads): 241.3
+s, 0.524, against 109.9 s, 1.150, the visibility equal.
+
+The steps, on the flat (bake any / bake closest / random segments):
+
+| tree and walk | rays a second a thread | node / triangle tests a bake ray |
+| --- | --- | --- |
+| the box tree's nodes (median cuts, one triangle a leaf, 32-byte nodes breadth first) | 0.293 / 0.147 / 0.107 | 258 / 9 |
+| both children's boxes in one node, depth first, median cuts | 0.352 / 0.201 / 0.126 | |
+| surface-area cuts, one triangle a leaf | 0.503 / 0.340 / 0.157 | |
+| leaves of at most 4 | 0.586 / 0.400 / 0.190 | 104 / 10 |
+| leaves of at most 8 | 0.581 / 0.402 / 0.203 | |
+| the children fetched ahead | 0.604 / 0.402 / 0.213 | |
+| the rays in the order of their origins' cells | 0.566 / 0.391 / 0.350 | |
+
+The bake's rays shuffled run at 0.307 (any hit) without the cells' order and 0.480 with
+it: the walk is bound by fetching nodes and triangles from memory, one thread's rate
+the same alone (0.636) as with 8.
+
+The far field as `prism_cli open` builds it (seconds; the transport's steps):
+
+| scene | before | after |
+| --- | --- | --- |
+| flat | lights 145, transport 156.2 (tree 16.8, near 21.6, far 67.1, transfer 24.2, checks 12.5) | lights 81.3 (bake 60.6), transport 98.8 (tree 17.1, probe 3.6, near 9.5, far 29.6, transfer 13.7, checks 13.3) |
+| house | lights 351.0 (bake 255.2), transport 329.8 (tree 121.3, near 26.0, far 118.8, transfer 20.4, checks 17.6) | lights 231.2, transport 241.9 (tree 116.4, probe 15.6, near 12.2, far 45.2, transfer 11.1, checks 17.3) |
+
+On both scenes the visibility file's array and every file of the transport set are equal
+byte for byte before and after. Of the flat's 6.4 M closest-hit bake rays 301 differ:
+234 at the same `t` on another triangle, 67 at another `t`, rays through an edge or a
+vertex shared by triangles; any-hit rays differ in 0 of 6.4 M bake rays and 4 of 4 M
+random segments. What is left on the house: the box tree's numpy build (116 s of the
+transport, about 70 s of the lights), which the walk no longer reads but whose triangle
+order the host's tree is made from, and the host's tree itself (15 to 18 s).
+

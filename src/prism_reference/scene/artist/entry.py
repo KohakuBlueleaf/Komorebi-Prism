@@ -123,6 +123,8 @@ def entry_of(scene, positions, triangles, camera=None, licence="", attribution="
     views, view, notes = view_of(scene, camera)
     lighting = dict(LIGHTING)
     lighting |= {k: f * diagonal for k, f in BY_DIAGONAL.items()}
+    if scene.render is not None:
+        lighting["exposure"] = float(2.0**scene.render.exposure)
     sun, lamps, light_notes = lights_of(scene)
     if sun is not None:
         lighting["sun"] = sun

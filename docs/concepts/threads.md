@@ -58,7 +58,7 @@ grid, the camera's address, the steps' words) as the command's block:
 
 | phase | the command | the numbers handed out | what a core does with one | what it leaves |
 |---|---|---|---|---|
-| count | `work`, pull `TP_COUNT` | the view's count ranges: every layer's triangle blocks in ranges of `range_blocks` (4 by default; a block is 32 triangles) | counts each triangle into the tiles its box reaches; a core's counts and row histograms a layer | a counts page and a rows page a core and a layer |
+| count | `work`, pull `TP_COUNT` | the view's count ranges: every layer's triangle blocks in ranges of `range_blocks` (from the scene's blocks and the cores; a block is 32 triangles) | counts each triangle into the tiles its box reaches; a core's counts and row histograms a layer | a counts page and a rows page a core and a layer |
 | sums | `sums` | none: each core takes the slices of its rank | a slice's totals, a heavy tile's bands, its records in order of weight, its words, every core's positions | the records (a tile thread's each) and the slices' words |
 | place | `work`, pull `TP_PLACE` | the same ranges, each to the core that counted it (the count pull's log replayed) | the set-up pass over the range's blocks; each record written into the lists of every tile its box reaches, one 128-byte write an entry | each layer's lists |
 | tile | `work`, pull `TP_TILE` | the tile threads: a slice's records, `TR_NUMBER(slice, place)` | the tile thread's steps, in order | the tile's display page (a COLOUR view) or its 1/z page (a DEPTH view) |
@@ -225,7 +225,7 @@ The slots a layer grew to are kept in the option `list_slots_least` for a later 
 | option | default | what it sets |
 |---|---|---|
 | `cores` | every rank | the view's group |
-| `range_blocks` | 4 | triangle blocks a count range |
+| `range_blocks` | from the scene ([dispatch](../internals/program/dispatch.md)) | triangle blocks a count range |
 | `policy` | `prefer` | the tile pull's choice |
 | `near` | 1 | the slices a near answer may be away |
 | `heavy` | 0 (never) | the weight over every layer past which a tile is cut into bands, `ceil(weight / heavy)` of them |

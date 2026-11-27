@@ -96,8 +96,8 @@ The steps' words are assigned once on the host (`TileThread.words`: the defines
 
 ## Ranges, slices and records
 
-- **A count range** is `range_blocks` (default 4, `RANGE_BLOCKS`) of a layer's triangle
-  blocks of 32 triangles. The layers' ranges are numbered one after another
+- **A count range** is `range_blocks` of a layer's triangle blocks of 32 triangles,
+  chosen at load from the scene's blocks and the cores unless the option gives it (below). The layers' ranges are numbered one after another
   (`TF_L_RANGE_FIRST`), so one pull covers every layer; a layer's last range holds what
   is left.
 - **A slice** is a run of 16 neighbouring tiles along a row (`SLICE_TILES`; at most
@@ -179,10 +179,27 @@ when they change (`view`). Its options:
 | `policy` | the tile pull's choice | `prefer` |
 | `near` | the slices a near answer may be away | 1 |
 | `heavy` | the weight past which a tile is cut | 0 (never) |
-| `range_blocks` | the triangle blocks a count range | 4 |
+| `range_blocks` | the triangle blocks a count range | from the scene (below) |
 | `list_slots_least` | a layer's least list slots (a number, or by layer name) | none |
 | `account` | the records a core's account page holds; 0 builds no account | 0 |
 | `cores` | the frame's cores | every rank |
+
+**The size of a count range** (`threads.host.range_blocks_of`). A range is one exchange
+with X280 (an ask, an answer) and the pass's start and end on the core; the pull hands
+the ranges out in turn, so a core that takes a long range last ends the pull late, and a
+range's work is not known before it is counted. Two bounds follow. The asks: X280
+answers about `ANSWERS_A_BLOCK` (16) asks while a core walks one block, so a range of
+fewer than `cores / 16` blocks leaves cores waiting for answers (at 4 blocks on a
+29.8 M triangle scene, 120 cores: 232,476 asks a pull, a core waiting 20.5 of count's
+29.9 ms). The balance: a core's time is its blocks' walk, plus its ranges' own cost
+(about 3 us a range beyond the walk), plus the end's imbalance, a few ranges of the core
+that ends last; the sum is least at `sqrt(blocks a core / BALANCE)`, `BALANCE` (5) the
+end's imbalance over a range's own cost in blocks walked. The range is the larger of the
+two. Over 120 cores: sponza (8,196 blocks) 8, the asks' bound; a 4.8 M triangle scene
+(150,673) 16; 8.8 M (275,201) 21; 29.8 M (929,899) 39. Measured at the viewer's first
+pose, the 4.8 M scene's count is 5.37, 4.07 and 4.48 ms at 4, 16 and 35 blocks, and the
+29.8 M scene's frame 102.1 ms at 4 and 85.1 at 39
+([measurements](../../../measurements/threads_ranges/README.md)).
 
 The build's capacity (`thread.Capacity`): the count ranges of every layer and the most
 slices of the frame sizes the load holds (`capacity_of`), the records a slice and the

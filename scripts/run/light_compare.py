@@ -29,6 +29,7 @@ from prism_reference.material.surface import (
 )
 from prism_reference.post.described import displayed
 from prism_reference.post.display import to_srgb_standard8
+from prism_reference.post.view import view_of
 from prism_reference.scene.artist.entry import camera_node
 from prism_reference.scene.artist.table import artist_dir, blend_path
 from prism_reference.scene.description.flatten import drawn_triangles, flatten
@@ -319,8 +320,9 @@ def compare(key, data, filter_name="anisotropic"):
             write_png(folder / name, image)
             pictures.append(name)
         record["runs"][run] = entry
-    picture, notes = displayed(ours["direct"], scene.render)
-    theirs, _ = displayed(cyc_all["combined"], scene.render)
+    view = view_of(artist_dir(data) / key / "scene.prism.json")
+    picture, notes = displayed(ours["direct"], scene.render, view)
+    theirs, _ = displayed(cyc_all["combined"], scene.render, view)
     write_png(folder / "direct.png", np.concatenate([picture, theirs], axis=1))
     pictures.append("direct.png")
     step("compare")

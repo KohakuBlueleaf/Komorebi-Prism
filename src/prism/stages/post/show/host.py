@@ -1,6 +1,7 @@
 """SHOW's host side for one scene on one session: the display tensor of a capacity, the
-thresholds' table (of the display's transfer, a control), the push armed for a
-frame's grid, and the picture from the pushed image (or the display read back)."""
+thresholds' table (of the display's transfer, a control: power, sRGB, or the file's
+view transform with its cube's pages and region), the push armed for a frame's grid,
+and the picture from the pushed image (or the display read back)."""
 
 import time
 from functools import partial
@@ -16,6 +17,7 @@ from prism.stages.post.show.model.pages import (
     untile,
 )
 from prism.stages.post.show.model.table import SHOW, most_gamma, show_table
+from prism.stages.post.show.model.view import brick_pages, region_words
 from prism.stages.post.show.unit import P as PUSH
 from prism.stages.raster.model import numbers
 from prism_reference.post.display import (
@@ -23,6 +25,7 @@ from prism_reference.post.display import (
     to_power8,
     to_srgb_standard8,
 )
+from prism_reference.post.view import scene_view, view_from
 from prism_reference.scene.frame import frame_grid, frame_size
 
 K = numbers.K
@@ -30,7 +33,7 @@ PAGE_WORDS = SHOW["kShowPageBytes"] // 4  # a display page: a tile's pixels
 PROFILE_WORDS = SHOW["kShowProfBytes"] // 4  # a core's profile page
 PUSH_TIMEOUT_S = 2.0  # a frame's wait for the pushed image
 PUSH_SPIN_S = 20e-3  # its looks without a pause: longer than a frame
-POWER, SRGB = "power", "srgb"  # the display's transfers
+POWER, SRGB, VIEW = "power", "srgb", "view"  # the display's transfers
 TRANSFERS = ((POWER, "power"), (SRGB, "sRGB"))
 LEAST_GAMMA = 1.0
 
@@ -42,11 +45,27 @@ def table_region(table):
     return words
 
 
+def view_option(options):
+    """The view (with its record) and notes of the option `view`: a path, False for
+    none, else the scene's (by the option `name`)."""
+    chosen = options.get("view")
+    if chosen is False:
+        return None, []
+    if chosen is not None:
+        form, notes = view_from(chosen)
+    elif options.get("name"):
+        form, notes = scene_view(options["name"])
+    else:
+        return None, []
+    return form, notes
+
+
 class ShowHost(Host):
     """What SHOW needs on the host for `scene` on `session`: after `prepare()`, the
     capacity, the display and profile tensors, the thresholds' table. Options: size,
     cores, recount, capacity (as the raster stage's); push (True: the image pushed,
-    False: the display read back); transfer (power, srgb) and gamma (of power);
+    False: the display read back); transfer (power, srgb, view) and gamma (of power);
+    view (a sidecar or `.view.npz` path; False: none; else the scene's file's);
     light_shows (LIGHT writes the display: its slot display.picture given)."""
 
     pictures = True
@@ -63,9 +82,11 @@ class ShowHost(Host):
         self.transfer = None  # the push of the armed grid
         self.armed = None  # its grid (TX, TY)
         self.waits = []  # each pushed frame's wait for its image, ms
-        self.conversion = options.get("transfer", POWER)
         self.gamma = float(options.get("gamma", GAMMA))
         self.light_shows = bool(options.get("light_shows", False))
+        self.form, self.view_notes = view_option(options)
+        default = VIEW if self.form is not None else POWER
+        self.conversion = options.get("transfer", default)
 
     def prepare(self):
         """The capacity of the scene's frame (as the raster stage's), the table, the
@@ -78,6 +99,10 @@ class ShowHost(Host):
             "profile": self.tensor(np.zeros((self.cores, PROFILE_WORDS))),
             "directory": self.tensor(np.zeros((self.cores, K["kDirBytes"] // 4))),
         }
+        cube = None if self.form is None else self.form["cube"]
+        if cube is not None:
+            self.tensors["view"] = self.tensor(brick_pages(cube))
+        self.region = self.view_region()
         self.examples = {
             "directory": self.tensors["directory"],
             "display": self.tensors["display"],
@@ -93,23 +118,42 @@ class ShowHost(Host):
 
     def thresholds(self):
         """The table of the transfer and gamma held (today's table for power at
-        GAMMA)."""
+        GAMMA; the file's thresholds for view)."""
+        if self.conversion == VIEW:
+            if self.form is None:
+                raise ValueError("no view transform: the scene's file names none")
+            table = self.form["thresholds"]
+            if not SHOW["kShowBucketBase"] < table[1] <= table[-1] < SHOW["kShowOne"]:
+                raise ValueError("the view's thresholds leave the writer's buckets")
+            return table
         if self.conversion == SRGB:
             return show_table(to_srgb_standard8)
         if self.gamma == GAMMA:
             return show_table()
         return show_table(partial(to_power8, gamma=self.gamma))
 
+    def view_region(self):
+        """The view's words (after the thresholds in the region `show_table`): the
+        view on with the transfer view and a cube, else off."""
+        tensor = self.tensors.get("view") if self.conversion == VIEW else None
+        on = None if tensor is None else self.form
+        return region_words(on, 0 if tensor is None else tensor.address)
+
     def controls(self):
-        """The display's transfer (power or sRGB) and the power's gamma."""
+        """The display's transfer (power, sRGB, the file's view transform) and the
+        power's gamma."""
+        choices = TRANSFERS
+        if self.form is not None:
+            choices += ((VIEW, f"{self.form_name()} (file)"),)
         return [
             Control(
                 "transfer",
                 "Display transfer",
                 "choice",
                 self.conversion,
-                choices=TRANSFERS,
-                help="power: x to the 1 / gamma; sRGB: the standard piecewise curve",
+                choices=choices,
+                help="power: x to the 1 / gamma; sRGB: the standard piecewise curve; "
+                "the file's: the view transform its sidecar names",
             ),
             Control(
                 "gamma",
@@ -138,8 +182,18 @@ class ShowHost(Host):
             self.conversion, self.gamma = transfer, gamma
             return str(error)
         loaded.options[name] = value
-        loaded.write("show_table", self.table)
+        self.region = self.view_region()
+        loaded.write("show_table", self.table_words())
         return None
+
+    def table_words(self):
+        """The region `show_table`'s words: the thresholds' page, then the view's."""
+        return np.concatenate([table_region(self.table), self.region])
+
+    def form_name(self):
+        """The view transform's name, its look after it."""
+        view, look = self.form["record"]["view"], self.form["record"]["look"]
+        return view if look in ("", "None") else f"{view} + {look}"
 
     def tensor(self, rows):
         """A row-major uint32 array as a DRAM tensor, a page a row."""
