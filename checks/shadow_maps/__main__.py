@@ -5,7 +5,8 @@ frames, the records swapped in when whole); then frames standing (each frame who
 stood, its kept lists),
 each map the frames read against the reference's at its camera (texels over 1e-5
 relative apart, texels empty on one side only), each map's levels against the
-reference's of the card's map (exact); the redraws, the FIT and SUN commands' times and
+reference's of the card's map (exact; `levels` says "not made" on a preset whose tile
+thread writes no DEPTH levels, e.g. the stage-wise `gi`); the redraws, the FIT and SUN commands' times and
 the frames' seconds. One JSON line; the record to <out>/<scene>_<view>.json (out:
 <cache root>/shadow_maps). Exit 1 on a frame's code or a map or level apart. Example:
 python -m checks.shadow_maps --scene italian_flat_97f97a20ba --view camera --card 1"""
@@ -153,10 +154,12 @@ def main():
         m.get("apart") or m.get("empty_one_side") or m.get("levels_apart")
         for m in record["maps"]
     )
-    fits = [t for t in times if t["map"] >= 0]
+    fits = [t for t in times if t["command"] == "fit"]
+    suns = [t for t in times if t["command"] == "sun"]
     summary = {
         "frames": len(frames),
         "codes": codes,
+        "levels": host.levels_state(),
         "redraws": len(host.fits.redraws),
         "whole": sum(f["kind"] == "whole" for f in frames),
         "stood": sum(f["kind"] == "tile" for f in frames),
@@ -165,10 +168,10 @@ def main():
         "fit_levels_us": [round(t["levels"], 1) for t in fits],
         "fit_copies_us": [round(t["copies"], 1) for t in fits],
         "fit_ended": [t["ended"] for t in fits],
-        "sun_us": [round(t["pass"], 1) for t in times if t["map"] < 0],
-        "sun_levels_us": [round(t["levels"], 1) for t in times if t["map"] < 0],
-        "sun_copies_us": [round(t["copies"], 1) for t in times if t["map"] < 0],
-        "sun_ended": [t["ended"] for t in times if t["map"] < 0],
+        "sun_us": [round(t["pass"], 1) for t in suns],
+        "sun_levels_us": [round(t["levels"], 1) for t in suns],
+        "sun_copies_us": [round(t["copies"], 1) for t in suns],
+        "sun_ended": [t["ended"] for t in suns],
         "maps": record["maps"],
     }
     record["summary"] = summary

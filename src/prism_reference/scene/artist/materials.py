@@ -17,6 +17,7 @@ from prism_reference.post.display import (
     SRGB_SCALE,
     SRGB_SLOPE,
 )
+from prism_reference.scene.artist.slots import slot_maps
 from prism_reference.scene.public.materials import EMISSIVE_MIN, EXPONENT_RANGE, KINDS
 from prism_reference.scene.public.textures import (
     MIP_LEVELS,
@@ -34,12 +35,6 @@ NAME_DIGITS = 16  # of an image's digest, naming its folder
 TRANSMISSION = "KHR_materials_transmission"
 DIELECTRIC = 0.04  # the specular colour of a non-metal
 WHITE = np.full((1, 1, 4), 255, dtype=np.uint8)  # the texture of a scene without any
-OTHER_TEXTURES = (
-    "metallic_roughness_texture",
-    "normal_texture",
-    "occlusion_texture",
-    "emissive_texture",
-)
 
 
 def srgb_to_linear(values):
@@ -106,11 +101,6 @@ def transparent_numbers(material):
     return base, a * specular_of(material), tau
 
 
-def is_identity(use):
-    """True when a TextureUse's transform is offset 0, rotation 0, scale 1."""
-    return not np.any(use.offset) and use.rotation == 0.0 and np.all(use.scale == 1.0)
-
-
 def dropped_of(material, kind, scene):
     """What the mapping of `material` as `kind` does not draw, as short names."""
     albedo = image_of(scene, material.base_color_texture)
@@ -123,15 +113,8 @@ def dropped_of(material, kind, scene):
         out.append("emissive-with-base texture")
     if material.normal_texture is not None and kind != "lit":
         out.append("normal texture of a kind without one")
-    if kind == "lit" and material.normal_scale != 1.0:
-        out.append("normal scale")
-    uses = [material.base_color_texture] + [
-        getattr(material, n) for n in OTHER_TEXTURES
-    ]
-    if any(use is not None and use.uv != 0 for use in uses):
-        out.append("second UV set")
-    if any(use is not None and not is_identity(use) for use in uses[1:]):
-        out.append("texture transform not on the base colour")
+    if slot_maps(material, kind)[1]:
+        out.append("a slot on another uv set than the base colour's")
     if material.double_sided:
         out.append("double_sided")
     if material.unlit:

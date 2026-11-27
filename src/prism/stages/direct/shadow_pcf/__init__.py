@@ -12,7 +12,12 @@ SHADOW_PCF = IMPLEMENTATIONS.register(
         name="direct.shadow_pcf",
         fills=(),
         reads=("scene.mesh",),
-        writes=("light.shadow_map", "light.shadow_maps", "view.depth"),
+        writes=(
+            "light.shadow_map",
+            "light.shadow_maps",
+            "light.lamp_faces",
+            "view.depth",
+        ),
         device=None,
         host=ShadowHost,
         check=check,

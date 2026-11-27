@@ -34,7 +34,9 @@ stage's part of the common field `command_space`, `prism.core.fields`, its addre
 `kernels/space.hpp`; it lives within the command) and writes
 the item's rows to its tile's page of the display. The thresholds are the region
 `show_table`, filled into a field at each command. `copy` reads plane 0 and writes it
-row-major to page `first + (tile / 32) across + tile mod 32`.
+row-major to page `first + (tile / TX) across + tile mod TX`, TX the view's tiles a row
+(its grid word): a tile is `ty TX + tx` whatever the view's size, so a DEPTH view
+smaller than 1,024 (a lamp's 512 face) lands at its own pages.
 
 ## With the option `light_shows`
 

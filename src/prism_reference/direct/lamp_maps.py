@@ -136,7 +136,8 @@ def lamp_pages(lights):
 
 
 def face_view(scene, face):
-    """The view of `scene` a face draws: its camera at its size, no colour."""
+    """The view of `scene` a face draws: its camera at its size, no colour, a DEPTH
+    view (its 1/z planes set up from its near distance's, as the card draws it)."""
     return {
         "positions": scene["positions"],
         "indices": scene["indices"],
@@ -144,6 +145,7 @@ def face_view(scene, face):
         "camera": face["camera"],
         "light": np.zeros(3, dtype=F),
         "size": tuple(face["size"]),
+        "depth_view": True,
     }
 
 

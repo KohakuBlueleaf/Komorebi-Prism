@@ -178,7 +178,7 @@ class Show(km.Program, compute=FRAME_COMPUTE):
                         "if (viewing && !show_view::viewed_wait(movement, viewed)) {\n"
                         "    return false;\n}\n"
                         "if (const int wrote = writer.item(movement, command, item_id, "
-                        "display.word, 0, kGridDefault, display_pages, false); "
+                        "display.word, 0, kGridDefault, kGridDefault, display_pages, false); "
                         "wrote >= 0) {\n    return wrote != 0;\n}",
                         takes=[item, display, display_pages, self.viewed],
                         on="mover_b",
@@ -204,10 +204,11 @@ class Show(km.Program, compute=FRAME_COMPUTE):
         first: int,
         across: int,
         target_pages: int,
+        grid: int,
     ):
         """COPY: each item of the core's directory page, its plane 0 word for word,
-        row-major, to page first + (tile / 32) across + tile mod 32 of `target` (of
-        `target_pages`)."""
+        row-major, to page first + (tile / TX) across + tile mod TX of `target` (of
+        `target_pages`), TX the view's tiles a row (its grid word, grid.h)."""
         km.cxx(
             "show_k::Reader reader;",
             on="mover_a",
@@ -249,9 +250,9 @@ class Show(km.Program, compute=FRAME_COMPUTE):
                     )
                     km.cxx(
                         "if (const int wrote = writer.item(movement, command, item_id, "
-                        "target.word, first, across, target_pages, true); "
+                        "target.word, first, grid_of(grid).across, across, target_pages, true); "
                         "wrote >= 0) {\n    return wrote != 0;\n}",
-                        takes=[item, target, first, across, target_pages],
+                        takes=[item, target, first, across, target_pages, grid],
                         on="mover_b",
                     )
         km.cxx(

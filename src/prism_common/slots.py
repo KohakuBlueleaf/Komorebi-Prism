@@ -109,11 +109,32 @@ slot(
     "then each fitted map's: camera, pages, side, texel, bias, levels)",
 )
 slot(
+    "light.lamp_faces",
+    "u32",
+    "page",
+    "each lamp's faces in the page of maps, in lamp_faces' order: its first face "
+    "record and its faces (0, 0 without faces)",
+)
+slot(
     "light.field",
     "u32",
     "page",
     "the indirect field as LIGHT reads it: a block of voxels a light page, texels of "
     "a has-data bit and three square-root codes",
+)
+slot(
+    "near.weights",
+    "bfp8_b",
+    "tile",
+    "the one-tile product's weights W_T of the standing camera: a screen tile's record "
+    "of 8 tiles, a half pixel a row, its 32 columns",
+)
+slot(
+    "near.light",
+    "fp32",
+    "tile",
+    "the one-tile product's E of a screen tile at its half pixels, a channel after "
+    "another, its half rows and columns in the frame, and whether it is the frame's",
 )
 slot(
     "light.field_scale",

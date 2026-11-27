@@ -47,6 +47,22 @@ class Output:
     convert: str | None = None
 
 
+def ring_checked(where, spec, unpushed=False):
+    """A ring's (pages, page bytes, pusher[, format]) refused at `where` for a pusher
+    not of PUSHERS (or None when `unpushed`: memory, no ring) or a format whose tile is
+    not the page."""
+    if len(spec) not in (3, 4):
+        raise ValueError(f"{where}: (pages, page bytes, pusher[, format]), not {spec}")
+    pusher = spec[2]
+    if pusher not in PUSHERS and not (unpushed and pusher is None):
+        raise ValueError(f"{where} pushed by {pusher!r}, none of {PUSHERS}")
+    if len(spec) == 4 and int(spec[1]) != spec[3].tile_bytes:
+        raise ValueError(
+            f"{where}: pages of {spec[1]} bytes, a {spec[3].dtype} tile is "
+            f"{spec[3].tile_bytes}"
+        )
+
+
 @dataclass(frozen=True)
 class Step:
     """A step of the tile thread. `header` (from src/prism/) gives
@@ -54,8 +70,8 @@ class Step:
     among themselves. `passes`: its list passes; `requests`: the page kinds it may
     request; `outputs`: the streams it pushes; `reads`, `leaves`: its planes; `keeps`:
     state kept on a core across threads ({name: bytes of the capacity held});
-    `buffers`: rings of its own ({name: (pages, page bytes, the CPU that pushes)});
-    `words`: its words of the frame's page, filled by `<name>_frame_words` of `thread`
+    `buffers`: rings of its own ({name: (pages, page bytes, the CPU that pushes)}, or
+    with a fourth, a Komorebi format: a page a tile of it; else raw words); `words`: its words of the frame's page, filled by `<name>_frame_words` of `thread`
     (a C file from src/prism/); `codes`: its variants by code (0 the resident one);
     `colour`, `depth`: whether a COLOUR and a DEPTH view's tile thread runs it;
     `begin`: whether the header gives `<name>_begin(ctx)`, run once a command on the
@@ -131,12 +147,8 @@ class TileThread:
                         f"no step before it leaves"
                     )
             left |= set(step.leaves)
-            for ring, (_, _, pusher) in step.buffers.items():
-                if pusher not in PUSHERS:
-                    raise ValueError(
-                        f"tile thread: step {step.name!r}'s ring {ring!r} pushed by "
-                        f"{pusher!r}, none of {PUSHERS}"
-                    )
+            for ring, spec in step.buffers.items():
+                ring_checked(f"tile thread: step {step.name!r}'s ring {ring!r}", spec)
 
     def words(self, first, most):
         """{PRISM_TF_<STEP>_<WORD>: its word of the frame's page}: the steps' words in

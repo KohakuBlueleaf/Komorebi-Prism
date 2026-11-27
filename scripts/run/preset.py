@@ -1,7 +1,8 @@
 """A preset of configs/pipeline on one card: a Loop, its frames run by the thread and
 checked by its last implementation's check; one JSON line, and the record written to
-<out>/<scene>[_<view>]_<W>_<H>.json (out: measurements/<preset>_frame). --no-display: the
-preset without its display (the implementations that fill `post`). Example: python
+<out>/<scene>[_<view>]_<W>_<H>.json (out: measurements/<preset>_frame); exit 1 when the
+check's numbers say `failed`. --no-display: the preset without its display (the
+implementations that fill `post`). Example: python
 scripts/run/preset.py --pipeline textured --scene sponza --view overview --size 1024 1024
 """
 
@@ -9,6 +10,7 @@ import argparse
 import ast
 import importlib
 import json
+import sys
 from pathlib import Path
 
 import komorebi as km
@@ -105,7 +107,9 @@ def main():
         finally:
             loop.stop()
     print(json.dumps(record, default=float), flush=True)
+    numbers = record["numbers"]
+    return 1 if isinstance(numbers, dict) and numbers.get("failed") else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

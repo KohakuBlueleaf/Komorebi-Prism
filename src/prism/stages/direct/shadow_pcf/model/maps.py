@@ -1,7 +1,7 @@
 """The page of maps as the unit's header lays it out: its words, two halves of records
-(the whole map's, then each fitted map's), a record's words; a map's levels as the
-DEPTH view and the unit leave them (a tile's slot and top, the coarse levels' pages) and
-read back."""
+(the whole map's, each fitted map's, each lamp face's), a record's words; a map's levels
+as the DEPTH view and the unit leave them (a tile's slot and top, the coarse levels'
+pages) and read back. A map is `width` x `height` texels (height None: square)."""
 
 import numpy as np
 
@@ -18,6 +18,7 @@ IN_TILE = D["DEPTH_LEVELS_IN_TILE"]
 IN_SLOT = [D[f"DEPTH_LEVELS_L{n}"] for n in range(1, IN_TILE + 1)]  # each level's word
 RECORD = H["SHADOW_PCF_RECORD_WORDS"]
 WHOLE, FIT = H["SHADOW_PCF_KIND_WHOLE"], H["SHADOW_PCF_KIND_FIT"]
+FACE = H["SHADOW_PCF_KIND_FACE"]
 F32 = np.float32
 
 
@@ -31,29 +32,45 @@ def record_at(maps, half, index):
     return H["SHADOW_PCF_M_RECORDS"] + (half * maps + index) * RECORD
 
 
-def map_pages(side):
+def tiles_of(width, height=None):
+    """A map's pages across and down (a page a tile)."""
+    return width // PAGE, (width if height is None else height) // PAGE
+
+
+def map_pages(width, height=None):
     """A map's pages, its tiles."""
-    return (side // PAGE) ** 2
+    across, down = tiles_of(width, height)
+    return across * down
 
 
-def level_count(side):
-    """A map's levels below it: side / 2 down to 1."""
-    return int(side).bit_length() - 1
+def halved(across, down):
+    """Each coarser grid of an across x down grid, down to 1 x 1: each side halved,
+    rounded up."""
+    out = []
+    while across > 1 or down > 1:
+        across, down = (across + 1) // 2, (down + 1) // 2
+        out.append((across, down))
+    return out
 
 
-def coarse_pages(side):
+def coarse_pages(width, height=None):
     """The pages of a map's levels coarser than a tile: a level a page."""
-    return level_count(side // PAGE)
+    return len(halved(*tiles_of(width, height)))
 
 
-def levels_bytes(sides):
-    """The levels' work bytes for maps of `sides` (none: 0): a map's tops, a slot and
-    its coarse levels' pages, the most of them."""
-    if not sides:
+def level_count(width, height=None):
+    """A map's levels below it, down to 1 x 1: a tile's, then the coarse ones."""
+    return IN_TILE + coarse_pages(width, height)
+
+
+def levels_bytes(sizes):
+    """The levels' work bytes for maps of `sizes` [(width, height)] (none: 0): a map's
+    tops, a slot and its coarse levels' pages, the most of them."""
+    if not sizes:
         return 0
     return max(
-        map_pages(s) * TOP_BYTES + SLOT_BYTES + coarse_pages(s) * PAGE_BYTES
-        for s in sides
+        map_pages(w, h) * TOP_BYTES + SLOT_BYTES + coarse_pages(w, h) * PAGE_BYTES
+        for w, h in sizes
     )
 
 
@@ -71,13 +88,11 @@ def record_words(camera, record):
     return words
 
 
-def maps_words(maps, grid, tiles, fit_pages, halves):
-    """The page of maps' words: `maps` records a half, a fitted view's `grid` word and
-    `tiles`, the fitted tensor's pages, `halves` two lists of record words."""
+def maps_words(maps, fit_pages, halves):
+    """The page of maps' words: `maps` records a half, the own maps' tensor's pages,
+    `halves` two lists of record words."""
     words = np.zeros(maps_bytes(maps) // 4, dtype=np.uint32)
     words[H["SHADOW_PCF_M_MAPS"]] = maps
-    words[H["SHADOW_PCF_M_GRID"]] = grid
-    words[H["SHADOW_PCF_M_TILES"]] = tiles
     words[H["SHADOW_PCF_M_FIT_PAGES"]] = fit_pages
     for half, records in enumerate(halves):
         for index, record in enumerate(records):
@@ -86,28 +101,25 @@ def maps_words(maps, grid, tiles, fit_pages, halves):
     return words
 
 
-def of_pages(pages, side):
-    """A (side, side) float32 map from its pages (row by row of pages)."""
-    across = max(1, side // PAGE)
-    pages = np.asarray(pages, dtype=np.uint32).reshape(across, across, PAGE, PAGE)
-    full = pages.transpose(0, 2, 1, 3).reshape(across * PAGE, across * PAGE)
-    return np.ascontiguousarray(full[:side, :side]).view(F32)
+def of_pages(pages, width, height=None):
+    """A (height, width) float32 map from its pages (row by row of pages)."""
+    across, down = tiles_of(width, height)
+    pages = np.asarray(pages, dtype=np.uint32).reshape(down, across, PAGE, PAGE)
+    full = pages.transpose(0, 2, 1, 3).reshape(down * PAGE, across * PAGE)
+    return np.ascontiguousarray(full).view(F32)
 
 
-def levels_of(slots, coarse, side):
-    """Each level (s, s) float32 of a map of `side` from its tiles' slots (tiles, words)
-    and its coarse levels' pages (pages, words)."""
-    across = side // PAGE
-    slots = np.asarray(slots, dtype=np.uint32).reshape(across, across, -1)
+def levels_of(slots, coarse, width, height=None):
+    """Each level float32 of a map from its tiles' slots (tiles, words) and its coarse
+    levels' pages (pages, words)."""
+    across, down = tiles_of(width, height)
+    slots = np.asarray(slots, dtype=np.uint32).reshape(down, across, -1)
     out = []
     for n, at in enumerate(IN_SLOT):
         s = 16 >> n
-        blocks = slots[:, :, at : at + s * s].reshape(across, across, s, s)
-        out.append(
-            blocks.transpose(0, 2, 1, 3).reshape(across * s, across * s).view(F32)
-        )
-    g = across
-    for page in np.asarray(coarse, dtype=np.uint32):
-        g //= 2
-        out.append(np.ascontiguousarray(page.reshape(PAGE, PAGE)[:g, :g]).view(F32))
+        blocks = slots[:, :, at : at + s * s].reshape(down, across, s, s)
+        out.append(blocks.transpose(0, 2, 1, 3).reshape(down * s, across * s).view(F32))
+    grids = halved(across, down)
+    for page, (a, d) in zip(np.asarray(coarse, dtype=np.uint32), grids, strict=True):
+        out.append(np.ascontiguousarray(page.reshape(PAGE, PAGE)[:d, :a]).view(F32))
     return out

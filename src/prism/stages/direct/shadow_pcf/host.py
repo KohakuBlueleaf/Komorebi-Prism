@@ -2,7 +2,10 @@
 sun region's part of its own (the quadrants' cameras, the map's pages; LIGHT's table
 before it is the light host's), the column that names LIGHT's table, the SUN command
 sent when the sun moves, the page of maps (the fitted maps kept beside the frames and
-the FIT commands that draw them again), and their times."""
+the FIT commands that draw them again; the lamps' faces and the LAMPS commands that draw
+them), and their times."""
+
+import time
 
 import numpy as np
 
@@ -12,7 +15,9 @@ from prism.core.control import Control
 from prism.core.implementation import Command, Host
 from prism.program.assemble import MissingSlot
 from prism.program.loaded import MICROSECONDS
+from prism.program.threads.tile_option import depth_levels
 from prism.stages.direct.light.model.sun import scene_box, shadow_of_pages
+from prism.stages.direct.shadow_pcf.model.faces import Faces
 from prism.stages.direct.shadow_pcf.model.fit import Fits
 from prism.stages.direct.shadow_pcf.model.maps import (
     SLOT_BYTES,
@@ -45,9 +50,11 @@ from prism_reference.scene.frame import frame_grid
 
 SUN = "sun"  # the unit's region and its command
 FIT = "fit"  # the command that draws a fitted map again
+LAMPS = "lamps"  # the command that draws lamp faces not drawn
 TIMES = "sun_times"
 MAP = "light.shadow_map"  # the light pages, the map their first pages
 CAMERAS = "view.depth"  # the DEPTH views: indices, cameras, frame size
+LAMP_FACES = "light.lamp_faces"  # each lamp's first face record and faces
 PAGE_WORDS = 1024  # a map's page
 AZIMUTH = (0.0, 360.0)  # the sun's angles a viewer offers, degrees
 ELEVATION = (0.0, 90.0)
@@ -73,9 +80,20 @@ class ShadowHost(Host):
         self.sent = 0  # SUN and FIT commands of the loaded run
         self.fitted = {}  # the tensors: fitted maps and coarse levels, slots, tops
         self.swap = 0  # 1 + the half the next SUN swaps in (0: none)
+        self.lamps_began = 0.0  # when the LAMPS command asked was asked for
+        self.levels_not_made = False  # levels asked, the DEPTH views write none
+
+    def levels_state(self):
+        """The levels: "made", "not asked", or "not made" (asked, but the tile thread's
+        DEPTH views write no slots, so nothing can make them)."""
+        if self.levels_not_made:
+            return "not made"
+        return "made" if self.fits.levels else "not asked"
 
     def prepare(self):
-        """The lights, the scene's box, the quadrants (the views of its own)."""
+        """The lights, the scene's box, the views of its own: the quadrants, the fitted
+        maps, the lamps' faces (option `lamp_maps`, default true); the levels (option
+        `shadow_levels`) only where the tile thread's DEPTH views write them."""
         if self.lights is None:
             self.lights = reference_lights.load(self.name, data_root())
         if self.side is not None:
@@ -87,16 +105,26 @@ class ShadowHost(Host):
         side = int(self.options.get("cascade_side", QUADRANT[0]))
         if count and side != QUADRANT[0]:
             raise ValueError(f"direct.shadow_pcf: a fitted map's side is {QUADRANT[0]}")
+        asked = bool(self.options.get("shadow_levels", False))
+        self.levels_not_made = asked and not depth_levels(self.options)
         self.fits = Fits(
             self.scene,
             count,
             side,
             float(self.options.get("cascade_margin", 0.25)),
-            bool(self.options.get("shadow_levels", False)),
+            asked and not self.levels_not_made,
             self.options.get("cascade_reach"),
             1 + quadrants,
+            grid_of(QUADRANT),
         )
-        self.views = tuple(range(1, 1 + quadrants + count))
+        self.faces = Faces(
+            self.lights if self.options.get("lamp_maps", True) else {},
+            self.fits.levels,
+            1 + quadrants + count,
+            1 + count,
+        )
+        faces = len(self.faces.faces)
+        self.views = tuple(range(1, 1 + quadrants + count + faces))
         self.target = None
 
     def connect(self, assembled):
@@ -114,12 +142,16 @@ class ShadowHost(Host):
             )
         side = shadow_side(self.lights)
         pages = self.fits.fit_pages(side)
+        slots = self.fits.slot_count(side)
+        self.faces.place(pages, slots)
+        pages += self.faces.pages()
+        slots += self.faces.slots()
         if pages:
             self.fitted["maps"] = self.own(pages, PAGE_WORDS)
-        slots = self.fits.slot_count(side)
         if slots:
             self.fitted["slots"] = self.own(slots, SLOT_BYTES // 4)
             self.fitted["tops"] = self.own(slots, TOP_BYTES // 4)
+        self.fits.tail = self.faces.records(self.fitted, grid_of)
 
     def own(self, pages, words):
         """A tensor of its own: `pages` pages of `words` words, refused when its pages
@@ -142,8 +174,9 @@ class ShadowHost(Host):
         """The page of maps' first byte in the sun region, the levels' work bytes' first
         byte and their bytes."""
         maps = region_bytes(self.quadrants)
-        levels = maps + maps_bytes(1 + self.fits.count)
-        return maps, levels, levels_bytes(self.level_sides())
+        records = 1 + self.fits.count + len(self.faces.faces)
+        levels = maps + maps_bytes(records)
+        return maps, levels, levels_bytes(self.level_sizes())
 
     def region_bytes(self):
         """The sun region's bytes: to the page of maps, it, the levels' work bytes."""
@@ -164,20 +197,22 @@ class ShadowHost(Host):
         return np.concatenate([words, self.maps_words()])
 
     def maps_words(self):
-        """The page of maps' words now: both halves the whole map's record at the sun
-        and no fitted map."""
-        grid = raster_host.grid_word(QUADRANT)
-        across, down = frame_grid(QUADRANT)
-        return self.fits.words(
-            self.moved(), self.target, self.fitted, grid, across * down
-        )
+        """The page of maps' words now: both halves the whole map's record at the sun,
+        no fitted map and the lamps' faces."""
+        return self.fits.words(self.moved(), self.target, self.fitted)
 
-    def level_sides(self):
-        """The sides of the maps whose levels the unit reduces (none without levels)."""
+    def level_sizes(self):
+        """The (width, height) of the maps whose levels the unit reduces (none without
+        levels)."""
         if not self.fits.levels:
             return []
         side = shadow_side(self.lights)
-        return [side] + ([self.fits.side] if self.fits.count else [])
+        fitted = [(self.fits.side, self.fits.side)] if self.fits.count else []
+        return [(side, side)] + fitted + self.faces.sizes()
+
+    def row_views(self):
+        """The views a times row holds: the most a command draws."""
+        return max(self.quadrants, 1, len(self.faces.faces))
 
     def need(self, size):
         """The tiles of a frame of `size` and of a quadrant of the map."""
@@ -185,21 +220,26 @@ class ShadowHost(Host):
 
     def slots(self):
         """The DEPTH views (slot view.depth): their view indices, each quadrant's
-        camera at the sun now and each fitted map's of the scene's camera, a quadrant's
-        frame size (a fitted map's)."""
+        camera at the sun now, each fitted map's of the scene's camera and each lamp
+        face's, a quadrant's frame size (no fitted map or face is larger); each lamp's
+        first face record and faces (slot light.lamp_faces)."""
         lights = self.moved()
         cameras = quadrant_cameras(lights)
         if self.fits.count:
             cameras = cameras + self.fits.first_cameras(lights["sun_direction"])
-        return {CAMERAS: {"views": self.views, "cameras": cameras, "size": QUADRANT}}
+        cameras = cameras + self.faces.cameras()
+        lamps = self.faces.lamps(len(self.lights["lamp_intensity"]))
+        return {
+            CAMERAS: {"views": self.views, "cameras": cameras, "size": QUADRANT},
+            LAMP_FACES: lamps,
+        }
 
     def view(self, loaded, camera, size):
         """Once a run: the column naming LIGHT's table in every layer row; the SUN
         command asked for (the card draws the map at every load, whatever map the
-        lights' file holds);
-        every frame, the fitted maps that no longer hold the eye's slices fitted again
-        into the half of the page of maps the frames do not read, their FIT commands
-        asked for."""
+        lights' file holds); every lamp face not drawn; every frame, the fitted maps
+        that no longer hold the eye's slices fitted again into the half of the page of
+        maps the frames do not read, their FIT commands asked for."""
         if self.loaded is not loaded:
             self.loaded, self.sent = loaded, 0
             table = loaded.thread.regions.address(SUN)[1]
@@ -208,6 +248,7 @@ class ShadowHost(Host):
             self.pending = True
             self.fits.half, self.fits.asked = 0, []
             self.fits.cameras = [None] * self.fits.count
+            self.faces.restart()
         if self.pending or not self.fits.count or self.sun_now()[1] <= 0:
             return
         written = self.fits.follow(self.moved(), self.target, self.fitted, camera, size)
@@ -220,16 +261,29 @@ class ShadowHost(Host):
 
     def commands(self, loaded):
         """SUN, while asked for and the sun is above the horizon (with the half of the
-        page of maps it swaps in); else the first FIT a redraw asks for."""
+        page of maps it swaps in); else the first FIT a redraw asks for and LAMPS while
+        a lamp face is not drawn."""
         if self.pending and self.sun_now()[1] > 0:
             return [Command(SUN, (self.swap,))]
+        out = []
         if self.fits.asked and not self.pending:
-            return [Command(FIT, self.fits.asked[0])]
-        return []
+            out.append(Command(FIT, self.fits.asked[0]))
+        lamps = self.faces.command()
+        if lamps is not None:
+            self.lamps_began = time.perf_counter()
+            out.append(Command(LAMPS, lamps))
+        return out
 
     def served(self, loaded, command, code):
-        """A SUN command's code kept, done when 0; a FIT's to the fits."""
+        """A SUN command's code kept, done when 0; a FIT's to the fits; a LAMPS's to
+        the faces with the seconds it took."""
         self.sent += 1
+        if command == LAMPS:
+            seconds = time.perf_counter() - self.lamps_began
+            asked = list(self.faces.asked or ())
+            self.passes.append({"lamps": asked, "code": code, "s": round(seconds, 4)})
+            self.faces.served(code, seconds)
+            return
         if command == FIT:
             self.passes.append({"fit": list(self.fits.asked[0]), "code": code})
             self.fits.served(code)
@@ -323,7 +377,33 @@ class ShadowHost(Host):
             out.append(one)
         return out
 
+    def lamp_maps(self, loaded):
+        """The card's lamp faces: per face its record's index, the face, its map
+        (height, width) float32 1/z and its levels (none when it has none)."""
+        out = []
+        for index, (face, size, (first, coarse, slot)) in enumerate(
+            zip(self.faces.faces, self.faces.sizes(), self.faces.firsts, strict=True)
+        ):
+            count = pages_of(*size)
+            one = {
+                "index": self.faces.first_record + index,
+                "face": face,
+                "map": of_pages(self.read(loaded, "maps", first, count), *size),
+            }
+            if self.faces.levels:
+                slots = self.read(loaded, "slots", slot, count)
+                pages = self.read(loaded, "maps", coarse, coarse_pages(*size))
+                one["levels"] = levels_of(slots, pages, *size)
+            out.append(one)
+        return out
+
     def times(self, loaded):
-        """The SUN commands' times rows, read after the stop."""
+        """The SUN, FIT and LAMPS commands' times rows, read after the stop."""
         raw = loaded.region(TIMES)
-        return times_rows(raw, len(self.views), self.sent, MICROSECONDS)
+        return times_rows(raw, self.row_views(), self.sent, MICROSECONDS)
+
+
+def grid_of(size):
+    """A DEPTH view's of `size`: its grid word and its tiles."""
+    across, down = frame_grid(size)
+    return raster_host.grid_word(size), across * down

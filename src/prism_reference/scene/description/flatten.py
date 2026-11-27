@@ -35,7 +35,7 @@ def drawn_triangles(scene: Scene):
 
 
 def flatten(scene: Scene, most_triangles: int):
-    """World-space positions, unit normals, uv0, indices and per-triangle material."""
+    """World-space positions, unit normals, uv0, uv1, indices and per-triangle material."""
     total = drawn_triangles(scene)
     if total > most_triangles:
         raise ValueError(
@@ -48,6 +48,7 @@ def flatten(scene: Scene, most_triangles: int):
     positions = np.zeros((vertices, 3), np.float32)
     normals = np.zeros((vertices, 3), np.float32)
     uv0 = np.zeros((vertices, 2), np.float32)
+    uv1 = np.zeros((vertices, 2), np.float32)
     indices = np.zeros((total, 3), np.uint32)
     material = np.zeros(total, np.int32)
     v_at = t_at = 0
@@ -65,6 +66,8 @@ def flatten(scene: Scene, most_triangles: int):
                 normals[v_at : v_at + count] = n / np.where(length > 0, length, 1)
             if prim.uv0 is not None:
                 uv0[v_at : v_at + count] = prim.uv0
+            if prim.uv1 is not None:
+                uv1[v_at : v_at + count] = prim.uv1
             corners = prim.indices[:, [0, 2, 1]] if flip else prim.indices
             indices[t_at : t_at + tris] = corners + np.uint32(v_at)
             material[t_at : t_at + tris] = prim.material
@@ -74,6 +77,7 @@ def flatten(scene: Scene, most_triangles: int):
         "positions": positions,
         "normals": normals,
         "uv0": uv0,
+        "uv1": uv1,
         "indices": indices,
         "material": material,
     }

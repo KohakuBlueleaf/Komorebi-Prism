@@ -28,7 +28,7 @@ A `Step`'s fields:
 | `outputs` | the output streams it pushes |
 | `reads`, `leaves` | the planes it reads, the planes it leaves for the steps after it |
 | `keeps` | state kept on the core across threads, `{name: bytes}` (a number, or a function of the capacity held) |
-| `buffers` | rings of its own, `{name: (pages, page bytes, the CPU that pushes)}` |
+| `buffers` | rings of its own, `{name: (pages, page bytes, the CPU that pushes)}`: raw words; with a fourth element, a Komorebi format (`km.bf16`, `km.bfp8_b`, ...), a typed ring whose page is one tile of that format, as the matrix engine's unpack and pack take it (`field_of` makes `km.L1[format, pages, 32, 32]` without `raw`); the page bytes must equal the format's tile |
 | `streams` | the rings of `buffers` Komorebi's movers move |
 | `words`, `thread` | its words of the frame's page, filled by `<name>_frame_words` in the C file `thread`, on the frame's thread, once a view |
 | `codes` | variants of its compute by the tile pull's code (0 is the resident one) |

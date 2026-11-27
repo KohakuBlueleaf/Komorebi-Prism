@@ -19,8 +19,8 @@ namespace shade_k {
         kLightTextureMask
     };
 
-    // Row r: covered pixels' rgb / (1/z) (q = a r, q + (a - q w) r), frac(u), 1 -
-    // frac(v) (at least 0); then the depth row to 0 (no texel).
+    // Row r: covered pixels' rgb / (1/z) (q = a r, q + (a - q w) r), u and v also to
+    // the u and v rows; then the depth row to 0 (no texel).
     inline void divide_row(uint32_t r) {
         TTI_SFPENCC(3, 0, 0, 10);
         load(L0, kVecTri + r);
@@ -34,17 +34,8 @@ namespace shade_k {
             TT_SFPMAD(L5, L2, L4, L4, 0);
             store(L4, 32 * plane + r);
             if (plane == 1) {
-                floor_to(L4, L5);
-                sub(L4, L5, L4);
-                TTI_SFPNOP;
-                at_least_zero(L4, L5);
                 store(L4, kVecS + r);
             } else if (plane == 2) {
-                floor_to(L4, L5);
-                sub(L4, L5, L4);
-                sub(ONE, L4, L4);
-                TTI_SFPNOP;
-                at_least_zero(L4, L5);
                 store(L4, kVecT + r);
             }
         }
@@ -54,20 +45,54 @@ namespace shade_k {
     }
 
     // A record's numbers to its vectors (every lane): triangle, width, width - 1,
-    // height, height - 1, blocks a row, 1 + first page, base rgb, mask's pages on.
-    inline void record_numbers(const uint32_t* numbers) {
+    // height, height - 1, blocks a row, 1 + first page, base rgb, mask's pages on;
+    // mapped, its slot's uv map too.
+    inline void record_numbers(const uint32_t* numbers, bool mapped = false) {
         TTI_SFPENCC(3, 0, 0, 10);
-        for (uint32_t i = 0; i < kRecordNumbers; ++i) {
+        for (uint32_t i = 0; i < (mapped ? kRecordNumbers : kConstMap); ++i) {
             immediate(L0, numbers[i]);
             store(L0, kVecRecord + i);
         }
     }
 
-    // Row r's texel keys of the record's pixels to `target` (and, kLightTextureMask,
-    // the mask's key tagged to the triangle row).
-    inline void key_row(uint32_t r, Mode mode, uint32_t target) {
-        // x = min(floor(s width), width - 1), its block and column in the block
+    // The slot's (u, v) of row r to L0, L1: mapped, (a u + b v + c, d u + e v + f).
+    inline void slot_uv(uint32_t r, bool mapped) {
         load(L0, kVecS + r);
+        load(L1, kVecT + r);
+        if (!mapped) {
+            return;
+        }
+        load(L2, kVecRecord + kConstMap);
+        load(L3, kVecRecord + kConstMap + 1);
+        load(L4, kVecRecord + kConstMap + 2);
+        mul(L2, L0, L5);
+        TT_SFPMAD(L3, L1, L5, L5, 0);
+        add(L5, L4, L5);
+        load(L2, kVecRecord + kConstMap + 3);
+        load(L3, kVecRecord + kConstMap + 4);
+        load(L4, kVecRecord + kConstMap + 5);
+        mul(L2, L0, L6);
+        TT_SFPMAD(L3, L1, L6, L6, 0);
+        add(L6, L4, L1);
+        TTI_SFPNOP;
+        TT_SFPMOV(0, L5, L0, 0);
+    }
+
+    // Row r's texel keys of the record's pixels to `target` (and, kLightTextureMask,
+    // the mask's key tagged to the triangle row): s = frac(u), t = 1 - frac(v) (each at
+    // least 0) of the slot's (u, v) (slot_uv).
+    inline void key_row(uint32_t r, Mode mode, uint32_t target, bool mapped) {
+        slot_uv(r, mapped);
+        floor_to(L1, L5);
+        sub(L1, L5, L7);
+        sub(ONE, L7, L7);
+        TTI_SFPNOP;
+        at_least_zero(L7, L5);
+        floor_to(L0, L5);
+        sub(L0, L5, L0);
+        TTI_SFPNOP;
+        at_least_zero(L0, L5);
+        // x = min(floor(s width), width - 1), its block and column in the block
         load(L1, kVecRecord + kConstW);
         mul(L0, L1, L0);
         floor_to(L0, L2);
@@ -77,10 +102,9 @@ namespace shade_k {
         mul(L2, INV32, L3);
         floor_to(L3, L4);
         TT_SFPMAD(L4, C32, L2, L2, kNegA);
-        // y likewise from 1 - t and the height
-        load(L0, kVecT + r);
+        // y likewise from t (L7) and the height
         load(L1, kVecRecord + kConstH);
-        mul(L0, L1, L0);
+        mul(L7, L1, L0);
         floor_to(L0, L3);
         load(L1, kVecRecord + kConstHLast);
         TTI_SFPNOP;
@@ -119,15 +143,17 @@ namespace shade_k {
         }
     }
 
-    // Row r's pixels: texel keys to the depth row (lit: `target`), the albedo's
-    // colour; (mark) tri -2 | mask key, or `mark_bits` (glass: -2 | material).
+    // Row r's pixels: texel keys to the depth row (lit: `target`; mapped, through the
+    // record's uv map), the albedo's colour; (mark) tri -2 | mask key, or `mark_bits`
+    // (glass: -2 | material).
     inline void record_row(
         uint32_t r,
         Mode mode,
         uint32_t target = kVecDepth,
         bool colour = true,
         bool mark = true,
-        uint32_t mark_bits = kMinusTwo
+        uint32_t mark_bits = kMinusTwo,
+        bool mapped = false
     ) {
         load(L0, kVecTri + r);
         load(L1, kVecRecord + kConstTri);
@@ -138,7 +164,7 @@ namespace shade_k {
             (mode == kLightTexture || mode == kEmissiveTexture ||
              mode == kLightTextureMask);
         if (textured) {
-            key_row(r, mode, target);
+            key_row(r, mode, target, mapped);
         }
         const bool lit =
             (mode == kLight || mode == kLightTexture || mode == kLightTextureMask);

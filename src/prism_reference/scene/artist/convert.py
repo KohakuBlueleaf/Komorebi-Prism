@@ -9,6 +9,7 @@ import numpy as np
 from prism_common.paths import cache_root
 from prism_reference.scene.artist.entry import entry_of
 from prism_reference.scene.artist.materials import Textures, image_of, map_material
+from prism_reference.scene.artist.slots import slot_maps, uv_set
 from prism_reference.scene.artist.source import source_of
 from prism_reference.scene.description.flatten import draws, flatten
 from prism_reference.scene.description.report import coverage
@@ -32,12 +33,15 @@ NO_MATERIAL = (
 
 
 def triangle_sources(scene):
-    """Per drawn triangle, in `flatten`'s order: whether its primitive has uv0, and the
-    count of drawn primitives carrying uv1."""
+    """Per drawn triangle, in `flatten`'s order: whether its primitive has the uv set
+    its material stores (`slots.uv_set`), and the count of drawn primitives carrying uv1.
+    """
     has_uv, second = [], 0
     for mesh, _ in draws(scene):
         for prim in scene.meshes[mesh].primitives:
-            has_uv.append(np.full(len(prim.indices), prim.uv0 is not None))
+            one = prim.material >= 0 and uv_set(scene.materials[prim.material]) == 1
+            has = (prim.uv1 if one else prim.uv0) is not None
+            has_uv.append(np.full(len(prim.indices), has))
             second += prim.uv1 is not None
     found = np.concatenate(has_uv) if has_uv else np.zeros(0, dtype=bool)
     return found, second
@@ -104,19 +108,34 @@ def colours_of(scene, material, textures):
 
 
 def corner_uv(scene, flat, material, has_uv):
-    """Per triangle its corners' uv (T, 3, 2): uv0 through the base-colour transform,
-    written as (u, 1 - v); 0 where the primitive has no uv0."""
+    """Per triangle its corners' uv (T, 3, 2): its material's uv set (`slots.uv_set`)
+    through the base-colour transform, written as (u, 1 - v); 0 where the primitive has
+    no such set."""
     uv = flat["uv0"][flat["indices"]].astype(np.float64)
+    second = flat["uv1"][flat["indices"]].astype(np.float64)
     order = np.argsort(material, kind="stable")
     counts = np.bincount(material[material >= 0])
     ends = np.count_nonzero(material < 0) + np.cumsum(counts)
     for m in np.flatnonzero(counts):
         use = scene.materials[m].base_color_texture
+        pick = order[ends[m] - counts[m] : ends[m]]
+        if uv_set(scene.materials[m]) == 1:
+            uv[pick] = second[pick]
         if use is not None:
-            pick = order[ends[m] - counts[m] : ends[m]]
             uv[pick] = transformed(uv[pick], use)
     uv[..., 1] = 1.0 - uv[..., 1]
     return np.where(has_uv[:, None, None], uv, 0.0).astype(np.float32)
+
+
+def slot_table(scene, kinds):
+    """The rows' "uv_maps" (R, 4, 2, 3) (`slots.slot_maps`; the identity on rows that
+    are not a glTF material's) and "normal_scale" (R,); rows 1 .. M the materials."""
+    maps = np.tile(np.eye(3, dtype=np.float32)[:2], (len(kinds), 4, 1, 1))
+    scale = np.ones(len(kinds), np.float32)
+    for m, item in enumerate(scene.materials):
+        maps[1 + m] = slot_maps(item, KINDS[kinds[1 + m]])[0]
+        scale[1 + m] = item.normal_scale
+    return {"uv_maps": maps, "normal_scale": scale}
 
 
 def count_notes(mapping, second_primitives):
@@ -217,6 +236,7 @@ def convert(
         specular=np.array(specular, dtype=np.float32),
         transmission=np.array(tau, dtype=np.float32),
         shadow=np.array(shadow, dtype=np.float32),
+        **slot_table(scene, kinds),
         texels=texels,
         mip=mip,
         levels=levels,

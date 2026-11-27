@@ -90,14 +90,15 @@ def bilinear(smap, sx, sy, w):
 
 def nearest_levels(depth):
     """The map's levels of nearest depth: level 0 the map, each next the largest 1/z
-    (the nearest surface) of 2 x 2 texels of the one before, down to 1 x 1."""
+    (the nearest surface) of 2 x 2 texels of the one before (each side halved, rounded
+    up; a texel past the edge empty), down to 1 x 1."""
     levels = [depth]
-    while levels[-1].shape[0] > 1:
+    while max(levels[-1].shape) > 1:
         top = levels[-1]
-        side = (top.shape[0] + 1) // 2
-        padded = np.zeros((2 * side, 2 * side), dtype=top.dtype)
+        down, across = (top.shape[0] + 1) // 2, (top.shape[1] + 1) // 2
+        padded = np.zeros((2 * down, 2 * across), dtype=top.dtype)
         padded[: top.shape[0], : top.shape[1]] = top
-        quads = padded.reshape(side, 2, side, 2)
+        quads = padded.reshape(down, 2, across, 2)
         levels.append(quads.max(axis=(1, 3)))
     return levels
 

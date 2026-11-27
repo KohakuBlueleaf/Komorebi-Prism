@@ -13,6 +13,7 @@ from prism_reference.indirect.near.measure import (
     side_total,
     slice_frame,
 )
+from prism_reference.indirect.near.pool import forked_map
 
 TILE = 32
 # The 4 x 4 pattern that rotates a pixel's slices and offsets its steps.
@@ -227,7 +228,22 @@ def tile_reads(reads, level, y_tile, coarse_shape, tile=TILE):
     return dict(zip(tiles.tolist(), counts.tolist()))
 
 
-def march(frame, receivers, ranges, settings=None, log=None):
+def band(frame, receivers, ranges, settings, y0):
+    """The band of tile rows from y0: its entries, samples, off-screen samples and per
+    tile across the distinct reads of each level."""
+    entries, reads = march_rows(frame, receivers, y0, ranges, settings)
+    tile = settings["tile"]
+    across = -(-frame["depth"].shape[1] // tile)
+    counts = {}
+    for level in ("short", "coarse"):
+        got = tile_reads(
+            reads[level], level, y0 // tile, settings["coarse_level"], tile
+        )
+        counts[level] = [got.get(t, 0) for t in range(across)]
+    return entries, reads["samples"], reads["off"], counts
+
+
+def march(frame, receivers, ranges, settings=None, log=None, workers=1):
     """The near operator of a frame: entries (pixel, source, weight, level: 0 short, 1
     coarse, + 2 read from frame["previous"] outside the receiver's tile) as arrays,
     the blocked share (H W,), and per tile the distinct reads of each level; `ranges`:
@@ -235,21 +251,19 @@ def march(frame, receivers, ranges, settings=None, log=None):
     backface (0: a sample seen from behind brings the radiance the frame shows; 1: its
     bits are left to the far field; 2: it brings its indirect radiance alone, source
     -1 - pixel), facing (1: a full-resolution sample's bits count by its cosine toward
-    the receiver)."""
+    the receiver). `workers` > 1: the bands of tile rows in forked processes."""
     settings = {**SETTINGS, **(settings or {})}
     h, w = frame["depth"].shape
     parts, per_tile = [], {"short": [], "coarse": []}
     samples = off = 0
     tile = settings["tile"]
-    for y0 in range(0, h, tile):
-        entries, reads = march_rows(frame, receivers, y0, ranges, settings)
+    starts = range(0, h, tile)
+    done = forked_map(band, (frame, receivers, ranges, settings), starts, workers)
+    for y0, (entries, n, n_off, counts) in zip(starts, done):
         parts.extend(entries)
-        samples, off = samples + reads["samples"], off + reads["off"]
+        samples, off = samples + n, off + n_off
         for level in ("short", "coarse"):
-            counts = tile_reads(
-                reads[level], level, y0 // tile, settings["coarse_level"], tile
-            )
-            per_tile[level].extend(counts.get(t, 0) for t in range(-(-w // tile)))
+            per_tile[level].extend(counts[level])
         if log:
             log(f"near: rows {y0 + tile} of {h}")
     pixel, src, weight, level = (np.concatenate(c) for c in zip(*parts))

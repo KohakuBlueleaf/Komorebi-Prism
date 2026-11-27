@@ -41,11 +41,16 @@ namespace material_step {
             if (mode == kFlat) {
                 continue;  // FILL's colour divided by 1/z, no texel
             }
-            record_numbers(numbers);
+            const bool mapped = slot_map(
+                run.table.material_words + kMaterialWords * material,
+                kMapAlbedo,
+                numbers
+            );
+            record_numbers(numbers, mapped);
             // the glass layer's pixels keep their material for the blend
             const uint32_t mark_bits = glass ? kMinusTwo | material : kMinusTwo;
             for (int32_t r = row_first; r <= row_last; ++r) {
-                record_row(r, mode, kVecDepth, true, true, mark_bits);
+                record_row(r, mode, kVecDepth, true, true, mark_bits, mapped);
                 run.counters.values[kShadeProfRows]++;
             }
             run.counters.values[kShadeProfRecords]++;
