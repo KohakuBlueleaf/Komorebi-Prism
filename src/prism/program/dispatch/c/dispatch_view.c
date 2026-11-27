@@ -18,6 +18,11 @@ typedef struct {
     uint32_t list_slots[TR_LAYERS], rows[TR_LAYERS], entries[TR_LAYERS];
 } view_t;
 
+/* Whether the records, slices' words and lists hold the eye's view as the last COLOUR
+ * view drew it whole: set by that view, cleared by any view that counts, any DEPTH
+ * view and any view that ends with a code */
+static uint32_t g_eye_held __attribute__((section(".data"))) = 0;
+
 static volatile uint32_t* page_of(void) {
     return (volatile uint32_t*)DR_REGION(DP_REGION_PAGE);
 }
@@ -36,6 +41,7 @@ uint32_t dp_setup(dr_frame_t* frame) {
     }
     /* lines an earlier image left dirty would be written over what the cores write */
     kmx_flush(DP_REGION_SLICES);
+    g_eye_held = 0;
     return 0;
 }
 
@@ -278,11 +284,17 @@ static uint32_t need_out(
                                                            : DP_NEED_LATE;
 }
 
-/* The phases of the view (DP_N_PHASES; 0: every phase). 0, or DP_BAD_NUMBERS. */
-static uint32_t phases_of(const dr_frame_t* frame, uint32_t* phases) {
+/* The phases of the view (DP_N_PHASES; 0: every phase, or the tile alone for the
+ * COLOUR view when DP_N_KEEP is set and the lists hold the eye's view). 0, or
+ * DP_BAD_NUMBERS. */
+static uint32_t phases_of(
+    const dr_frame_t* frame, const dr_view_t* view, uint32_t* phases
+) {
     *phases = dr_number(frame, DP_N_PHASES);
     if (*phases == 0) {
-        *phases = DP_PHASE_ALL;
+        const uint32_t kept = view->kind == DR_VIEW_COLOUR && g_eye_held &&
+            dr_number(frame, DP_N_KEEP);
+        *phases = kept ? DP_PHASE_TILE : DP_PHASE_ALL;
     }
     return *phases & ~DP_PHASE_ALL ? DP_BAD_NUMBERS : 0u;
 }
@@ -292,7 +304,10 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
     view_t one;
     km_command_t command;
     uint32_t phases = 0;
-    uint32_t code = phases_of(frame, &phases);
+    uint32_t code = phases_of(frame, view, &phases);
+    if (view->kind != DR_VIEW_COLOUR || (phases & DP_PHASE_COUNT)) {
+        g_eye_held = 0;
+    }
     if (code == 0) {
         code = view_page(frame, view, &one);
     }
@@ -352,5 +367,10 @@ uint32_t dp_view(dr_frame_t* frame, const dr_view_t* view) {
         frame->times[DP_R_NEAR_GIVEN] += state->near_given;
     }
     frame->times[DP_T_TILE] += dr_ticks(&mark);
+    if (code != 0) {
+        g_eye_held = 0;
+    } else if (view->kind == DR_VIEW_COLOUR && phases == DP_PHASE_ALL) {
+        g_eye_held = 1u;
+    }
     return code;
 }
