@@ -6,6 +6,7 @@ import time
 
 import numpy as np
 
+from prism_common.paths import cache_root
 from prism_reference.scene.artist.entry import entry_of
 from prism_reference.scene.artist.materials import Textures, image_of, map_material
 from prism_reference.scene.artist.source import source_of
@@ -18,6 +19,7 @@ from prism_reference.scene.public.mesh import shared_vertices, vertex_shade
 from prism_reference.scene.public.table import public_dir
 
 MOST_TRIANGLES = 4_000_000
+LEVELS = "levels"  # the cache root's folder of the images' mip chains
 NO_MATERIAL = (
     0,
     np.array(meshio.DEFAULT_COLOUR),
@@ -159,7 +161,7 @@ def convert(
     steps.mark("flatten")
     material = flat["material"].astype(np.int64)
     has_uv, second = triangle_sources(scene)
-    textures = Textures(scene)
+    textures = Textures(scene, cache_root(data) / LEVELS)
     rows, names, per_triangle, mapping = material_table(
         scene, material, has_uv, textures
     )

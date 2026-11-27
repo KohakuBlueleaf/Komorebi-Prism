@@ -17,6 +17,7 @@ import komorebi as km
 import numpy as np
 from prism_cli.preset import opened
 
+from prism.check.harness import pcie_link
 from prism.check.threads import account, names
 from prism_reference.scene.camera import with_size
 
@@ -45,6 +46,9 @@ def parse():
     )
     parser.add_argument(
         "--heavy", type=int, default=None, help="the threads' option heavy (a weight)"
+    )
+    parser.add_argument(
+        "--sun", type=float, nargs=2, default=None, help="the sun set at load: AZ EL"
     )
     return parser.parse_args()
 
@@ -85,6 +89,7 @@ def main():
         given = {"account": args.account} if args.account else {}
         given |= {"trace": args.trace} if args.trace else {}
         given |= {} if args.heavy is None else {"heavy": args.heavy}
+        given |= {} if args.sun is None else {"sun": tuple(args.sun)}
         preset = opened(name, args.scene, args.view, args.size, given)
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -100,14 +105,17 @@ def main():
         "account": args.account,
         "trace": args.trace,
         "heavy": args.heavy,
+        "sun": args.sun,
         "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "komorebi": km.__version__,
         "tree": commit(),
     }
     with km.Session(card=args.card) as session:
         case["aiclk_mhz"] = [account.clock(args.card)]
+        case["pcie_link"] = [pcie_link(args.card)]
         out = run(args, session, preset, camera, case["aiclk_mhz"][0])
         case["aiclk_mhz"].append(account.clock(args.card))
+        case["pcie_link"].append(pcie_link(args.card))
     times = account.medians(out["rows"])
     held = out.pop("records", None)
     trace = out.pop("trace", None)

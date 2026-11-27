@@ -12,9 +12,9 @@ import time
 import numpy as np
 
 from prism.core.unit import BESIDE
-from prism.loop.report import medians
+from prism.loop.report import columns, medians
 from prism.program.loaded import MICROSECONDS
-from prism.stages.direct.light.check.thread_frame import PARTS, lit
+from prism.stages.direct.light.check.thread_frame import lit
 from prism.stages.indirect.field_update.check import field_numbers, update_times
 from prism.stages.indirect.field_update.check import verdict as field_verdict
 from prism.stages.indirect.field_update.model.numbers import F32
@@ -23,7 +23,6 @@ from prism.stages.indirect.field_update.model.results import (
     field_texels,
     times,
 )
-from prism.stages.material.texture.check.thread_frame import RESULTS
 from prism_reference.indirect.field.pack import PACK_BITS
 from prism_reference.scene.camera import with_size
 
@@ -190,6 +189,14 @@ def frame_times(loop, suns):
         }
 
 
+def update_rows(loop):
+    """The update's times rows, read after the stop: the job thread's region when the
+    update is a graph (the threads' form), else the field update's thread region."""
+    graph = getattr(loop.loaded.hosts[UPDATE], "graph", None)
+    raw = loop.loaded.region("field_times") if graph is None else graph.times()
+    return times(raw)
+
+
 def check(loop):
     """Each sun of the options' `suns` in turn (its frames, the field, the pictures);
     after the stop the update's codes and scale words, the frames' card times, the
@@ -207,7 +214,7 @@ def check(loop):
     frame_times(loop, suns)
     steps = loop.loaded.steps(BESIDE) if BESIDE in loop.loaded.layouts else None
     host = loop.loaded.hosts[UPDATE]
-    updates = times(loop.loaded.region("field_times"))
+    updates = update_rows(loop)
     for one, row in zip(suns, updates, strict=False):
         judged = {
             "codes": [c for c in one["codes"] if c],
@@ -228,6 +235,6 @@ def check(loop):
         "updates": [update_times(row) | {"code": row["code"]} for row in updates],
         "sun_passes": loop.loaded.hosts[SUN].passes,
         "sun_times": loop.loaded.hosts[SUN].times(loop.loaded),
-        "ms": medians(timed, PARTS, RESULTS) if timed else {},
+        "ms": medians(timed, *columns(loop)) if timed else {},
         "core_steps": steps,
     }

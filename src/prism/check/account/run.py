@@ -15,7 +15,7 @@ from prism.check.account.commands import frame_commands, segments
 from prism.check.account.moved import directory, moved
 from prism.check.account.profiles import words_of
 from prism.check.account.terms import accounted, cpus_of
-from prism.check.harness import card_of
+from prism.check.harness import card_of, pcie_link
 from prism.loop.report import by_name
 from prism_reference.scene.camera import with_size
 from prism_reference.scene.frame import frame_grid
@@ -224,6 +224,7 @@ def account(loop, frames):
     loaded = loop.loaded
     card = card_of(loaded)
     clock = [power.aiclk_mhz(card)]
+    link = [pcie_link(card)]
     layers = list(loaded.hosts[RASTER].layers)
     camera = with_size(loop.scene, loop.size)["camera"]
     samples, codes, numbers = [], [], []
@@ -236,6 +237,7 @@ def account(loop, frames):
             break
         samples.append(read_frame(loaded, layers))
     clock.append(power.aiclk_mhz(card))
+    link.append(pcie_link(card))
     trace_cap = int(loaded.options.get("trace") or 0)
     loop.stop()
     rows = [loop.times()[n] for n in numbers[: len(samples)]]
@@ -276,6 +278,7 @@ def account(loop, frames):
             "frames": len(codes),
             "card": card,
             "aiclk_mhz": clock,
+            "pcie_link": link,
             "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
             "komorebi": {"version": km.__version__, "commit": komorebi_commit()},
             "trace": trace_cap,

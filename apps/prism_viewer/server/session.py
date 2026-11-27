@@ -9,9 +9,11 @@ import traceback
 
 import komorebi as km
 import numpy as np
+from prism_cli import far_field
 from prism_cli.preset import opened
 
 from prism.loop.report import by_name, columns
+from prism_common.paths import data_root
 from prism_reference.scene.camera import sized_camera
 from prism_viewer.server import catalog, encode
 from prism_viewer.server.camera import camera_of, diagonal, flown, pose_of
@@ -19,6 +21,7 @@ from prism_viewer.server.encoders import Encoders
 
 KEEP_ALIVE_S = 1.0  # a frame a second when nothing is asked and no stream is read
 WAIT_S = 0.1  # the longest wait between looks at the requests
+FAR_FIELD_LOOK_S = 1.0  # between looks for a far field being built
 CARD_ROWS = 32  # the last rows of a stopped run whose medians the page shows
 MS = 1e3
 MS_US = 1e-3  # a microsecond's ms
@@ -73,6 +76,8 @@ class Render:
             None  # the serials of the last frame: (selection, pose, size, control)
         )
         self.failed = 0  # a selection that failed: wait for another
+        self.building = None  # the far field's build the open started or found
+        self.looked = 0.0  # the last look for its files
         self.last = 0.0
         self.encoders = Encoders(state)
 
@@ -115,7 +120,7 @@ class Render:
                 return True
             selection, choice = state.selection, state.choice
         try:
-            if self.loop is None or choice != self.opened:
+            if self.loop is None or choice != self.opened or self.far_field_landed():
                 self.open(choice)
             self.apply()
             self.frame(selection)
@@ -141,8 +146,10 @@ class Render:
         name, scene_name, view = choice
         log(f"open {name} on {scene_name} {view or ''} at {size[0]} x {size[1]}")
         began = time.perf_counter()
-        preset = opened(name, scene_name, view, size)
+        preset = opened(name, scene_name, view, size, build=True)
         scene = preset.scene
+        built = self.building is not None and not preset.lacking
+        self.building = preset.building if preset.lacking else None
         self.stack = contextlib.ExitStack()
         session = self.stack.enter_context(km.Session(card=self.card))
         self.loop = preset.open(session)
@@ -164,10 +171,33 @@ class Render:
             text = f"loaded {name} on {scene_name}"
             if preset.lacking:
                 text += f" without the far field ({preset.missing})"
+                if self.building is not None:
+                    text += "; its build runs beside the frames"
+            if built:
+                text += " with its far field, built beside the frames"
             if ahead:
                 text += f"; standing on the camera's near plane, {ahead:.2f} m ahead"
             state.notice("reload", text, seconds)
         log(f"opened in {seconds:.1f} s")
+
+    def far_field_landed(self):
+        """True when the far field the open's build makes is there (looked at once a
+        FAR_FIELD_LOOK_S); a notice when its build ended without it."""
+        if self.building is None or time.monotonic() - self.looked < FAR_FIELD_LOOK_S:
+            return False
+        self.looked = time.monotonic()
+        scene_name = self.opened[1]
+        if far_field.present(scene_name, data_root()):
+            with self.state.lock:
+                self.state.notice("applied", "far field built: reloading")
+            return True
+        if far_field.running(scene_name, data_root()):
+            return False
+        record = far_field.last_record(scene_name, data_root())
+        with self.state.lock:
+            self.state.notice("refusal", f"far field build ended: {record}")
+        self.building = None
+        return False
 
     def capacity(self):
         """The capacity held, as the page shows it."""
