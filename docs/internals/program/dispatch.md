@@ -108,7 +108,7 @@ attached to the command (`kmx_block`). Every thread of the view reads it.
 | 11 `TF_RANGE_BLOCKS` | the triangle blocks a count range holds |
 | 12, 13 | a tile's page in the target: `TF_PAGE_FIRST + (tile / across) TF_PAGE_ACROSS + tile mod across` |
 | 14, 15 | the account's pages and the records a core's page holds (0: no account) |
-| 16 to 51 | 9 words a layer (`TF_L_*`): its triangle blocks and their count, its first count range, its shade blocks (0: not shaded), its lists, its counts, row histograms and positions tensors, its count ranges' boxes (0: none; a COLOUR view's only) |
+| 16 to 51 | 9 words a layer (`TF_L_*`): its triangle blocks and their count, its first count range, its shade blocks (0: not shaded), its lists, its counts, row histograms and positions tensors, its count ranges' boxes (0: none) |
 | 52 on (`TF_STEP_AT`) | the steps' own words, one a name of a step's `words`, in the steps' order |
 
 The steps' words are assigned once on the host (`TileThread.words`: the defines
@@ -230,8 +230,9 @@ cut only when no point of its box can reach a pixel centre, so the picture does 
 change. A cut range's camera page carries the cut word; the streaming mover reads none
 of its blocks and the compute CPUs end the pass after the camera page with no block, so
 the integer mover sees an empty last page. Place replays the count's log through the same
-streaming read and test, so it skips exactly the ranges count skipped. A DEPTH view
-takes no box (its camera is the sun's). The blocks stay in the file's order: sorting a
+streaming read and test, so it skips exactly the ranges count skipped. The test is a
+function of the view's camera page and grid only, so a DEPTH view (a quadrant of the
+sun's map, its own camera and 1,024 x 1,024 frame) culls its layers the same way. The blocks stay in the file's order: sorting a
 layer's triangles by space before cutting them into blocks changed the share cut by under
 2.5 points on the scenes measured, as a scene's file already keeps neighbours together.
 On a 29.8 M triangle scene the frame is 66.1 against 85.2 ms at the viewer's first pose

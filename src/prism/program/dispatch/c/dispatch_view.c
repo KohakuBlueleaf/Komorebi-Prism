@@ -152,7 +152,7 @@ static uint32_t view_page(const dr_frame_t* frame, const dr_view_t* view, view_t
         at[TF_L_COUNTS] = words[DP_L_COUNTS];
         at[TF_L_ROWS] = words[DP_L_ROWS];
         at[TF_L_POSITIONS] = words[DP_L_POSITIONS];
-        at[TF_L_BOXES] = depth ? 0u : words[DP_L_BOXES];
+        at[TF_L_BOXES] = words[DP_L_BOXES];
         out->rows[out->layers] = layer;
         out->list_slots[out->layers++] = words[DP_L_LIST_SLOTS];
         out->ranges += (blocks + range_blocks - 1u) / range_blocks;

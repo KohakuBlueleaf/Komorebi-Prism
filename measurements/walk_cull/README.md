@@ -36,14 +36,55 @@ folder compares whole frames with the cull (`cull` True, the default) and withou
 | lynx_a01 | first pose | 85.21 / 66.14 | 18.82 / 10.99 | 31.23 / 19.99 | 34.82 / 34.78 |
 | lynx_a01 | turned 90 | 62.21 / 30.21 | 17.81 / 4.25 | 23.08 / 4.75 | 21.05 / 20.98 |
 
+These frames ran no DEPTH view (the sun stood); they were taken before DEPTH views
+were culled too.
+
 The share of blocks the test cuts, from the host's form of the same test
-(`prism_reference.raster.cull`) at the chosen range size, view camera / first pose /
-turned 90: sponza 30.9 / 30.9 / 95.0 %, italian_flat 24.3 / 33.9 / 99.1 %, lynx_411
-42.5 / 43.1 / 92.7 %, lynx_a01 58.7 / 58.8 / 95.1 %; no range cut that holds a
-triangle with an entry. The layer's triangles sorted by the Morton code of their
-centroids before they are cut into blocks change these by under 2.5 points (sponza at
-16 blocks a range 24.2 against 21.7, lynx_a01 turned 90 at 39 blocks 95.1 against
-97.3), so the blocks keep the file's order.
+(`prism_reference.raster.cull`) at the chosen range size, the blocks in the file's
+order against the layer's triangles sorted by the Morton code of their centroids before
+they are cut into blocks; no range cut that holds a triangle with an entry, in either
+order:
+
+| scene (blocks a range) | view camera: file / Morton | first pose: file / Morton | turned 90: file / Morton |
+|---|---:|---:|---:|
+| sponza (4) | 30.9 / 31.4 % | 30.9 / 31.4 % | 95.0 / 95.1 % |
+| italian_flat (16) | 24.3 / 25.8 % | 33.9 / 36.0 % | 99.1 / 99.4 % |
+| lynx_411 (21) | 42.5 / 42.8 % | 43.1 / 43.6 % | 92.7 / 94.3 % |
+| lynx_a01 (39) | 58.7 / 58.8 % | 58.8 / 59.1 % | 95.1 / 97.3 % |
+
+The sort gains under 2.5 points anywhere, so the blocks keep the file's order.
+
+Of the blocks the test keeps, the share whose box lies behind the frame's depth (the
+opaque layer's depth buffer at 1,920 x 1,088; a box is behind when its nearest depth is
+beyond the farthest depth of every cell its screen rectangle reaches; host arithmetic,
+not a cull the card makes), with a count range's box and with each block's own box:
+
+| scene | pose | kept by the test | behind, 32 x 32 cells: range / block box | behind, 8 x 8 cells: range / block box |
+|---|---|---:|---:|---:|
+| sponza | view camera | 69.1 % | 3.7 / 6.9 % | 5.0 / 9.1 % |
+| sponza | first pose | 69.1 % | 3.7 / 6.9 % | 5.0 / 9.1 % |
+| sponza | turned 90 | 5.0 % | 5.8 / 5.3 % | 5.8 / 6.3 % |
+| italian_flat | view camera | 75.7 % | 44.5 / 47.1 % | 52.4 / 55.6 % |
+| italian_flat | first pose | 66.1 % | 38.6 / 43.4 % | 49.8 / 55.0 % |
+| italian_flat | turned 90 | 0.9 % | 3.6 / 11.4 % | 3.6 / 11.5 % |
+| lynx_411 | view camera | 57.5 % | 24.5 / 26.1 % | 32.4 / 36.2 % |
+| lynx_411 | first pose | 56.9 % | 25.5 / 27.7 % | 31.9 / 36.1 % |
+| lynx_411 | turned 90 | 7.3 % | 9.5 / 8.1 % | 9.5 / 8.4 % |
+| lynx_a01 | view camera | 41.3 % | 12.7 / 24.6 % | 18.0 / 32.4 % |
+| lynx_a01 | first pose | 41.2 % | 13.0 / 25.2 % | 16.9 / 32.1 % |
+| lynx_a01 | turned 90 | 4.9 % | 0.1 / 0.7 % | 0.1 / 1.2 % |
+
+A DEPTH view is culled by the same test with its own camera and frame: the share of the
+DEPTH layers' blocks (opaque and masked) each quadrant of the sun's 2,048 map keeps, its
+1,024 x 1,024 frame, the lights' own sun:
+
+| scene (blocks a range) | quadrant 0 | 1 | 2 | 3 | the four together |
+|---|---:|---:|---:|---:|---:|
+| sponza (4) | 22.1 % | 43.9 % | 51.1 % | 26.6 % | 143.7 % |
+| italian_flat (16) | 7.0 % | 6.3 % | 87.0 % | 22.1 % | 122.4 % |
+
+The four quadrants walk 1.44 and 1.22 times the layers' blocks, against 4 times
+without the test.
 
 The account of lynxsdesign_a01894bbb8 at its view camera and the scene's own size
 (1,024 x 1,024; `scripts/run/threads_account.py`, account 8,192 records a core, trace
