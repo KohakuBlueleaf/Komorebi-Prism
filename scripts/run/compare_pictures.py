@@ -92,6 +92,19 @@ def strip(cells):
     return out
 
 
+def sheet(rows):
+    """Rows of [(label, picture)] cells, each row a strip, stacked top to bottom."""
+    strips = [strip(cells) for cells in rows if cells]
+    out = Image.new(
+        "RGB", (max(s.width for s in strips), sum(s.height for s in strips))
+    )
+    y = 0
+    for one in strips:
+        out.paste(one, (0, y))
+        y += one.height
+    return out
+
+
 def crop_box(fractions, size):
     """A crop's pixel box (x0, y0, x1, y1) from its fractions of the picture."""
     w, h = size

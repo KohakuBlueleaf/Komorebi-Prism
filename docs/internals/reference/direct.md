@@ -52,7 +52,8 @@ writes `$PRISM_DATA/public/<scene>_lighting.npz`; the visibility bake is also ke
    (`sun_camera(..., side)`: focal and principal point scale with the side). A side of
    2,048 is four renders at FILL's 1,024 x 1,024: quadrant (i, j) uses that camera with
    its principal point moved by (-1024 i, -1024 j) (`quadrant_camera`), so its pixel
-   (x, y) is texel (x + 1024 i, y + 1024 j). Each render has SHADE's two FILLs and holes: a texel takes the masked layer's 1/z where
+   (x, y) is texel (x + 1024 i, y + 1024 j). The renders are DEPTH views (`depth_view`:
+   their 1/z planes set up from the near distance's 1/z, [raster](raster.md)). Each render has SHADE's two FILLs and holes: a texel takes the masked layer's 1/z where
    it is nearer and not a hole, else the other layer's, so plants and chains cast the
    shadow of their leaves, not of their quads. A pixel's point, moved along its
    lighting normal `n` (step 5: the normal map's where there is one, else the
@@ -175,12 +176,49 @@ edges there are still steps. Turning Sponza's sun by 0.01 / 0.05 / 0.2 degrees c
 both frames 2.2 / 1.6 / 2.1 % against 3.1 / 2.2 / 2.7 % (host, 2026-11-23 16:04). The
 larger map sharpens the edges but does not settle them: most of the change is at the
 edges and in the speckle of the bias's comparisons, which a turn re-rolls.
+Without the DEPTH view's shifted planes, the map's own 1/z was off by a median of 141
+units at the texels behind Sponza's wrongly shadowed pixels. The lookup was not the
+cause: in float32 against float64, the moved point's offset from the camera is off by
+0.01 units, the texel by 0.005, and the receiver's depth by 0.1. As a share of the
+pixels the traced sun lights (64 rays over the sun's disk, `shadow_traced`), the 2 x 2
+filter wrongly shadowed 14.5 % of Sponza's overview before and 0.14 % after; on
+breakfast_room it went from 1.3 % to 1.0 %, on italian_flat_97f97a20ba from 0.29 % to
+0.25 % (side 2,048, host, 2026-11-27).
 The quadrants agree with the 2,048 view: a quadrant's 1/z against a float64
 evaluation of the triangle's plane on the 2,048 view's texel ray, 3,000 triangles,
 median relative error 6.7e-7 (Sponza; 2.9e-6 for the 1,024 map against its own view);
 across a quadrant border one triangle's 1/z steps by up to 6e-5 relative (inside a
 quadrant one float32 unit), the two renders' own plane rounding, and no seam shows in a
 picture of the map.
+
+## The sun's edge: filters, cascade and a traced truth
+
+Beside the 2 x 2 filter, the reference holds the sun edge's options, not used by a
+preset, to judge them against a traced truth:
+
+- `shadow_filter.filtered_shadow(smap, points, normals, method)`: a box of odd width
+  (`{"kind": "box", "width"}`, (width + 1)^2 texel reads; width 1 is the present
+  filter), rotated disk taps (`"disk"`, a golden-angle spiral turned per pixel), and
+  PCSS (`"pcss"`, a blocker search, then the disk at the radius the sun's angle gives).
+  With `receiver_plane`, the comparisons follow the receiver's own slope (capped at 10
+  texel widths), so a slanted receiver does not count as its own blocker.
+- `shadow_cascade`: the eye's seen depth range split (practical split, 0.75 toward
+  logarithmic) into cameras with the sun camera's axes and distance, each fitted to
+  its slice, the whole map last; a point takes the finest camera it lies in by a
+  margin of texels.
+- `shadow_traced.traced_sun`: the truth. Rays over the sun's disk (Blender's sun
+  angle, 0.00918 rad), turned per pixel, against every triangle but transparent ones;
+  masked holes pass. On a written plate and floor it is within 0.002 (mean) of the
+  closed form.
+
+Against the traced truth, the mean error in the pixels within 2 of an edge, side 2,048
+(host, 2026-11-27): italian_flat_97f97a20ba at a close pose 0.244 with the 2 x 2
+filter, 0.198 with a box of 5, 0.215 with PCSS, 0.200 at side 4,096, 0.175 with a
+cascade, 0.078 with a cascade and PCSS; breakfast_room's overview 0.183 with the 2 x 2
+filter, 0.094 with PCSS; Sponza's overview 0.423 with the 2 x 2 filter, 0.347 with a
+cascade and PCSS (before the DEPTH view's shifted planes). The texel reads a pixel:
+4 for the 2 x 2 filter, 36 for a box of 5, 160 for PCSS of 32 taps (search and filter).
+`checks/shadow_edge` checks these parts.
 
 ## Glass
 

@@ -116,9 +116,8 @@ for the build, opens the preset again on a new session and draws its frames, the
 picture `<name>_camera_far_field_<pipeline>.png`, and `far_field_wait` holds the build's
 record, the seconds waited and the reload's seconds. The viewer looks for the files once
 a second between frames; when they are there it notices "far field built: reloading" and
-opens the preset again once. `open`'s `--bake background` (the default) starts the
-visibility bake of the lights on its own beside this build; `--bake none` leaves the bake
-to the build alone.
+opens the preset again once. When the open starts this build, its bake is the only one: `open`'s
+`--bake background` (the default) starts no bake of its own then.
 
 ### By hand
 

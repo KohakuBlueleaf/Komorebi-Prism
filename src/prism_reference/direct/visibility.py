@@ -74,7 +74,7 @@ def bake_visibility(positions, indices, tree, eps, workers=4):
     _BAKE.update(
         positions=positions,
         normals=vertex_normals(positions, indices),
-        tree={k: np.ascontiguousarray(tree[k]) for k in ("nodes", "tris", "leaf_tri")},
+        tree={k: np.ascontiguousarray(tree[k]) for k in ("tris", "leaf_tri")},
         eps=F(eps),
     )
     spans = [

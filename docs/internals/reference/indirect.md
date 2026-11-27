@@ -12,8 +12,9 @@ The optional term `indirect` of `rasterize_lighted` (`terms=direct.frame.TERMS +
 ("indirect",)`; left out by default, so every lit frame without it is unchanged, bit for bit)
 replaces `ambient` and `sky x visibility` by the light bounced between surfaces and the
 sky with its visibility, from precomputed data. Defined in `prism_reference.indirect`, numpy
-with one native routine: `native/trace/trace_batch.cpp` traces many rays at once with the
-reference tree walk and triangle test (`native/trace/raytrace_core.hpp`), threaded (at most 8 or
+with one native routine: `native/trace/trace_batch.cpp` traces many rays at once over the
+host's own tree of the triangles with the reference triangle test
+([trace](trace.md#the-batch-tracer)), threaded (at most 8 or
 `PRISM_THREADS`), built by `native.build` as a shared library. Its rays see glass as open (a
 tree over the triangles that are not `transparent`); masked triangles are opaque.
 
@@ -116,7 +117,8 @@ within 1.5 spacings, before the rule of item 5) mixes the elements of a
 curved surface that face the sky or the sun with those that do not, so arch soffits,
 vault strips and capitals are too bright (red); the open floor sees only
 the zenith, which 25 coefficients still underestimate (its sky -14 % on the elements).
-The frame is about 20 % dark on Sponza. The element sources use the shadow map and the
+The frame is about 20 % dark on Sponza. The light bounced within one spacing is taken from the frame's depth by the
+[near field](near_field.md). The element sources use the shadow map and the
 truth shadow rays.
 
 Built on the host, 8 threads on 8 CPUs, 2026-11-23 22:00 to 22:26 (`counts` in the
