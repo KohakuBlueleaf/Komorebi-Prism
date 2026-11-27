@@ -96,6 +96,16 @@ class Faces:
             out.append(record_words(face["camera"], record))
         return out
 
+    def lamps(self, count):
+        """Each of `count` lamps' (first record, faces) in lamp_faces' order; (0, 0) for
+        a lamp without faces."""
+        out = [(0, 0)] * count
+        for index, face in enumerate(self.faces):
+            lamp = int(face["lamp"])
+            first, faces = out[lamp]
+            out[lamp] = (first if faces else self.first_record + index, faces + 1)
+        return out
+
     def cameras(self):
         """Each face's camera (16,) float32."""
         return [np.asarray(face["camera"], np.float32) for face in self.faces]

@@ -15,7 +15,9 @@ class and no frame work; it writes `light.shadow_map` and gives its views as
 | `__init__.py` | the declaration (`SHADOW_PCF`), registered as `direct.shadow_pcf` |
 | `unit.py` | the thread unit: serves `sun`, `fit` and `lamps`; regions `sun` (from the host) and `sun_times`; the column `sun_table`, shared with slot `light.shadow_map`; gives `light.shadow_maps` |
 | `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the whole map's coarse levels, the times row; FIT: a fitted map's DEPTH view and coarse levels, the half swapped in; LAMPS: lamp faces' DEPTH views and coarse levels; the region's, the page of maps', a record's and the times row's word places |
-| `host.py` | `ShadowHost`: the lights at the sun (the map's side from the option `shadow_side`, else the lights'), the quadrants, the fitted maps and the lamps' faces (the views of its own), slot `view.depth` (their cameras), the map's tensor (the light pages, else its own), the region's own words (from `SHADOW_PCF_SUN_AT`), the column naming LIGHT's table, the SUN command asked of the loop when the sun moves, FIT and LAMPS, the control `sun`, the maps read back, the times |
+| `host.py` | `ShadowHost`: the lights at the sun (the map's side from the option `shadow_side`, else the lights'), the quadrants, the fitted maps and the lamps' faces (the views of its own), slot `view.depth` (their cameras), slot `light.lamp_faces` (each lamp's first face record and faces), the map's tensor (the light pages, else its own), the region's own words (from `SHADOW_PCF_SUN_AT`), the column naming LIGHT's table, the SUN command asked of the loop when the sun moves, FIT and LAMPS, the control `sun`, the maps read back, the times |
+| `kernels/share.hpp` | a map's 2 x 2 taps on the pack CPU's vector unit (LIGHT includes it): `point_taps` from a point through one map's camera, `coordinate_taps` from map coordinates whose map's numbers (first page, pages across, width, height) are each lane's own or the same in every lane, `project` the coordinates of a point |
+| `model/share.py` | the twin of `kernels/share.hpp` in numpy |
 | `model/maps.py` | the page of maps as the header lays it out: its words, the two halves of records, a record's words; the levels' slots, tops and coarse pages; maps and levels read back |
 | `model/faces.py` | `Faces`: the lamps' faces (the reference's `lamp_maps.lamp_faces`), their records, pages and slots, the LAMPS commands paced by the time a face takes |
 | `model/fit.py` | `Fits`: the records of both halves, the fitted cameras kept while they hold the eye's slices (the reference's `kept_cameras`), the FIT commands of a redraw, the half the frames read |
@@ -65,7 +67,21 @@ the frames read. The host asks for one before the frames while a face is not dra
 (after `sun`, beside `fit`), one face the first time, then as many as half a second
 holds at the time the last command took a face (the director gives up a wait after a
 second); a reload draws them all again. A face's view costs what the scene's ranges
-cost, not what its texels do.
+cost, not what its texels do. Slot `light.lamp_faces` gives each lamp's first face
+record and its faces in `lamp_faces`' order ((0, 0) for a lamp without faces), so a
+lookup goes from a lamp to its records. A face's record leaves its texel and bias
+words 0: the lookup's numbers for a lamp are its own host's.
+
+## The taps
+
+`kernels/share.hpp` turns a point into a map's 2 x 2 taps: the point moved one texel
+along its normal, projected by the map's camera (1/z kept), the coordinates less a
+half and floored, each tap's key `(first + page) << 10 | texel` (0 outside the map) and
+the bilinear fractions. `point_taps` takes one map's numbers for every lane (the sun:
+LIGHT's keys); `coordinate_taps` starts from coordinates a caller has already, and
+takes the map's first page, pages across, width and height either as numbers for
+every lane (`Bits`) or as Dst vectors of each lane's own (`Lanes`), so lanes that chose
+different faces look up their own maps in one pass.
 
 ## The fit kept beside the frames
 
@@ -158,6 +174,10 @@ levels with the reference's levels of the card's map (exact).
 `check/lamp_maps.py` (`--check prism.stages.direct.shadow_pcf.check.lamp_maps.check`
 of `scripts/run/preset.py`, on a scene with the file's lamps) does the same for each
 lamp face and its levels.
+
+`python -m checks.shadow_share` (no card) checks `model/share.py`: the sun's keys
+against the reference's taps (`prism_reference.direct.access`) key for key, and keys
+from each lane's own map against each map's alone.
 
 `check/sun_map.py` compares the card's map with the reference's: texels apart by more
 than 1e-5, and texels empty on one side only, by the reference's layer and by quadrant.

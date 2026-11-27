@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+#include "../../../shadow_pcf/kernels/share.hpp"
 #include "dst.hpp"
 
 namespace light_k {
@@ -99,68 +100,35 @@ namespace light_k {
             store(L2, row_vector(k, kRvPoint + axis));
         }
         if ((terms & kTermShadow) != 0) {
-            // d = (P + n texel) - eye of the sun's camera, along its right, up, forward
-            immediate(L7, table[kLtShadowTexel]);
-            for (uint32_t axis = 0; axis < 3; ++axis) {
-                load(L0, row_vector(k, kRvPoint + axis));
-                load(L1, plane_vector(kLvNormal + axis, k));
-                TT_SFPMAD(L1, L7, L0, L0, 0);
-                immediate(L1, sun[axis]);
-                sub(L0, L1, L0);
-                for (uint32_t along = 0; along < 3; ++along) {
-                    immediate(L1, sun[3 + 3 * along + axis]);
-                    if (axis == 0) {
-                        mul(L0, L1, L2 + along);
-                    } else {
-                        TT_SFPMAD(L0, L1, L2 + along, L2 + along, 0);
-                    }
-                }
-            }
-            recip(L4, L5, L0, L1, L6, L7);
-            store(L5, row_vector(k, kRvW));
-            // screen x = cx + f x w, y = cy - f y w; less a half, floored
-            mul(L2, L5, L2);
-            mul(L3, L5, L3);
-            immediate(L0, sun[12]);
-            immediate(L1, sun[13]);
-            TT_SFPMAD(L0, L2, L1, L2, 0);
-            immediate(L1, sun[14]);
-            TT_SFPMAD(L0, L3, L1, L3, kNegA);
-            TT_SFPLOADI(L1, kFloatB, kHalfB);
-            sub(L2, L1, L2);
-            sub(L3, L1, L3);
-            floor_to(L2, L4);
-            floor_to(L3, L5);
-            sub(L2, L4, L2);
-            sub(L3, L5, L3);
-            store(L2, row_vector(k, kRvFx));
-            store(L3, row_vector(k, kRvFy));
-            store(L4, sx_vector(kSxCorner));
-            store(L5, sx_vector(kSxCorner + 1));
-            for (uint32_t tap = 0; tap < kLightKeys; ++tap) {
-                load(L0, sx_vector(kSxCorner));
-                load(L1, sx_vector(kSxCorner + 1));
-                if ((tap & 1) != 0) {
-                    add(L0, ONE, L0);
-                }
-                if ((tap & 2) != 0) {
-                    add(L1, ONE, L1);
-                }
-                tap_key(table[kLtShadowFirst], table[kLtShadowAcross]);
-                // outside the map: 0
-                immediate(L6, table[kLtShadowSide]);
-                for (uint32_t axis = 0; axis < 2; ++axis) {
-                    TT_SFPSETCC(0, L0 + axis, 0, kLt0);
-                    add(ZERO, ZERO, L5);
-                    TTI_SFPENCC(3, 0, 0, 10);
-                    sub(L0 + axis, L6, L7);
-                    TTI_SFPNOP;
-                    TT_SFPSETCC(0, L7, 0, kGte0);
-                    add(ZERO, ZERO, L5);
-                    TTI_SFPENCC(3, 0, 0, 10);
-                }
-                store(L5, row_vector(k, kRvValue + tap));
-            }
+            // the sun's map: its 2 x 2 taps' keys, 1/z, fractions (shadow_share)
+            const uint32_t point[3] = {
+                row_vector(k, kRvPoint),
+                row_vector(k, kRvPoint + 1),
+                row_vector(k, kRvPoint + 2),
+            };
+            const uint32_t normal[3] = {
+                plane_vector(kLvNormal, k),
+                plane_vector(kLvNormal + 1, k),
+                plane_vector(kLvNormal + 2, k),
+            };
+            const shadow_share::Out out = {
+                row_vector(k, kRvFx),
+                row_vector(k, kRvFy),
+                sx_vector(kSxCorner),
+                row_vector(k, kRvValue),
+            };
+            shadow_share::point_taps<recip>(
+                point,
+                normal,
+                sun,
+                table[kLtShadowTexel],
+                table[kLtShadowFirst],
+                table[kLtShadowAcross],
+                table[kLtShadowSide],
+                table[kLtShadowSide],
+                row_vector(k, kRvW),
+                out
+            );
         } else {
             add(ZERO, ZERO, L0);
             for (uint32_t tap = 0; tap < kLightKeys; ++tap) {

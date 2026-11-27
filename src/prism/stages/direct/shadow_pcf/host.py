@@ -53,6 +53,7 @@ LAMPS = "lamps"  # the command that draws lamp faces not drawn
 TIMES = "sun_times"
 MAP = "light.shadow_map"  # the light pages, the map their first pages
 CAMERAS = "view.depth"  # the DEPTH views: indices, cameras, frame size
+LAMP_FACES = "light.lamp_faces"  # each lamp's first face record and faces
 PAGE_WORDS = 1024  # a map's page
 AZIMUTH = (0.0, 360.0)  # the sun's angles a viewer offers, degrees
 ELEVATION = (0.0, 90.0)
@@ -208,13 +209,18 @@ class ShadowHost(Host):
     def slots(self):
         """The DEPTH views (slot view.depth): their view indices, each quadrant's
         camera at the sun now, each fitted map's of the scene's camera and each lamp
-        face's, a quadrant's frame size (no fitted map or face is larger)."""
+        face's, a quadrant's frame size (no fitted map or face is larger); each lamp's
+        first face record and faces (slot light.lamp_faces)."""
         lights = self.moved()
         cameras = quadrant_cameras(lights)
         if self.fits.count:
             cameras = cameras + self.fits.first_cameras(lights["sun_direction"])
         cameras = cameras + self.faces.cameras()
-        return {CAMERAS: {"views": self.views, "cameras": cameras, "size": QUADRANT}}
+        lamps = self.faces.lamps(len(self.lights["lamp_intensity"]))
+        return {
+            CAMERAS: {"views": self.views, "cameras": cameras, "size": QUADRANT},
+            LAMP_FACES: lamps,
+        }
 
     def view(self, loaded, camera, size):
         """Once a run: the column naming LIGHT's table in every layer row; the SUN
