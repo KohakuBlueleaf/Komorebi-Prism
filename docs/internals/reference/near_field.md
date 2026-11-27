@@ -281,20 +281,21 @@ within the tile). The form:
   samples count as the cell's front (back face 0). The tile-bounded filter is applied to
   `W` itself. `S_near` is each cell's mean radiance over its covered half pixels
   (`tile.cell_values`, by summed tables).
-- **Far columns (12)**: the field lookup written as weights on its 24 (voxel x 6 +
+- **Far columns (11)**: the field lookup written as weights on its 24 (voxel x 6 +
   direction) entries a pixel (`tile_far.lookup_weights`, equal to `values.lookup`). A
   tile reads a median 60 to 96 distinct entries, at most 250 to 950. They are put into
-  12 groups (`tile_far.grouped`): the six directions share the groups by the weight they
+  11 groups (`tile_far.grouped`): the six directions share the groups by the weight they
   carry, and a direction's entries are split in halves along their box's longest side
   at the weighted share. `W_far[pixel, g]` is the sum of the pixel's weights in group
   `g`: nonnegative, each row's sum kept. `S_far[g]` is the group's field values averaged
-  with the tile's column sums as weights. A tile with 12 entries or fewer keeps them as
+  with the tile's column sums as weights. A tile with 11 entries or fewer keeps them as
   they are.
+- **The ambient column (1)**: where no lookup finds the field, `W` is the far field's
+  scale and `S` the table's ambient; 0 elsewhere.
 - **The fusion as weights** (`tile_far.tile_weights`): `pi W_near` and
   `(1 - blocked) / K W_far`, with `K` the grouped lookup of the furnace's field over pi;
   where `K` is under `FLOOR_K`, `W_near / blocked` with hits and `W_far` alone without.
-  The ambient term where no lookup finds the field stays outside the product. The
-  furnace reads 1 by construction (`checks.near_field`).
+  The furnace reads 1 by construction (`checks.near_field`).
 
 What is recomputed when: `W_T` depends on the geometry and the eye only (a moved sun
 gives the same `W_T` to the bit; the check holds `W_T` and compares it against one
@@ -302,7 +303,7 @@ rebuilt under the moved sun). It is rebuilt when the eye or the geometry moves.
 `S_near` is rebuilt every frame from the lit radiance. `S_far` is rebuilt when the field
 changes, or when the groups change with `W_T`.
 
-On the five views (two bounces, h16 setting; ratio / PSNR / PSNR in 8 bits; the second
+On the five views, with 12 far groups and the ambient outside the product (two bounces, h16 setting; ratio / PSNR / PSNR in 8 bits; the second
 group's scores take `W_T` in bfp8_b and `S_T` in bfloat16; "p99" is that 8-bit error's
 99th percentile in units of the frame's mean E; "lookup" is the far columns' mean error
 against the full lookup of the field):
@@ -333,7 +334,14 @@ against the full lookup of the field):
   and its largest value by up to 3 times. The groups are the form: nonnegative columns
   that keep the 8-bit error under the format's step, and `S_far` a weighted average the
   card computes without a factorization.
-- `W_T` for a view at 1,920 x 1,080 takes 2.3 s on one host core after the march (6.7 s).
+- The form with 11 groups and the ambient column (`one_tile`; half rows, groups): whole /
+  contact PSNR in 8 bits 23.33 / 29.78 (Sponza overview), 22.22 / 19.19 (Sponza close),
+  26.70 / 37.51 (italian_flat camera), 26.19 / 24.31 (italian_flat close), 21.97 / 21.37
+  (lynxsdesign): within 0.04 dB of 12 groups. The ambient column is used by 0 to 35 tiles
+  of a view; the furnace reads 1 there too.
+- `W_T` for a view at 1,920 x 1,080 (`near/view.py`): the frame 7.4 s, the march and
+  `W_T` 19.3 s on one host core, 5.5 s on eight (`workers`: bands of tile rows in forked
+  processes, the same `W_T` to the bit).
 
 The one-tile form does not replace any block of the transport. Of the dense cluster
 pairs of Sponza's transport, 1.9 % lie within the screen term's reach (centres within

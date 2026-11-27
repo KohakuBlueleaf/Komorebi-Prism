@@ -9,7 +9,7 @@ from pathlib import Path
 
 from prism.core import fields
 from prism.core.headers import INCLUDE, defined
-from prism.core.thread.module import ListPass
+from prism.core.thread.module import ListPass, ring_checked
 from prism_common.formats import format_of
 
 HERE = Path(__file__).resolve().parent
@@ -179,8 +179,9 @@ def kind_field(kinds, kind, name):
 
 
 def rings_of(thread, kinds, outputs, geometry):
-    """{field: (pages, page bytes, pusher)} of the handler's rings, each output's
-    pair, each step's own rings, each kind's (one field for a ring kinds share)."""
+    """{field: (pages, page bytes, pusher[, format])} of the handler's rings, each
+    output's pair, each step's own rings, each kind's (one field for a ring kinds
+    share); a format only for a typed ring."""
     _, page_bytes, block_pages = geometry
     rings = {
         "frame_page": (2, TF["TF_WORDS"] * WORD, "mover_a"),
@@ -215,13 +216,13 @@ def rings_of(thread, kinds, outputs, geometry):
             )
     shared = set()
     for owner in (*thread.steps, *kinds):
-        for name, (pages, page_bytes, pusher) in owner.buffers.items():
+        for name, (pages, page_bytes, pusher, *typed) in owner.buffers.items():
             field = kind_field(kinds, owner, name)
             if field in shared:
                 continue
             if field in rings:
                 raise ValueError(f"frame program: ring {field!r} declared twice")
-            rings[field] = (int(pages), int(page_bytes), pusher)
+            rings[field] = (int(pages), int(page_bytes), pusher, *typed)
             if owner in kinds and field == f"kind_{name}":
                 shared.add(field)
     return rings
@@ -250,6 +251,9 @@ def compose(thread, kinds, layers, held=None, account=False):
     kinds = tuple(kinds)
     pulls = [kind.pull for kind in kinds]
     for kind in kinds:
+        for ring, spec in kind.buffers.items():
+            where = f"frame program: kind {kind.name!r}'s ring {ring!r}"
+            ring_checked(where, spec, unpushed=True)
         if kind.pull not in PULLS or pulls.count(kind.pull) > 1:
             raise ValueError(
                 f"frame program: kind {kind.name!r} of pull {kind.pull}; one kind a "
