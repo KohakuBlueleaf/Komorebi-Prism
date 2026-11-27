@@ -15,12 +15,14 @@ from pathlib import Path
 
 import numpy as np
 from compare_crops import crops_of
+from compare_frame import INDIRECT, card_linear, frame_of
 from compare_pictures import (
     crop_box,
     cropped,
     display_numbers,
     heat,
     pass_numbers,
+    sheet,
     strip,
     whole_numbers,
 )
@@ -48,6 +50,7 @@ BLENDER_SCRIPTS = HERE.parent / "blender"
 BLENDER_VARIABLE = "PRISM_BLENDER"  # Blender's executable, else `blender`
 CACHE_VARIABLE = "PRISM_COMPARE_CACHE"  # the truths' folder, else <out>/truth
 LOCK_VARIABLE = "PRISM_DEVLOCK"  # a card lock's command, wrapping the card's run
+RUNNER_VARIABLE = "PRISM_CARDRUN"  # a card's run wrapper, inside the lock
 GLTF_BLEND = "scene_gltf.blend"  # from_gltf.py's file, beside the .glb or cached
 BACKGROUND_DEPTH = 1e9  # Cycles' depth at or past it: no surface
 REGISTERED = 1e-3  # positions within this share of the diagonal: the same point
@@ -179,30 +182,35 @@ def registered(planes, truth, diagonal):
 
 
 def truth_passes(t):
-    """The truth's planes by the comparison's passes (linear): the light passes as
-    Cycles writes them (before their colour), direct and indirect with their colour."""
+    """The truth's planes by the comparison's passes (linear): the direct light passes
+    as Cycles writes them (before their colour); direct with its colours; the diffuse
+    indirect light with its colour."""
     lobes = ("diffuse", "glossy", "transmission")
     direct = sum(t[f"{lobe}_direct"] * t[f"{lobe}_color"] for lobe in lobes)
-    indirect = sum(t[f"{lobe}_indirect"] * t[f"{lobe}_color"] for lobe in lobes)
+    indirect = t["diffuse_indirect"] * t["diffuse_color"]
     return {
         "base_colour": t["diffuse_color"] + t["glossy_color"],
         "diffuse": t["diffuse_direct"],
         "glossy": t["glossy_direct"],
+        "specular": t["glossy_direct"] * t["glossy_color"],
         "indirect": indirect,
+        "diffuse_direct": t["diffuse_direct"],
+        "diffuse_colour": t["diffuse_color"],
         "direct": direct + t["emit"] + t["environment"],
     }
 
 
 def by_pass(planes, ours, truth, mask, render, out):
-    """Each pass on both sides: its numbers over the registered pixels and its strip
-    (truth | reference | difference) as pass_<name>.png."""
+    """Each pass on both sides: its numbers over the registered pixels, its strip
+    (truth | reference | difference) as pass_<name>.png; the strips' cells."""
     ours_planes = {
         "base_colour": planes["base_color"],
         "diffuse": ours["diffuse_light"],
         "glossy": ours["glossy_light"],
+        "specular": ours["specular"],
         "direct": ours["direct"],
     }
-    numbers = {}
+    numbers, rows = {}, []
     for name, mine in ours_planes.items():
         if name == "base_colour":
             show = to_srgb_standard8
@@ -219,12 +227,52 @@ def by_pass(planes, ours, truth, mask, render, out):
         cells = [(f"truth {name}", b), (f"reference {name}", a)]
         cells += [("|reference - truth|", heat(a, b, where))]
         strip(cells).save(out / f"pass_{name}.png")
-    return numbers
+        rows.append(cells)
+    return numbers, rows
+
+
+def indirect_pass(columns, truth, mask, render, out):
+    """The indirect pass of each column ({label: the bounces' linear light}) against
+    Cycles' diffuse indirect: numbers, strip, cells."""
+    theirs = truth["indirect"]
+    b = displayed(theirs, render)[0]
+    numbers, cells, diffs = {}, [("truth indirect (diffuse)", b)], []
+    for label, mine in columns.items():
+        a = displayed(np.maximum(mine, 0.0), render)[0]
+        numbers[label] = pass_numbers(mine, theirs, a, b, mask)
+        cells.append((f"{label} indirect", a))
+        diffs.append((f"|{label} - truth|", heat(a, b, mask)))
+    strip(cells + diffs).save(out / "pass_indirect.png")
+    return numbers, cells + diffs
+
+
+def frame_direct(lit, truth, mask, render, out):
+    """The frame's diffuse direct light (sun, lamps and the sky's own light, with the
+    albedo) against Cycles' diffuse direct times its colour: numbers, strip, cells."""
+    theirs = truth["diffuse_direct"] * truth["diffuse_colour"]
+    a, b = displayed(lit, render)[0], displayed(theirs, render)[0]
+    numbers = pass_numbers(lit, theirs, a, b, mask)
+    cells = [("truth diffuse direct", b), ("frame direct (its lights)", a)]
+    cells += [("|frame - truth|", heat(a, b, mask))]
+    strip(cells).save(out / "pass_frame_direct.png")
+    return numbers, cells
+
+
+def earlier_card(args):
+    """The card's pictures (whole, plain, off) and record of an earlier run's folder."""
+    folder = args.card_from
+    record = json.loads((folder / "numbers.json").read_text())["card"]
+    stem = Path(record["picture"]).stem
+    names = (record["picture"], f"{stem}_plain.png", record.get("off"))
+    paths = [folder / n if isinstance(n, str) else None for n in names]
+    pictures = [picture_of(p) if p is not None and p.exists() else None for p in paths]
+    return *pictures, record | {"from": folder.name}
 
 
 def card_picture(glb, name, args, out):
-    """The card's last picture of --pipeline (bytes) and its run's record: a table
-    scene by its name, else the file opened into a data root of the cache."""
+    """The card's last picture of --pipeline (bytes), the same under the plain tone and
+    with the indirect switch off too (or None) and its run's record: a table scene by its
+    name, else the file opened into a data root of the cache."""
     command = [sys.executable]
     environment = dict(os.environ)
     w, h = args.size
@@ -233,6 +281,7 @@ def card_picture(glb, name, args, out):
         command += [str(HERE / "compare_card.py"), name, "--pipeline", args.pipeline]
         command += ["--size", str(w), str(h), "--frames", str(args.frames)]
         command += ["--card", str(args.card), "--out", str(target)]
+        command += ["--off", INDIRECT, "--plain"]
     else:
         environment["PRISM_DATA"] = str(args.cache / "card_data")
         folder = out / "card"
@@ -240,6 +289,9 @@ def card_picture(glb, name, args, out):
         command += ["--size", str(w), str(h), "--frames", str(args.frames)]
         command += ["--card", str(args.card), "--bake", args.bake, "--out", str(folder)]
     command = ["timeout", str(args.card_timeout)] + command
+    runner = os.environ.get(RUNNER_VARIABLE)
+    if runner:
+        command = [runner, str(args.card), "--"] + command
     lock = os.environ.get(LOCK_VARIABLE)
     if lock:
         command = [lock, "--wait", str(LOCK_WAIT), str(args.card), "--"] + command
@@ -254,8 +306,12 @@ def card_picture(glb, name, args, out):
         target = folder / record["picture"] if record.get("picture") else None
     if done.returncode or target is None or not target.exists():
         tail = (done.stdout + done.stderr).strip().splitlines()[-6:]
-        return None, record | {"tail": tail}
-    return picture_of(target), record
+        return None, None, None, record | {"tail": tail}
+    off = out / record["off"] if isinstance(record.get("off"), str) else None
+    off = picture_of(off) if off is not None and off.exists() else None
+    plain = target.with_name(f"{target.stem}_plain.png")
+    plain = picture_of(plain) if plain.exists() else None
+    return picture_of(target), plain, off, record
 
 
 def crops(stem, args, size):
@@ -295,6 +351,9 @@ def main():
         "--add", nargs="*", default=[], type=labelled_path, help="LABEL=PICTURE.png"
     )
     parser.add_argument("--card", type=int, default=None, help="draw on this card")
+    parser.add_argument(
+        "--card-from", type=Path, default=None, help="an earlier run's card pictures"
+    )
     parser.add_argument("--pipeline", default="gi_threads")
     parser.add_argument("--frames", type=int, default=16)
     parser.add_argument("--bake", default="none", choices=("none", "wait"))
@@ -322,38 +381,77 @@ def main():
     write_png(args.out / "truth.png", truth_shown)
     Image.fromarray(blender_picture).save(args.out / "truth_blender.png")
     cells = [("truth (Cycles, glTF)", truth_shown)]
-    diffs, pictures, numbers = [], {}, {}
+    diffs, pictures, numbers, rows, mask, replaced = [], {}, {}, [], None, None
+    indirect, whole = {}, {}
     if not args.no_reference:
         began = time.perf_counter()
         planes, seen, ours, missing = reference_of(scene, glb, args.camera, size)
         seconds["reference"] = round(time.perf_counter() - began, 1)
         mask, record["registered"] = registered(planes, t, seen["diagonal"])
-        numbers = by_pass(planes, ours, truth, mask, scene.render, args.out)
+        numbers, rows = by_pass(planes, ours, truth, mask, scene.render, args.out)
         shown = displayed(ours["direct"], scene.render)[0]
-        numbers["whole"] = {"reference": whole_numbers(shown, truth_shown)}
+        write_png(args.out / "reference_direct.png", shown)
         record["not_carried"] = missing
+        whole["reference_direct"] = whole_numbers(shown, truth_shown)
+        label = "reference (direct light)"
+        if name is not None:
+            began = time.perf_counter()
+            frame = frame_of(args.pipeline, name, size, args.data or data_root())
+            seconds["frame"] = round(time.perf_counter() - began, 1)
+            record["frame"] = {"tone": frame["tone"], "far_field": frame["far_field"]}
+            record["lights"] = {"reference_frame": frame["lights"], "passes": "file"}
+            shown = frame["display"]
+            label = f"reference ({args.pipeline}'s frame)"
+            if frame["bounces"] is not None:
+                indirect["reference"] = frame["bounces"]
+                replaced = frame["off"] - frame["direct"] - frame["sky"]
+                lit = frame["lit"] + frame["sky"]
+                numbers["frame_direct"], cells_lit = frame_direct(
+                    lit, truth, mask, scene.render, args.out
+                )
+                rows.append(cells_lit)
+            write_png(args.out / "reference_frame.png", shown)
+        whole["reference"] = whole_numbers(shown, truth_shown)
         write_png(args.out / "reference.png", shown)
-        cells.append(("reference (direct light)", shown))
+        cells.append((label, shown))
         diffs.append(("|reference - truth|", heat(shown, truth_shown)))
         pictures["reference"] = shown
     given = [(label, picture_of(Path(path))) for label, path in args.add]
-    if args.card is not None:
+    if args.card is not None or args.card_from is not None:
         began = time.perf_counter()
-        card, record["card"] = card_picture(glb, name, args, args.out)
+        if args.card_from is None:
+            card, card_plain, card_off, record["card"] = card_picture(
+                glb, name, args, args.out
+            )
+        else:
+            card, card_plain, card_off, record["card"] = earlier_card(args)
         seconds["card"] = round(time.perf_counter() - began, 1)
         given += [] if card is None else [("card", card)]
+        tone = record["card"].get("tone")
+        on = card_linear(card if card_plain is None else card_plain, tone)
+        off = card_linear(card_off, tone)
+        if on is not None and off is not None and replaced is not None:
+            indirect["card"] = on - off + replaced
+            record["lights"]["card"] = frame["lights"]
     for label, picture in given:
         if picture.shape[:2] != truth_shown.shape[:2]:
             record.setdefault("size_differs", {})[label] = list(picture.shape[:2])
             continue
-        whole = numbers.setdefault("whole", {})
         whole[label] = whole_numbers(picture, truth_shown)
         whole[f"{label}_vs_blender_display"] = display_numbers(picture, blender_picture)
         title = f"card ({args.pipeline})" if label == "card" else label
         cells.append((title, picture))
         diffs.append((f"|{label} - truth|", heat(picture, truth_shown)))
         pictures[label] = picture
-    strip(cells + diffs).save(args.out / "strip.png")
+    numbers["whole"] = whole
+    indirect = {k: v for k, v in indirect.items() if v.shape == truth_shown.shape}
+    if indirect:
+        where = mask if mask is not None else np.ones(size[::-1], bool)
+        numbers["indirect"], cells_indirect = indirect_pass(
+            indirect, truth, where, scene.render, args.out
+        )
+        rows.insert(0, cells_indirect)
+    sheet([cells + diffs] + rows).save(args.out / "strip.png")
     record["crops"] = {}
     for crop, box in crops(stem, args, size).items():
         all_cells = [(label, cropped(p, box)) for label, p in cells + diffs]
@@ -366,7 +464,8 @@ def main():
     record["seconds"] = seconds | {"all": round(time.perf_counter() - started, 1)}
     (args.out / "numbers.json").write_text(json.dumps(record, indent=1))
     print(json.dumps(record), flush=True)
-    raise SystemExit(1 if args.card is not None and "card" not in pictures else 0)
+    asked = args.card is not None or args.card_from is not None
+    raise SystemExit(1 if asked and "card" not in pictures else 0)
 
 
 if __name__ == "__main__":
