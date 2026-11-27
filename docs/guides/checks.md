@@ -58,7 +58,8 @@ by the host against the reference ([scripts](../../scripts/README.md)).
 
 The record of a check (`prism.check.harness`): `check` (the function), `pipeline`,
 `numbers` (what the check returns), `seconds`, `card`, `aiclk_mhz` (the card's clock
-before and after) and `date`; written to `measurements/<preset>_frame/` by default. The
+before and after), `pcie_link` (the card's PCI address and its link speed now and at
+most, before and after) and `date`; written to `measurements/<preset>_frame/` by default. The
 pages under `docs/performance/` quote the README tables made from such records.
 
 ## The threads' form against the stage-wise form

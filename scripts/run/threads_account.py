@@ -17,6 +17,7 @@ import komorebi as km
 import numpy as np
 from prism_cli.preset import opened
 
+from prism.check.harness import pcie_link
 from prism.check.threads import account, names
 from prism_reference.scene.camera import with_size
 
@@ -106,8 +107,10 @@ def main():
     }
     with km.Session(card=args.card) as session:
         case["aiclk_mhz"] = [account.clock(args.card)]
+        case["pcie_link"] = [pcie_link(args.card)]
         out = run(args, session, preset, camera, case["aiclk_mhz"][0])
         case["aiclk_mhz"].append(account.clock(args.card))
+        case["pcie_link"].append(pcie_link(args.card))
     times = account.medians(out["rows"])
     held = out.pop("records", None)
     trace = out.pop("trace", None)
