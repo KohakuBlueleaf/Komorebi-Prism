@@ -38,9 +38,10 @@ tiles; a side under 1 is a `ValueError` with the reason.
 `rasterize`, `rasterize_shaded` and `rasterize_lighted` render the padded frame
 `32 TX x 32 TY` (setup's box clipped to it, `bin_triangles` on the grid,
 `tile_counts` `(TY, TX)`); `raster.frames.picture(image, scene)` is its top-left `W x H`, what
-is shown and compared. The camera (`scene.camera.sized_camera`): principal point at
-`(W / 2, H / 2)`, focal length times `max(W, H) / 1024`, so the field of view spans the
-larger side. At 1,024 x 1,024 every array is the same as without the entry, bit for bit
+is shown and compared. The camera (`scene.camera.sized_camera`): focal length and the principal point's offset
+from the centre (a view's lens `shift`, `(-x, +y)` times 1,024 at 1,024 x 1,024) times
+`max(W, H) / 1024`, so the field of view spans the larger side; the principal point is
+`(W / 2, H / 2)` plus that offset. At 1,024 x 1,024 every array is the same as without the entry, bit for bit
 (sha256 of every output of `rasterize`, `rasterize_shaded` and `rasterize_lighted` on
 `tiny`, the Sponza and Bistro interior overviews, 2026-11-24). The sun's shadow map
 keeps its own 32 x 32 grids: `direct.shadow.shadow_map` builds its views without `size`.

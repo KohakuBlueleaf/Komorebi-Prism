@@ -47,8 +47,16 @@ def camera_node(scene, name=None):
     raise ValueError("the file holds no camera")
 
 
+def shift_side(fit, aspect):
+    """The side a lens shift is measured in (the sensor fit's at `aspect`) over the
+    longer side, the side of the view's `fov`."""
+    across = fit == "HORIZONTAL" or (fit != "VERTICAL" and aspect >= 1)
+    return min(1.0, aspect) if across else min(1.0, 1.0 / aspect)
+
+
 def view_of(scene, name=None):
-    """The `views` entry {"camera": {eye, target, fov, near?}} and its notes."""
+    """The `views` entry {"camera": {eye, target, fov, near?, shift?}} and its notes;
+    `shift` the lens shift (x, y) in units of the longer side."""
     index = camera_node(scene, name)
     node = scene.nodes[index]
     cam = scene.cameras[node.camera]
@@ -80,8 +88,8 @@ def view_of(scene, name=None):
         if off > ROLL_DEGREES:
             notes.append(Note("dropped", "camera roll", 1, f"{off:.2f} degrees"))
     if cam.shift_x or cam.shift_y:
-        shift = f"{cam.shift_x:.4f}, {cam.shift_y:.4f} of the fitted side"
-        notes.append(Note("dropped", "camera shift", 1, shift))
+        side = shift_side(cam.sensor_fit, aspect)
+        spec["shift"] = [float(cam.shift_x * side), float(cam.shift_y * side)]
     return {VIEW: spec}, {"node": node.name, "aspect": aspect} | spec, notes
 
 
@@ -123,8 +131,6 @@ def entry_of(scene, positions, triangles, camera=None, licence="", attribution="
     views, view, notes = view_of(scene, camera)
     lighting = dict(LIGHTING)
     lighting |= {k: f * diagonal for k, f in BY_DIAGONAL.items()}
-    if scene.render is not None:
-        lighting["exposure"] = float(2.0**scene.render.exposure)
     sun, lamps, light_notes = lights_of(scene)
     if sun is not None:
         lighting["sun"] = sun
