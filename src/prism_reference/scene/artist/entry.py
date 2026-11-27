@@ -1,8 +1,17 @@
 """The table entry of a converted scene: its one view from the file's camera, its light
-point and its lighting defaults with the file's sun and lamps."""
+point and its lighting defaults with the file's sun and lamps, and the file's own lights
+and world in radiometric units beside them (`file`)."""
+
+from pathlib import Path
 
 import numpy as np
 
+from prism_reference.direct.described.units import (
+    LUMENS_PER_WATT,
+    NotCarried,
+    area_extent,
+    light_axes,
+)
 from prism_reference.scene.description.types import Note
 
 VIEW = "camera"
@@ -21,6 +30,11 @@ LIGHTING = {
 }
 # Lighting lengths as fractions of the diagonal of the mesh's bounding box.
 BY_DIAGONAL = {"merge_distance": 0.01, "radius": 0.2, "size": 0.002}
+# A file's lighting: the lamps' window past the scene (no glTF range), by the diagonal.
+FILE_RADIUS = 10.0
+FILE_LIGHTING = {"turn": 0.0, "ambient": [0.0, 0.0, 0.0], "lamp_scale": 1.0}
+FILE_LIGHTING |= {"emissive_scale": 1.0, "shadow_bias": 3.0}
+STAND_IN = "a cosine lamp at its centre, unshadowed, with the option area_lights"
 
 
 def unit(v):
@@ -93,6 +107,31 @@ def view_of(scene, name=None):
     return {VIEW: spec}, {"node": node.name, "aspect": aspect} | spec, notes
 
 
+def floats(v):
+    """A vector as a list of floats."""
+    return [float(x) for x in v]
+
+
+def lamp_of(light, world):
+    """A lamp record of a point, spot or area light at its node's `world`: kind,
+    position, colour, intensity (W/sr a unit of colour: candela / 683; an area light's
+    stand-in its power / pi on its axis), a spot's axis and cone angles, an area
+    stand-in's axis; NotCarried for an area shape the reference does not read."""
+    lamp = {"kind": light.kind, "colour": floats(light.color)}
+    if light.kind == "area":
+        centre, _, _, normal, area = area_extent(light, world)
+        lamp |= {"position": floats(centre), "axis": floats(normal)}
+        lamp |= {"intensity": float(light.intensity) / np.pi, "area": float(area)}
+        return lamp
+    position, emits, _, _ = light_axes(world, light.kind)
+    lamp |= {"position": floats(position)}
+    lamp["intensity"] = float(light.intensity) / LUMENS_PER_WATT
+    if light.kind == "spot":
+        lamp |= {"axis": floats(emits), "inner": float(light.inner_cone)}
+        lamp["outer"] = float(light.outer_cone)
+    return lamp
+
+
 def lights_of(scene):
     """The lighting's `sun` (first directional light) and `lights` (point and spot
     lights as points) from the nodes holding lights, and their notes."""
@@ -122,6 +161,89 @@ def lights_of(scene):
     return sun, lamps, notes
 
 
+def file_lights_of(scene):
+    """The file's own `sun` (first directional light: direction, colour, irradiance
+    W/m^2) and `lights` (`lamp_of` each point, spot and area light) from the nodes
+    holding lights, and their notes as text."""
+    sun, lamps, areas, ranges, refused = None, [], 0, 0, []
+    for node in scene.nodes:
+        if node.light == -1:
+            continue
+        light = scene.lights[node.light]
+        world = np.asarray(node.world, dtype=np.float64)
+        if light.kind == "directional":
+            if sun is None:
+                direction = unit(world[:3, :3] @ [0.0, 0.0, -1.0])
+                watts = float(light.intensity) / LUMENS_PER_WATT
+                sun = {"direction": floats(direction), "colour": floats(light.color)}
+                sun["irradiance"] = [c * watts for c in sun["colour"]]
+            continue
+        try:
+            lamps.append(lamp_of(light, world))
+        except NotCarried as reason:
+            refused.append(f"{node.name}: {reason}")
+            continue
+        areas += light.kind == "area"
+        ranges += light.range is not None
+    notes = []
+    if areas:
+        notes.append(f"area light stand-ins: {areas}, {STAND_IN}")
+    if ranges:
+        notes.append(f"light range dropped: {ranges}, no window but the scene's")
+    if refused:
+        notes.append(f"lights dropped: {len(refused)}, " + "; ".join(refused))
+    return sun, lamps, notes
+
+
+def world_of(scene):
+    """The lighting's `world`: {"colour", "strength"} or {"environment" (the map's
+    absolute path, beside the file), "strength", "rotation"}; None without one."""
+    world = scene.world
+    if world is None:
+        return None
+    out = {"strength": float(world.strength)}
+    if world.environment is None:
+        return out | {"colour": [float(x) for x in world.color]}
+    folder = Path(scene.source.get("path", ".")).absolute().parent
+    out["environment"] = str(folder / world.environment)
+    return out | {"rotation": [float(x) for x in world.rotation]}
+
+
+def file_lighting_of(scene, diagonal):
+    """The file's own lighting (the option file_lights): its sun, lamps and world in
+    radiometric units with the sidecar's exposure (2^exposure), and its notes; None
+    when the file has none of them."""
+    sun, lamps, notes = file_lights_of(scene)
+    world = world_of(scene)
+    if sun is None and not lamps and world is None:
+        return None
+    lengths = {k: f * diagonal for k, f in BY_DIAGONAL.items()}
+    lighting = dict(FILE_LIGHTING) | lengths | {"lights": lamps, "world": world}
+    lighting["radius"] = FILE_RADIUS * diagonal
+    exposure = 0.0 if scene.render is None else float(scene.render.exposure)
+    lighting["exposure"] = 2.0**exposure
+    lighting["notes"] = notes
+    if sun is not None:
+        lighting["sun"] = sun
+    return lighting
+
+
+def lighting_of(scene, diagonal):
+    """The `lighting` entry and its notes: LIGHTING with the file's sun direction and
+    lamp places, and under `file` the file's own lighting when it has one."""
+    lighting = dict(LIGHTING)
+    lighting |= {k: f * diagonal for k, f in BY_DIAGONAL.items()}
+    sun, lamps, notes = lights_of(scene)
+    if sun is not None:
+        lighting["sun"] = sun
+    if lamps:
+        lighting["lights"] = lamps
+    own = file_lighting_of(scene, diagonal)
+    if own is not None:
+        lighting["file"] = own
+    return lighting, notes
+
+
 def entry_of(scene, positions, triangles, camera=None, licence="", attribution=""):
     """The table entry (the layout of `public_scenes.json`) of a converted scene, the
     view's report and the notes; positions: the written mesh's vertices."""
@@ -129,13 +251,7 @@ def entry_of(scene, positions, triangles, camera=None, licence="", attribution="
     lo, hi = p.min(axis=0), p.max(axis=0)
     centre, diagonal = (lo + hi) / 2, float(np.linalg.norm(hi - lo))
     views, view, notes = view_of(scene, camera)
-    lighting = dict(LIGHTING)
-    lighting |= {k: f * diagonal for k, f in BY_DIAGONAL.items()}
-    sun, lamps, light_notes = lights_of(scene)
-    if sun is not None:
-        lighting["sun"] = sun
-    if lamps:
-        lighting["lights"] = lamps
+    lighting, light_notes = lighting_of(scene, diagonal)
     entry = {
         "title": "",
         "page": "",

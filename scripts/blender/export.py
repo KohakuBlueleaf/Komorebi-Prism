@@ -19,6 +19,7 @@ import common
 import materials
 import numpy
 import view as view_tables
+import world_map
 
 PUNCTUAL = {"SUN", "POINT", "SPOT"}
 NAMES_LISTED = 200
@@ -89,7 +90,7 @@ def socket_source(socket, kind):
 
 
 def world(scene, stem, not_exported):
-    """The sidecar's world; saves an environment map beside the stem."""
+    """The sidecar's world; saves its environment map beside the stem as Radiance HDR."""
     entry = {"color": [0.0, 0.0, 0.0], "strength": 1.0, "environment": None}
     entry["rotation"] = [0.0, 0.0, 0.0]
     w = scene.world
@@ -109,8 +110,10 @@ def world(scene, stem, not_exported):
         return entry
     image = texture.image
     extension = os.path.splitext(image.filepath)[1] or "." + image.file_format.lower()
-    path = f"{stem}.world{extension.lower()}"
-    if image.packed_file is not None:
+    path = f"{stem}.world{world_map.HDR}"
+    if extension.lower() != world_map.HDR:
+        world_map.save_hdr(image, path)
+    elif image.packed_file is not None:
         with open(path, "wb") as f:
             f.write(image.packed_file.data)
     else:

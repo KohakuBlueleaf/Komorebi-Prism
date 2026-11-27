@@ -47,7 +47,7 @@ def bake_in_background(name, data):
     files: its PID and its log's name."""
     log = public_dir(data) / f"{name}_bake.log"
     command = [sys.executable, str(LIGHTING), "lighting", name]
-    command += ["--visibility", "bake", "--shadow", "card", "--data", str(data)]
+    command += ["--visibility", "bake", "--data", str(data)]
     with open(log, "ab") as out:
         process = subprocess.Popen(
             command,

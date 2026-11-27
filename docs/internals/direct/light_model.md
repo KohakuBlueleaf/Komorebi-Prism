@@ -110,8 +110,25 @@ pages a row needs (at most 128) go into SHADE's page slots by the same mechanism
 | 89 to 91 | the glass's reflection share, F0 (0.04), 1 - F0 |
 | 92, 93 | the tone step's saturation; int: its curve (0 plain, 1 filmic) |
 | 96 to 111 | the camera (the reader's copy) |
-| 128 + 16 l | lamp l: position, colour, intensity, radius, 1 / radius, size^2 |
+| 128 + 16 l | lamp l: position, colour, intensity, radius, 1 / radius, size^2, then its shape: axis (3), scale, offset, square (below) |
 | 640 to 656 | the field (below) |
+
+A lamp's term is `I max(0, n.l) / (d^2 + s^2) (1 - (d / r)^4)^2` (0 from r on), times
+its shape's falloff about its axis: with c = -l . axis (the cosine between the axis and
+the way the light leaves the lamp toward the pixel), t = clamp(offset + scale c, 0, 1)
+and the falloff `t (square (t - 1) + 1)`: t^2 for square 1, t for square 0
+(`prism_reference.direct.lamps.shaped`). A point has scale 0 and no falloff: LIGHT skips
+the shape for it (a scalar test of the table's word), so a scene of points pays nothing.
+A spot (`spot_shape`) has glTF's cone: scale 1 / max(cos inner - cos outer, 0.001),
+offset -cos outer x scale, square 1. An area light's stand-in (`lobe_shape`) is a cosine
+lobe about its emitting normal: scale 1, offset 0, square 0, its intensity the light's
+power / pi on the axis (the same power over the front half). The stand-in is a point
+where the light is a surface: wrong near the light (no penumbra, a hot spot at the
+centre), and unshadowed, as every lamp of LIGHT is unshadowed today. Shapes come only
+with a file's own lighting (the option `file_lights`), and the stand-ins only with
+`area_lights` too (`lights.load`, the host and the reference alike); without them every
+lamp is a point, as before. The row was 10
+words and is 16 now: the table still holds 32 lamps.
 
 The table lives in the frame thread's sun region, so the host rewrites it between frames
 (a moved sun, the tone, the indirect switch) without a load.

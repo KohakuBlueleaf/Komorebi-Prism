@@ -8,7 +8,9 @@ import numpy as np
 
 from checks.gltf_scene import scene
 from checks.scene_description.roundtrip import rodrigues
+from prism_reference.direct.described.units import LUMENS_PER_WATT
 from prism_reference.material.texture import texel_xy
+from prism_reference.scene.artist.entry import BY_DIAGONAL, FILE_LIGHTING
 from prism_reference.scene.public.materials import KINDS, MATERIAL_KEYS, load_materials
 from prism_reference.scene.public.mesh import load_mesh
 from prism_reference.scene.public.table import TABLE
@@ -122,7 +124,9 @@ def files_case(name, data):
 
 
 def entry_case(entry):
-    """Every key of Sponza's entry, and of its lighting, present with the same type."""
+    """Every key of Sponza's entry, and of its lighting, present with the same type;
+    the file's own lighting under `file`: FILE_LIGHTING's keys, the sun's and lamps'
+    radiometric numbers, no world."""
     sponza = json.loads(TABLE.read_text())["sponza"]
     entry = json.loads(json.dumps(entry))
     for key, value in sponza.items():
@@ -134,6 +138,23 @@ def entry_case(entry):
         "entry: sun", sorted(entry["lighting"].get("sun", {})), ["colour", "direction"]
     )
     same("entry: lights", len(entry["lighting"].get("lights", [])), 2)
+    own = entry["lighting"].get("file", {})
+    keys = set(FILE_LIGHTING) | set(BY_DIAGONAL)
+    keys |= {"exposure", "lights", "world", "notes"}
+    same("entry: file keys", sorted(set(own) - {"sun"}), sorted(keys))
+    same("entry: file world", own.get("world"), None)
+    same("entry: file exposure", own.get("exposure"), 1.0)
+    sun = own.get("sun", {})
+    same("entry: file sun", sorted(sun), ["colour", "direction", "irradiance"])
+    given = scene.LIGHTS[0]
+    want = [c * given["intensity"] / LUMENS_PER_WATT for c in given["color"]]
+    same("entry: file sun irradiance", np.allclose(sun.get("irradiance"), want), True)
+    lamps = own.get("lights", [])
+    same("entry: file lights", len(lamps), 2)
+    for k, (lamp, given) in enumerate(zip(lamps, scene.LIGHTS[1:], strict=True)):
+        watts = given["intensity"] / LUMENS_PER_WATT
+        same(f"entry: lamp {k} intensity", np.isclose(lamp["intensity"], watts), True)
+        same(f"entry: lamp {k} colour", lamp["colour"], given["color"])
 
 
 def untextured_case(name, data):

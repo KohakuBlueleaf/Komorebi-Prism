@@ -32,7 +32,12 @@ from prism.stages.indirect.field_update.model.regions import (
 from prism.stages.indirect.transport.host import scene_name
 from prism.stages.indirect.transport.plan.emulate import x_tiles
 from prism_common.paths import data_root
-from prism_reference.direct.lights import bounce_count, moved, placeholder
+from prism_reference.direct.lights import (
+    bounce_count,
+    moved,
+    options_of,
+    placeholder,
+)
 from prism_reference.direct.lights import load as load_lights
 from prism_reference.indirect.bounces import bounces_of
 from prism_reference.indirect.files import load_model
@@ -48,12 +53,12 @@ SCALE_COMMAND = "field_scale"  # the command returning the last update's scale w
 MS = 1e3
 
 
-def sun_moved(scene, sun, lights=None):
-    """The scene's lights (`lights`, else loaded), with the sun at `sun` (azimuth,
-    elevation; None: as they are) and its shadow map as the reference makes it of the
-    scene's first view's scene."""
+def sun_moved(scene, sun, asked=(False, False), lights=None):
+    """The scene's lights (`lights`, else loaded; `asked`: the loader's file_lights and
+    area_lights), with the sun at `sun` (azimuth, elevation; None: as they are) and its
+    shadow map as the reference makes it of the scene's first view's scene."""
     data = data_root()
-    lights = load_lights(scene, data) if lights is None else lights
+    lights = load_lights(scene, data, *asked) if lights is None else lights
     if sun is None:
         return lights
     view = f"{scene}_{next(iter(table()[scene]['views']))}"
@@ -81,6 +86,7 @@ class FieldUpdateHost:
         self.side = options.get("shadow_side")  # the shadow map's side, when given
         given = options.get("bounces")  # None: the scene's (prepare)
         self.bounces = None if given is None else bounce_count(given)
+        self.loading = options_of(options)  # the loader's file_lights, area_lights
         self.beside = bool(options.get("update_beside", False))
         self.cluster = BESIDE if self.beside else FRAMES
         self.halves = 2 if self.beside else 1  # the field's pages in the light pages
@@ -97,7 +103,7 @@ class FieldUpdateHost:
     def prepare(self):
         """The lights at the sun, the model, the regions' contents, the light pages'
         layout."""
-        self.own_lights = sun_moved(self.scene, None, self.given_lights)
+        self.own_lights = sun_moved(self.scene, None, self.loading, self.given_lights)
         if self.side is not None:
             self.own_lights = {**self.own_lights, "shadow_side": np.int32(self.side)}
         if "indirect" not in self.own_lights:
@@ -110,7 +116,7 @@ class FieldUpdateHost:
             self.made = None  # no valid field: the first update comes before a frame
         self.lights = self.own_lights
         if self.sun is not None:
-            self.lights = sun_moved(self.scene, self.sun, self.own_lights)
+            self.lights = sun_moved(self.scene, self.sun, self.loading, self.own_lights)
         self.counts = counts(self.model)
         self.elements, element_offsets = elements_region(self.model, self.lights)
         self.work_offsets, self.work_bytes = work_layout(self.model)

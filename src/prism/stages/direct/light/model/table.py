@@ -9,6 +9,7 @@ from prism.stages.direct.light.model.terms import term_bits
 from prism.stages.material.texture.model.table import exponents
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.glass import GLASS_F0
+from prism_reference.direct.lamps import lamp_shapes
 from prism_reference.direct.lights import shadow_side
 from prism_reference.direct.sky import C1, C2, C3, C4, C5
 from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN, CURVE_VIEW
@@ -95,6 +96,7 @@ def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
     put(LH["kLtFresnel0"], GLASS_F0)
     put(LH["kLtFresnelRest"], F32(1) - GLASS_F0)
     radius, size = F32(lights["radius"]), F32(lights["size"])
+    shapes = lamp_shapes(lights)
     for lamp in range(lamps):
         at = LH["kLtLamp"] + LH["kLampWords"] * lamp
         put(at, lights["lamp_position"][lamp])
@@ -103,4 +105,9 @@ def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
         put(at + LH["kLampRadius"], radius)
         put(at + LH["kLampInvRadius"], F32(1) / radius)
         put(at + LH["kLampSize2"], size**2)
+        shape = shapes[lamp]
+        put(at + LH["kLampAxis"], shape[0:3])
+        put(at + LH["kLampScale"], shape[3])
+        put(at + LH["kLampOffset"], shape[4])
+        put(at + LH["kLampSquare"], shape[5])
     return words
