@@ -45,7 +45,8 @@ map left to the card, so the first lit picture comes before the bake; the bake
 when it ends, and the next open finds the lights baked. The scene has no indirect file
 and no transport set yet: `gi_threads` (and `gi`, `gi_tile`) draws it without the far
 field, its picture `lit_threads`', the record's `far_field` `absent: ` with what the scene
-lacks ([the indirect light](#the-indirect-light)).
+lacks ([the indirect light](#the-indirect-light)); the open starts the far field's build
+beside its frames, and `--wait-far-field` waits for it and draws again with it.
 
 From then on the scene is opened by its name with the view `camera`.
 
@@ -86,8 +87,40 @@ leaves them out (they only report numbers; every pass or fail of the check stays
 ## The indirect light
 
 `gi`, `gi_threads` and `gi_tile` also read the scene's indirect file and its transport set
-(`SCENE_FILES`: the far field), which neither `open` nor the conversion makes. After the
-lights, one of the two builds ([the transport's build](../performance/transport_build.md)):
+(`SCENE_FILES`: the far field), which the conversion does not make.
+
+### Built at open
+
+When `prism_cli open` or the viewer opens a scene converted from a file (its entry has
+`opened`) that lacks them, `preset.opened(..., build=True)` starts their build
+(`apps/prism_cli/far_field.py`) as a process of its own under `nice -n 19` and the idle
+scheduling class, so the frames keep their CPUs; the frames go on without the far field
+meanwhile. The build runs the steps of the commands below: the sky's visibility bake and
+the lights (`--visibility bake --shadow card`) when the lighting file is not baked, then
+the block-by-block transport (`--transport sketch`). It writes into a folder of its own,
+`<data>/public/.far_field/<name>/`, which links the scene's mesh, materials and
+downloads; when every file is written it renames the visibility and lighting files, the
+transport folder and, last, the indirect file into `<data>/public/`, so a scene never
+holds a part of its far field. A build that fails or is stopped leaves nothing in place
+and is started again at the next open. The lock `<data>/public/.far_field/<name>.lock`
+lets one build run a scene: a second open finds it held and starts none (its record's
+`far_field_build` is `building`). The build's record (what it made, its seconds by step,
+or `failed` and the error) is `<data>/public/.far_field/<name>.json`, its log beside it.
+
+The open's record gives `far_field_build` (`started` with its process and log,
+`building`, or null when there was nothing to build); with `--wait-far-field` it waits
+for the build, opens the preset again on a new session and draws its frames, the last
+picture `<name>_camera_far_field_<pipeline>.png`, and `far_field_wait` holds the build's
+record, the seconds waited and the reload's seconds. The viewer looks for the files once
+a second between frames; when they are there it notices "far field built: reloading" and
+opens the preset again once. `open`'s `--bake background` (the default) starts the
+visibility bake of the lights on its own beside this build; `--bake none` leaves the bake
+to the build alone.
+
+### By hand
+
+After the lights, one of the two builds
+([the transport's build](../performance/transport_build.md)):
 
 ```
 python scripts/data/public_scenes.py indirect <name> --transport sketch   # block by block
