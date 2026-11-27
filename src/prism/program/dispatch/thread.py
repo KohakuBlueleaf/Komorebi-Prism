@@ -57,6 +57,7 @@ COLUMNS = tuple(
         "counts",
         "rows",
         "positions",
+        "boxes",
     )
 )
 PHASES = P + "phases"  # a view's phases (dispatch.h DP_PHASE_*; 0: every phase)
@@ -180,11 +181,12 @@ def numbers(
     return dict(zip(NUMBERS, (int(value) for value in values), strict=True))
 
 
-def columns(mesh, blocks, shade, lists, list_slots, counts, rows, positions):
+def columns(mesh, blocks, shade, lists, list_slots, counts, rows, positions, boxes=0):
     """{column: value} of a (view, layer)'s row: its triangle blocks' address and
     count, its shade blocks' address (0: not shaded), its lists' address and slots, its
-    counts', row histograms' and positions' addresses."""
-    values = (mesh, blocks, shade, lists, list_slots, counts, rows, positions)
+    counts', row histograms' and positions' addresses, its ranges' boxes' address (0:
+    none)."""
+    values = (mesh, blocks, shade, lists, list_slots, counts, rows, positions, boxes)
     return dict(zip(COLUMNS, (int(value) for value in values), strict=True))
 
 

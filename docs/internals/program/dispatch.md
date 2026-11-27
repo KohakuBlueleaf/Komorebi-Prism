@@ -107,8 +107,8 @@ attached to the command (`kmx_block`). Every thread of the view reads it.
 | 11 `TF_RANGE_BLOCKS` | the triangle blocks a count range holds |
 | 12, 13 | a tile's page in the target: `TF_PAGE_FIRST + (tile / across) TF_PAGE_ACROSS + tile mod across` |
 | 14, 15 | the account's pages and the records a core's page holds (0: no account) |
-| 16 to 47 | 8 words a layer (`TF_L_*`): its triangle blocks and their count, its first count range, its shade blocks (0: not shaded), its lists, its counts, row histograms and positions tensors |
-| 48 on (`TF_STEP_AT`) | the steps' own words, one a name of a step's `words`, in the steps' order |
+| 16 to 51 | 9 words a layer (`TF_L_*`): its triangle blocks and their count, its first count range, its shade blocks (0: not shaded), its lists, its counts, row histograms and positions tensors, its count ranges' boxes (0: none; a COLOUR view's only) |
+| 52 on (`TF_STEP_AT`) | the steps' own words, one a name of a step's `words`, in the steps' order |
 
 The steps' words are assigned once on the host (`TileThread.words`: the defines
 `PRISM_TF_<STEP>_<WORD>`), and the same defines build the kernels and the frame's thread.
@@ -200,6 +200,7 @@ when they change (`view`). Its options:
 | `heavy` | the weight past which a tile is cut | 0 (never) |
 | `range_blocks` | the triangle blocks a count range | from the scene (below) |
 | `keep_lists` | the eye's lists kept while its view stands (`DP_N_KEEP`) | True |
+| `cull` | each count range's box tested against the eye's view before its blocks are read | True |
 | `list_slots_least` | a layer's least list slots (a number, or by layer name) | none |
 | `account` | the records a core's account page holds; 0 builds no account | 0 |
 | `cores` | the frame's cores | every rank |
@@ -220,6 +221,27 @@ X280's answers take 3.1 ms of the pull, alone, against count's 18.7. Measured at
 viewer's first pose, the 4.8 M scene's count is 5.37, 4.07 and 4.48 ms at 4, 16 and 35
 blocks, and the 29.8 M scene's frame 102.1 ms at 4, 85.1 at 39 and 85.0 at 64
 ([measurements](../../../measurements/threads_ranges/README.md)).
+
+**The walk culled by the view.** A count range whose triangles all lie outside the eye's
+view adds nothing to count or place, yet its blocks are read and set up. At load the
+host keeps a box a count range (`ThreadsHost.boxes_of`, `prism_reference.raster.cull`:
+the least and most corner of the range's triangles, a 64-byte page a range, the layer's
+word `TF_L_BOXES`). The core that takes a range reads its box beside the camera and
+tests it (`cull.hpp` `box_outside`): the box's centre and half sizes taken along the
+camera's rows give its camera-space bounds, widened by `SLACK` of their magnitudes for
+the float rounding; it is cut when it lies wholly before the near distance, or wholly
+past an edge of the padded frame for every depth it spans. The test is safe: a range is
+cut only when no point of its box can reach a pixel centre, so the picture does not
+change. A cut range's camera page carries the cut word; the streaming mover reads none
+of its blocks and the compute CPUs end the pass after the camera page with no block, so
+the integer mover sees an empty last page. Place replays the count's log through the same
+streaming read and test, so it skips exactly the ranges count skipped. A DEPTH view
+takes no box (its camera is the sun's). The blocks stay in the file's order: sorting a
+layer's triangles by space before cutting them into blocks changed the share cut by under
+2.5 points on the scenes measured, as a scene's file already keeps neighbours together.
+On a 29.8 M triangle scene the frame is 66.1 against 85.2 ms at the viewer's first pose
+and 30.2 against 62.2 turned 90 degrees; a cut range still costs its ask of X280
+([measurements](../../../measurements/walk_cull/README.md)).
 
 The build's capacity (`thread.Capacity`): the count ranges of every layer and the most
 slices of the frame sizes the load holds (`capacity_of`), the records a slice and the
