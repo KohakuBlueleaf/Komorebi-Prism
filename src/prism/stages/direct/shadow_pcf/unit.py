@@ -3,24 +3,20 @@ region from the host, the times rows), the column naming LIGHT's table and the s
 that shares it, its build definitions."""
 
 from prism.core.unit import Region, Unit
-from prism.stages.direct.shadow_pcf.model.region import (
-    SUN_AT,
-    region_bytes,
-    times_bytes,
-)
+from prism.stages.direct.shadow_pcf.model.region import SUN_AT, times_bytes
 
 UNIT = Unit(
     sources=("thread/direct_shadow_pcf_unit.c",),
     includes=("thread",),
-    serves=("sun",),
+    serves=("sun", "fit"),
     regions={
         "sun": Region(
-            lambda host: region_bytes(len(host.views)),
-            lambda host: host.region(host.options),
+            lambda host: host.region_bytes(), lambda host: host.region(host.options)
         ),
         "sun_times": Region(lambda host: times_bytes(len(host.views))),
     },
     columns=("sun_table",),
     shares={"light.shadow_map": ("sun_table",)},
+    gives={"light.shadow_maps": "shadow_maps"},
     defines=lambda host: {"SHADOW_PCF_SUN_AT": f"{SUN_AT}u"},
 )

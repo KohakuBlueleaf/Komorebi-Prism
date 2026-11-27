@@ -12,9 +12,11 @@ class and no frame work; it writes `light.shadow_map` and gives its views as
 | File | What it holds |
 | --- | --- |
 | `__init__.py` | the declaration (`SHADOW_PCF`), registered as `direct.shadow_pcf` |
-| `unit.py` | the thread unit: serves `sun`; regions `sun` (from the host) and `sun_times`; the column `sun_table`, shared with slot `light.shadow_map` |
-| `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the times row; the region's and the times row's word places |
+| `unit.py` | the thread unit: serves `sun` and `fit`; regions `sun` (from the host) and `sun_times`; the column `sun_table`, shared with slot `light.shadow_map`; gives `light.shadow_maps` |
+| `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the whole map's levels, the times row; FIT: a fitted map's DEPTH view and levels, the half swapped in; the region's, the page of maps', a record's and the times row's word places |
 | `host.py` | `ShadowHost`: the lights at the sun (the map's side from the option `shadow_side`, else the lights'), the quadrants (the views of its own), slot `view.depth` (their cameras), the map's tensor (the light pages, else its own), the region's own words (from `SHADOW_PCF_SUN_AT`), the column naming LIGHT's table, the SUN command asked of the loop when the sun moves, the control `sun`, the map read back, the times |
+| `model/maps.py` | the page of maps as the header lays it out: its words, the two halves of records, a record's words; the levels' sides and pages; maps and levels read from pages |
+| `model/fit.py` | `Fits`: the records of both halves, the fitted cameras kept while they hold the eye's slices (the reference's `kept_cameras`), the FIT commands of a redraw, the half the frames read |
 | `model/region.py` | the sun region as the header lays it out: LIGHT's table, the sun's words and a camera a quadrant (the light model's `quadrant_cameras`); the lights at a sun; the times rows |
 | `check/sun_map.py` | the sun set, frames, the card's map against the reference's at that sun (the light stage's `sun_check`), the passes and times |
 
@@ -29,6 +31,45 @@ follows from `SHADOW_PCF_CAMERAS`, as many words as the director's camera. The s
 follow the host's map: a side of `n` quadrants gives `n * n` views. Quadrant `q` is
 view `1 + q`, and its pages start at `first + (q / n) TY (n TX) + (q mod n) TX`. The
 side is the option `shadow_side` (whole quadrants of 1,024) or the lights' own map's.
+
+## The page of maps
+
+Every map the lookup may read has a record in the page of maps: the sun's whole map
+first, then each fitted map (the option `cascades`, 0 by default; a lamp's faces later).
+The page sits in the region `sun` after the quadrants' cameras, at the byte the sun's
+word `SHADOW_PCF_MAPS_AT` gives (the thread's image holds 16 regions, all taken, so the
+page and the levels' work bytes are parts of the unit's one region, apart from LIGHT's
+table). A record is `SHADOW_PCF_RECORD_WORDS` words: the map's camera as a block of the
+director's camera words first, then its tensor, first page, pages a row, side, texel,
+bias, filter, margin, levels, the levels' tensor and first page, its kind, which
+cascade, the view that draws it. The page holds the records twice. The frames read one
+half, `1 + half` given as slot `light.shadow_maps`; a redraw writes the other.
+
+## The fit kept beside the frames
+
+A fitted map covers one slice of the eye's view (the reference's practical split of the
+option `cascade_reach`, else the scene box along the view) widened on each side by the
+control `cascade_margin` (a share of the slice, 0.1 by default), its half width on steps
+of 2^(1/8) and its centre on its own texel grid, so a fit made again nearby draws the
+same texels. Each frame the host tests the fits against the eye's slices (`fit_holds`):
+a still camera costs nothing. When one no longer holds, the host fits it again, writes
+the half the frames do not read (a refitted map at its other pages, a kept one at the
+same) and asks one `fit` command a refitted map. The loop sends one between two frames;
+each draws its map's DEPTH view (view `1 + quadrants + cascade`) and its levels, and the
+last one swaps the half in. The frames meanwhile read the old half: a point outside the
+old fits takes a coarser map, never a wrong one. When the sun moves, the host writes the
+other half with the whole map at the new sun and no fitted map, and `sun` swaps it in
+with the new map; the fits are then drawn again one by one.
+
+## The levels
+
+With the option `shadow_levels`, each map has its levels: level `l + 1`'s texel is the
+largest 1/z of level `l`'s 2 x 2, down to 1 x 1, each level in pages of 32 x 32 (a level
+under 32 texels a side in a page's corner), one after another. The X280 reduces them:
+the map fetched in pieces of 32 x 32 pages into the region's work bytes, each piece's
+first level by the four cores, the next levels from the first, then every level stored
+to its pages. `sun` reduces the whole map's after its quadrants (and is sent once at
+load when the levels are on), `fit` a fitted map's after its view.
 
 ## The views' capacity
 
@@ -61,6 +102,10 @@ of its own region `sun_times`: the number, the code, the pass's ticks and each
 quadrant's.
 
 ## Checks
+
+`python -m checks.shadow_maps` walks at the viewer's speed with fitted maps on and
+compares every map the frames read with the reference's at its camera, and every map's
+levels with the reference's levels of the card's map (exact).
 
 `check/sun_map.py` compares the card's map with the reference's: texels apart by more
 than 1e-5, and texels empty on one side only, by the reference's layer and by quadrant.
