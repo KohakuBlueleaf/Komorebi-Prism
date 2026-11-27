@@ -48,9 +48,8 @@ namespace prism_frame {
             return {0, 0, 0, 0, 0};
         }
         const uint32_t skip = slot % kFrameSlotsPerPage;
-        const uint32_t pages = (
-            (skip + entries + kFrameSlotsPerPage - 1) / kFrameSlotsPerPage
-        );
+        const uint32_t
+            pages = ((skip + entries + kFrameSlotsPerPage - 1) / kFrameSlotsPerPage);
         return {
             slot / kFrameSlotsPerPage,
             pages,

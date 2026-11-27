@@ -33,13 +33,13 @@ namespace prism_frame {
     // Mover A: the command's block copied into the frame's page ring for compute.
     inline bool publish_page(MoverContext& ctx, MoverState& state, uint32_t bytes) {
         if (!wait_serving(
-            ctx,
-            state,
-            [] {
-                return cb_pages_reservable_at_back(kFieldFramePage, 1);
-            },
-            FW_PAGE
-        )) {
+                ctx,
+                state,
+                [] {
+                    return cb_pages_reservable_at_back(kFieldFramePage, 1);
+                },
+                FW_PAGE
+            )) {
             return false;
         }
         cb_reserve_back(kFieldFramePage, 1);
@@ -68,11 +68,11 @@ namespace prism_frame {
             TS_WORDS * 4
         );
         if (!ctx.movement.wait(
-            [] {
-                return ncrisc_noc_reads_flushed(noc_index);
-            },
-            FW_RECORD
-        )) {
+                [] {
+                    return ncrisc_noc_reads_flushed(noc_index);
+                },
+                FW_RECORD
+            )) {
             return false;
         }
         account_add(ctx, FX_BYTES_RECORDS, (TR_WORDS + TS_WORDS) * 4);
@@ -104,9 +104,8 @@ namespace prism_frame {
             const uint32_t left = blocks - block;
             d[FD_LAYER] = layer;
             d[FD_FIRST_BLOCK] = block;
-            d[FD_BLOCKS] = (
-                left < ctx.word(TF_RANGE_BLOCKS) ? left : ctx.word(TF_RANGE_BLOCKS)
-            );
+            d[FD_BLOCKS] =
+                (left < ctx.word(TF_RANGE_BLOCKS) ? left : ctx.word(TF_RANGE_BLOCKS));
             return true;
         }
         return ctx.gave_up(km::kGaveBadItem, FW_BAD);
@@ -117,13 +116,13 @@ namespace prism_frame {
         MoverContext& ctx, MoverState& state, uint32_t cb, const uint32_t* d
     ) {
         if (!wait_serving(
-            ctx,
-            state,
-            [cb] {
-                return cb_pages_reservable_at_back(cb, 1);
-            },
-            FW_DESCRIPTOR_ROOM
-        )) {
+                ctx,
+                state,
+                [cb] {
+                    return cb_pages_reservable_at_back(cb, 1);
+                },
+                FW_DESCRIPTOR_ROOM
+            )) {
             return false;
         }
         cb_reserve_back(cb, 1);
@@ -139,13 +138,13 @@ namespace prism_frame {
     inline bool take_descriptor(MoverContext& ctx, MoverState& state, uint32_t* d) {
         const uint32_t since = account_now();
         if (!wait_serving(
-            ctx,
-            state,
-            [] {
-                return cb_pages_available_at_front(kFieldFrameJobsB, 1);
-            },
-            FW_DESCRIPTOR
-        )) {
+                ctx,
+                state,
+                [] {
+                    return cb_pages_available_at_front(kFieldFrameJobsB, 1);
+                },
+                FW_DESCRIPTOR
+            )) {
             return false;
         }
         account_since(ctx, FX_ASK, since);
@@ -175,11 +174,9 @@ namespace prism_frame {
                 .page_size = kFrameListPageBytes
             };
             for (uint32_t chunk = 0; chunk < span.blocks; chunk += FL_CHUNK_BLOCKS) {
-                const uint32_t blocks = (
-                    span.blocks - chunk < FL_CHUNK_BLOCKS
-                        ? span.blocks - chunk
-                        : FL_CHUNK_BLOCKS
-                );
+                const uint32_t blocks =
+                    (span.blocks - chunk < FL_CHUNK_BLOCKS ? span.blocks - chunk
+                                                           : FL_CHUNK_BLOCKS);
                 uint32_t mine = 0;
                 for (uint32_t block = 0; block < blocks; block++) {
                     mine += kListPattern.owner(block) == km::kMover;
@@ -189,22 +186,22 @@ namespace prism_frame {
                 }
                 const uint32_t half = kListPair.half(km::kMover);
                 if (!wait_serving(
-                    ctx,
-                    state,
-                    [half, mine] {
-                        return (
-                            cb_pages_reservable_at_back(half, mine * kFrameBlockPages)
-                        );
-                    },
-                    FW_LIST_ROOM
-                )) {
+                        ctx,
+                        state,
+                        [half, mine] {
+                            return (cb_pages_reservable_at_back(
+                                half, mine * kFrameBlockPages
+                            ));
+                        },
+                        FW_LIST_ROOM
+                    )) {
                     return false;
                 }
                 const uint32_t first = chunk * kFrameBlockPages;
                 const uint32_t left = span.pages - first;
-                const uint32_t pages = (
-                    left < blocks * kFrameBlockPages ? left : blocks * kFrameBlockPages
-                );
+                const uint32_t pages =
+                    (left < blocks * kFrameBlockPages ? left
+                                                      : blocks * kFrameBlockPages);
                 km::Moved moved = {0, 0};
                 const km::Stream stream(
                     km::kMoveRead,
@@ -263,9 +260,8 @@ namespace prism_frame {
         invalidate_l1_cache();
         const uint32_t b_end = shared(ctx)[FM_B_ENDS + at];
         const uint32_t a_end = state.end[at];
-        const uint32_t last = (
-            b_end - state.start[at] > a_end - state.start[at] ? b_end : a_end
-        );
+        const uint32_t
+            last = (b_end - state.start[at] > a_end - state.start[at] ? b_end : a_end);
         account_record(
             ctx,
             at,
@@ -276,11 +272,9 @@ namespace prism_frame {
             b_end,
             (last - state.start[at]) >> TA_COST_SHIFT
         );
-        return (
-            port.tell(
-                state.number[at], (last - state.start[at]) >> TA_COST_SHIFT, kFrameHeldCodes
-            )
-        );
+        return (port.tell(
+            state.number[at], (last - state.start[at]) >> TA_COST_SHIFT, kFrameHeldCodes
+        ));
     }
 
     // Mover A: threads from the pull until none is left, each handed on and its share
@@ -290,13 +284,13 @@ namespace prism_frame {
         for (;;) {
             const uint32_t waited = account_now();
             if (!wait_serving(
-                ctx,
-                state,
-                [&] {
-                    return state.taken - ended(ctx, state) <= 1;
-                },
-                FW_AHEAD
-            )) {
+                    ctx,
+                    state,
+                    [&] {
+                        return state.taken - ended(ctx, state) <= 1;
+                    },
+                    FW_AHEAD
+                )) {
                 return false;
             }
             account_since(ctx, FX_AHEAD, waited);
@@ -321,17 +315,13 @@ namespace prism_frame {
             d[FD_COUNT] = count;
             d[FD_WORD] = word;
             d[FD_SEQUENCE] = state.taken;
-            const bool known = (
-                pull == TP_TILE
-                    ? read_record(ctx, first, d)
-                    : decode_range(ctx, first, d)
-            );
+            const bool known =
+                (pull == TP_TILE ? read_record(ctx, first, d)
+                                 : decode_range(ctx, first, d));
             account_add(ctx, FX_THREADS, 1);
-            if (
-                !known || !push_descriptor(ctx, state, kFieldFrameJobs, d) ||
+            if (!known || !push_descriptor(ctx, state, kFieldFrameJobs, d) ||
                 !push_descriptor(ctx, state, kFieldFrameJobsB, d) ||
-                !run_share(ctx, state, d)
-            ) {
+                !run_share(ctx, state, d)) {
                 return false;
             }
         }
@@ -383,11 +373,9 @@ namespace prism_frame {
         const uint32_t began = account_now();
         if constexpr (kMine) {
             account_begin(ctx);
-            if (
-                (pull == TP_TILE && !steps_begin(ctx)) ||
+            if ((pull == TP_TILE && !steps_begin(ctx)) ||
                 !publish_page(ctx, state, block.bytes) ||
-                !take_threads(ctx, state, pull)
-            ) {
+                !take_threads(ctx, state, pull)) {
                 return false;
             }
         } else {
@@ -398,24 +386,24 @@ namespace prism_frame {
         }
         const uint32_t draining = account_now();
         if (!wait_serving(
-            ctx,
-            state,
-            [&] {
-                return state.done == state.taken;
-            },
-            FW_DRAIN
-        )) {
+                ctx,
+                state,
+                [&] {
+                    return state.done == state.taken;
+                },
+                FW_DRAIN
+            )) {
             return false;
         }
         if constexpr (kMine) {
             if (!wait_serving(
-                ctx,
-                state,
-                [&] {
-                    return b_done(ctx) == state.taken;
-                },
-                FW_DRAIN
-            ) ||
+                    ctx,
+                    state,
+                    [&] {
+                        return b_done(ctx) == state.taken;
+                    },
+                    FW_DRAIN
+                ) ||
                 !tell(ctx, state, port_of(movement))) {
                 return false;
             }

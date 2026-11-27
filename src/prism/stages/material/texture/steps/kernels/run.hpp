@@ -17,9 +17,8 @@ namespace material_step {
     constexpr uint32_t kWorkIndex = 0;     // 1,024 texel addresses, row by row
     constexpr uint32_t kWorkPages = 1024;  // texel_pages::Pages (2 hash sizes + slots)
     constexpr uint32_t kRowKeys = 32;      // a row's keys
-    constexpr uint32_t kWorkAsked = (
-        kWorkPages + 2 * kPagesHashSize + kShadeSlots + kRowKeys
-    );
+    constexpr uint32_t
+        kWorkAsked = (kWorkPages + 2 * kPagesHashSize + kShadeSlots + kRowKeys);
     static_assert(4 * (kWorkAsked + 1 + kShadeSlots) <= kShadeWorkBytes);
 
     // The page cache's bytes: kShadeSlots pages and the white texel's.

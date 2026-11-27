@@ -43,9 +43,9 @@ namespace prism_frame {
         if (block == 0) {
             return false;
         }
-        volatile uint32_t* payload = (
-            reinterpret_cast<volatile uint32_t*>(block + FO_HEADER_BYTES)
-        );
+        volatile uint32_t* payload = (reinterpret_cast<volatile uint32_t*>(
+            block + FO_HEADER_BYTES
+        ));
         payload[0] = reinterpret_cast<volatile uint32_t*>(space)[0];
         out_push(ctx, 0, block, tile.page, 0, TR_WORDS * 4, TR_WORDS * 4);
 #endif

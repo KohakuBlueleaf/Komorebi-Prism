@@ -58,9 +58,8 @@ namespace prism_frame {
 
 #if !defined(COMPILE_FOR_TRISC)
     // This mover's words of the block.
-    constexpr uint32_t kAccountMover = (
-        km::kMover == km::kMoverA ? FX_MOVER_A : FX_MOVER_B
-    );
+    constexpr uint32_t
+        kAccountMover = (km::kMover == km::kMoverA ? FX_MOVER_A : FX_MOVER_B);
 
     // Mover A at the command's start, before anything is handed on: the block zeroed.
     inline void account_begin(const MoverContext& ctx) {
@@ -145,9 +144,8 @@ namespace prism_frame {
                     FW_OUTPUT
                 );
             }
-            volatile uint32_t* r = (
-                words + FX_STAGE_AT + (index % FM_RING) * FX_RECORD_WORDS
-            );
+            volatile uint32_t*
+                r = (words + FX_STAGE_AT + (index % FM_RING) * FX_RECORD_WORDS);
             r[FX_R_VIEW] = (ctx.word(TF_VIEW) & 0xFFFFu) | kind << 16;
             r[FX_R_NUMBER] = number;
             r[FX_R_COUNT] = 0;
@@ -158,16 +156,14 @@ namespace prism_frame {
             r[FX_R_END_B] = end_b;
             r[FX_R_COST] = cost;
             for (uint32_t step = 0; step < FX_RECORD_WORDS - FX_R_STEPS; step++) {
-                r[FX_R_STEPS + step] = (
-                    kind == TP_TILE ? words[FX_STEPS_AT + at * FX_STEPS + step] : 0u
-                );
+                r[FX_R_STEPS + step] =
+                    (kind == TP_TILE ? words[FX_STEPS_AT + at * FX_STEPS + step] : 0u);
             }
             const InterleavedAddrGen<true> pages = {
                 .bank_base_address = base, .page_size = account_page_bytes(ctx)
             };
-            const uint32_t offset = (
-                4u * (FX_RECORDS_AT + FX_RECORD_WORDS * (index % held))
-            );
+            const uint32_t
+                offset = (4u * (FX_RECORDS_AT + FX_RECORD_WORDS * (index % held)));
             noc_async_write(
                 reinterpret_cast<uint32_t>(r),
                 pages.get_noc_addr(ctx.rank + km::first(ctx.command), offset),

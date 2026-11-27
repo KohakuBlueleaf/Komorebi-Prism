@@ -100,9 +100,7 @@ namespace material_step {
         const uint32_t own = surface_planes(
             surface, role == kOpaque ? kSurfaceOpaque : kSurfaceGlass
         );
-        const Parts parts = {
-            {plane, own, own + kPlanes * kOutPageBytes}
-        };
+        const Parts parts = {{plane, own, own + kPlanes * kOutPageBytes}};
         if (!lit_texels(
                 run.waits,
                 run.requests,

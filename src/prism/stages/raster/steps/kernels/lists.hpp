@@ -25,7 +25,7 @@ namespace list_step {
         uint32_t slot = 0, end = 0;  // the next slot, the layer's end
         uint32_t block = 0, half = 0, pages = 0;
         uint32_t block_slot = 0, block_end = 0;  // the slots the block in hand holds
-        uint32_t page = 0;  // the pack CPU's block in hand (0: none)
+        uint32_t page = 0;    // the pack CPU's block in hand (0: none)
         bool failed = false;  // a wait gave up: the walk is over
 
         ListStream(const Ctx& of, uint32_t first, uint32_t entries) :

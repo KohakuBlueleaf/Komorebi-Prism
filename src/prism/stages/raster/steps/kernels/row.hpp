@@ -18,30 +18,30 @@ namespace visibility_step {
         // record's triangle number: d = L0 - L1, where d == 0 d = held number - L5;
         // lanes stay enabled where d > 0. PY is the free register, loaded again.
 #ifdef ARCH_WORMHOLE
-#define FILL_DEPTH_TIED(pixel_row)                                              \
-    TTI_SFPPUSHC(0, 0, 0, 0);                                                   \
-    TTI_SFPMOV(0, L1, L1, 1);                                                   \
-    TTI_SFPMAD(L1, ONE, L0, L1, 0);                                             \
-    FILL_HOLD;                                                                  \
-    TTI_SFPSETCC(0, L1, 0, 6);                                                  \
-    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(128 + pixel_row));         \
-    TTI_SFPMOV(0, PY, PY, 1);                                                   \
-    TTI_SFPMAD(L5, ONE, PY, L1, 0);                                             \
-    FILL_HOLD;                                                                  \
-    TTI_SFPMOV(0, L1, L1, 1);                                                   \
-    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(kVecPy + pixel_row));      \
-    TTI_SFPPOPC(0, 0, 0, 0);                                                    \
-    TTI_SFPSETCC(0, L1, 0, 4);                                                  \
+#define FILL_DEPTH_TIED(pixel_row)                                         \
+    TTI_SFPPUSHC(0, 0, 0, 0);                                              \
+    TTI_SFPMOV(0, L1, L1, 1);                                              \
+    TTI_SFPMAD(L1, ONE, L0, L1, 0);                                        \
+    FILL_HOLD;                                                             \
+    TTI_SFPSETCC(0, L1, 0, 6);                                             \
+    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(128 + pixel_row));    \
+    TTI_SFPMOV(0, PY, PY, 1);                                              \
+    TTI_SFPMAD(L5, ONE, PY, L1, 0);                                        \
+    FILL_HOLD;                                                             \
+    TTI_SFPMOV(0, L1, L1, 1);                                              \
+    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(kVecPy + pixel_row)); \
+    TTI_SFPPOPC(0, 0, 0, 0);                                               \
+    TTI_SFPSETCC(0, L1, 0, 4);                                             \
     TTI_SFPSETCC(0, L1, 0, 2)
 #else
-#define FILL_DEPTH_TIED(pixel_row)                                              \
-    TTI_SFPPUSHC(0, 0, 0, 0);                                                   \
-    TTI_SFPMAD(L1, ONE, L0, L1, 1);                                             \
-    TTI_SFPSETCC(0, L1, 0, 6);                                                  \
-    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(128 + pixel_row));         \
-    TTI_SFPMAD(L5, ONE, PY, L1, 1);                                             \
-    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(kVecPy + pixel_row));      \
-    TTI_SFPPOPC(0, 0, 0, 0);                                                    \
+#define FILL_DEPTH_TIED(pixel_row)                                         \
+    TTI_SFPPUSHC(0, 0, 0, 0);                                              \
+    TTI_SFPMAD(L1, ONE, L0, L1, 1);                                        \
+    TTI_SFPSETCC(0, L1, 0, 6);                                             \
+    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(128 + pixel_row));    \
+    TTI_SFPMAD(L5, ONE, PY, L1, 1);                                        \
+    TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(kVecPy + pixel_row)); \
+    TTI_SFPPOPC(0, 0, 0, 0);                                               \
     TTI_SFPGT(0, ZERO, L1, kSetCC)
 #endif
 
@@ -92,8 +92,9 @@ namespace visibility_step {
         fill::load_triangle(record_words);
         const uint32_t after = fill::wall();
         walk.counters.triangle_setup += after - before;
-        for (int32_t pixel_row = first_covered; pixel_row <= last_covered;
-             ++pixel_row) {
+        for (
+            int32_t pixel_row = first_covered; pixel_row <= last_covered; ++pixel_row
+        ) {
             row_k::row(pixel_row);
             walk.counters.row_count++;
         }

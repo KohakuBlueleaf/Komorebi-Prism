@@ -44,9 +44,9 @@ namespace prism_frame {
             waits.stops,
             waits.cycles,
             [&] {
-                const uint16_t received = (
-                    reg_read(reinterpret_cast<uint32_t>(get_cb_tiles_received_ptr(cb)))
-                );
+                const uint16_t received = (reg_read(
+                    reinterpret_cast<uint32_t>(get_cb_tiles_received_ptr(cb))
+                ));
                 const uint16_t acked = get_local_cb_interface(cb).tiles_acked;
                 return static_cast<uint16_t>(received - acked) >= 1;
             },
@@ -123,24 +123,21 @@ namespace prism_frame {
     inline void work_compute(km::Compute& compute, const km_command_t& command) {
         uint32_t page = 0, memory = 0;
         const compute_mail::Waits mail = {
-            {
-                compute.control(),
-                km::kGaveLimit,
-                km::kGaveBadItem,
-                FW_C_MAIL,
-                FW_C_MAIL,
-                FW_BAD
-            },
+            {compute.control(),
+             km::kGaveLimit,
+             km::kGaveBadItem,
+             FW_C_MAIL,
+             FW_C_MAIL,
+             FW_BAD},
             FW_WAIT_CYCLES
         };
 #if defined(TRISC_UNPACK)
         compute_mail::Waits at_page = mail;
         at_page.stops.where_front = FW_C_PAGE;
         page = front_of(at_page, kFieldFramePage);
-        memory = (
-            (get_local_cb_interface(kFieldCommandSpace).fifo_rd_ptr << 4) +
-            PRISM_SPACE_FRAME_MEMORY_AT
-        );
+        memory =
+            ((get_local_cb_interface(kFieldCommandSpace).fifo_rd_ptr << 4) +
+             PRISM_SPACE_FRAME_MEMORY_AT);
         to_both(page);
         to_both(memory);
 #else

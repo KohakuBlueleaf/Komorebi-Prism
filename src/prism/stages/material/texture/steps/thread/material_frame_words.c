@@ -13,10 +13,7 @@ static const volatile uint32_t* layer_row(const dr_view_t* view, uint32_t layer)
 
 /* The step's words of `view` at the places `at` (layers, textures, table). */
 static uint32_t frame_words(
-    dr_frame_t* frame,
-    const dr_view_t* view,
-    uint32_t* page,
-    const uint32_t at[3]
+    dr_frame_t* frame, const dr_view_t* view, uint32_t* page, const uint32_t at[3]
 ) {
     uint32_t layers = 0, textures = 0, table = 0;
     for (uint32_t layer = 0; layer < frame->layers && layer < TR_LAYERS; layer++) {

@@ -97,10 +97,13 @@ namespace material_step {
             const bool used = use(i);
 #if defined(TRISC_PACK)
             if (used) {
-                done = served(ctx, [&] {
-                           const bool shaded = !ready || shade(i, list, entries);
-                           return list_step::drain_rest(list) && shaded;
-                       }) &&
+                done = served(
+                           ctx,
+                           [&] {
+                               const bool shaded = !ready || shade(i, list, entries);
+                               return list_step::drain_rest(list) && shaded;
+                           }
+                       ) &&
                     done;
             } else {
                 done = list_step::drain_rest(list) && done;
@@ -108,7 +111,9 @@ namespace material_step {
 #else
             done = list.run() && done;
             if (used) {
-                served(ctx, [] { return true; });
+                served(ctx, [] {
+                    return true;
+                });
             }
 #endif
             static_cast<void>(ready);
@@ -128,11 +133,7 @@ namespace material_step {
 // A DEPTH view (lit only): the masked layer merged into the opaque one. False: gave up.
 template <bool lit, typename Ctx, typename Tile, typename Planes>
 bool material_step_compute(
-    Ctx& ctx,
-    const Tile& tile,
-    Planes& planes,
-    uint32_t layers,
-    uint32_t textures
+    Ctx& ctx, const Tile& tile, Planes& planes, uint32_t layers, uint32_t textures
 ) {
     using namespace material_step;
 #if defined(TRISC_PACK)
@@ -221,11 +222,7 @@ bool material_step_compute(
 template <typename Ctx, typename Tile, typename Planes>
 bool material_compute(Ctx& ctx, const Tile& tile, Planes& planes) {
     return material_step_compute<false>(
-        ctx,
-        tile,
-        planes,
-        PRISM_TF_MATERIAL_LAYERS,
-        PRISM_TF_MATERIAL_TEXTURES
+        ctx, tile, planes, PRISM_TF_MATERIAL_LAYERS, PRISM_TF_MATERIAL_TEXTURES
     );
 }
 #endif
@@ -235,11 +232,7 @@ bool material_compute(Ctx& ctx, const Tile& tile, Planes& planes) {
 template <typename Ctx, typename Tile, typename Planes>
 bool material_lit_compute(Ctx& ctx, const Tile& tile, Planes& planes) {
     return material_step_compute<true>(
-        ctx,
-        tile,
-        planes,
-        PRISM_TF_MATERIAL_LIT_LAYERS,
-        PRISM_TF_MATERIAL_LIT_TEXTURES
+        ctx, tile, planes, PRISM_TF_MATERIAL_LIT_LAYERS, PRISM_TF_MATERIAL_LIT_TEXTURES
     );
 }
 #endif

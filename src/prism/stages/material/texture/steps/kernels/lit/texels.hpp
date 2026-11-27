@@ -115,14 +115,7 @@ namespace shade_k {
         };
         texel_pages::PassCounts counts;
         const bool served = material_step::request_passes(
-            waits,
-            requests,
-            first,
-            end,
-            pages,
-            counts,
-            scan,
-            gather
+            waits, requests, first, end, pages, counts, scan, gather
         );
         add_counts(counters, counts);
         return served;
