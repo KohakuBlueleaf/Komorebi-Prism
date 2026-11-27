@@ -73,7 +73,7 @@ pages under `docs/performance/` quote the README tables made from such records.
 
 ```
 python -m checks.threads_frame model|tile|depth|geometry|whole|update|during \
-    --pipeline <stage-wise preset> --scene S [--view V] [--size W H] [--cores 1 all] \
+    --pipeline <stage-wise preset> --scene S [--view V] [--size W H] [--cores 16 all] \
     [--policy ...] --card C
 ```
 

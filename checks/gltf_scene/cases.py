@@ -51,7 +51,8 @@ def same(case, got, want, relative=False):
 
 
 def kinds_case(materials, report):
-    """Each material's kind, base, slots, exponent, specular and transmission."""
+    """Each material's kind, base, slots, exponent, specular, transmission and
+    shadow."""
     names = [item["name"] for item in report["mapping"]]
     rows = [(n, *expect) for n, _, expect in scene.KINDS]
     rows.append((*scene.NO_UV, 30, [0.04] * 3, [0.0] * 3))
@@ -63,6 +64,8 @@ def kinds_case(materials, report):
         same(f"{name}: exponent", int(materials["exponent"][m]), exponent)
         same(f"{name}: specular", materials["specular"][m], specular)
         same(f"{name}: transmission", materials["transmission"][m], tau)
+        shadow = scene.SHADOWS.get(name, [0.0] * 3)
+        same(f"{name}: shadow", materials["shadow"][m], shadow)
     same("textures numbered", len(materials["levels"]), 2)
     same("rows", len(materials["kind"]), len(rows) + 1)
 

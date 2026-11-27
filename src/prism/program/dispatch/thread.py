@@ -64,9 +64,8 @@ KEEP = P + "keep"  # 1: the eye's view stands, its lists kept when they hold it
 TIMES = tuple(
     P + name for name in ("count", "sums", "running", "place", "words", "tile")
 )
-# the ranges, the tile threads, those given near; the cores an update wanted when a
-# view was refused for them (DP_NO_CORES)
-RESULTS = tuple(P + name for name in ("ranges", "tile_threads", "near_given", "wanted"))
+# the ranges, the tile threads, those given near
+RESULTS = tuple(P + name for name in ("ranges", "tile_threads", "near_given"))
 
 
 @dataclass(frozen=True)

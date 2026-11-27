@@ -7,8 +7,8 @@ five CPUs, the rings between them, what its L1 holds through a tile thread).
 usage: python docs/images/levels.py [output folder]    (the standard library only)
 
 Names: program/threads/program.py (ports: core * 4 // cores on cluster 1), the job
-thread's clusters 2 and 3 (program/jobs/thread.py), update_cores 30
-(configs/pipeline/gi_threads.py), the phases of program/dispatch/c/dispatch_view.c and
+thread's clusters 2 and 3 (program/jobs/thread.py), an update's applies as core steps
+on every rank (stages/indirect/field_update/graph.py), the phases of program/dispatch/c/dispatch_view.c and
 docs/internals/program/dispatch.md, the handler work's CPUs, rings and memory
 (docs/internals/program/work.md), the tile thread LIT (program/threads/tiles.py).
 """
@@ -77,10 +77,7 @@ def machine(s, top):
             rank = row * 12 + k
             x = (tl if k < 6 else tr) + (k % 6) * pitch
             colour = PORTS[rank * 4 // 120]
-            edge = c["m"][0] if rank < 30 else c[colour][0]
-            s.rect(
-                x, y, cell, cell, c[colour][1], edge, rx=2, sw=1.6 if rank < 30 else 0.6
-            )
+            s.rect(x, y, cell, cell, c[colour][1], c[colour][0], rx=2, sw=0.6)
             core_box[rank] = (x, y)
     # the X280 clusters
     names = (
@@ -107,8 +104,14 @@ def machine(s, top):
             lx + 18, ly + 1 + i * 17, f"ranks {30 * i} to {30 * i + 29}", 11.5, c["fg"]
         )
     ly += 4 * 17 + 8
-    s.rect(lx, ly - 9, 12, 12, c["a"][1], c["m"][0], rx=2, sw=1.6)
-    lines(s, lx + 18, ly + 1, "an update's applies|(gi_threads)", 11.5, c["fg"])
+    lines(
+        s,
+        lx,
+        ly + 1,
+        "an update's applies: every|rank, between two frames",
+        11.5,
+        c["fg"],
+    )
     ly += 36
     lines(
         s,

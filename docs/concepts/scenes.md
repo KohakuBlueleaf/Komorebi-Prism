@@ -197,6 +197,7 @@ command only; without it the command stops with an error that names it.
 | `exponent` | (M,) int32 | the specular exponent `Ns`, rounded, 1 to 1024 |
 | `specular` | (M, 3) float32 | `Ks` |
 | `transmission` | (M, 3) float32 | `transparent`: the share of the light behind that passes, per channel: `1 - Tf`, else `Tr`, else `1 - d` (clamped to 0..1); 0 for every other kind |
+| `shadow` | (M, 3) float32 | `transparent`: the share of the sun's direct light that passes the surface, per channel (the reference frame's term `glass_light`); optional, 1 when absent (the MTL scenes and files written before it); a glTF scene's `1 - coverage` (0 for a refractive surface, `1 - alpha` under BLEND) |
 | `texels` | (B,) uint8 | every level of every texture, RGBA8, rows from the top |
 | `mip` | (N, 11, 3) int64 | per texture and level: the level's byte offset in `texels`, width, height |
 | `levels` | (N,) int32 | the levels of each texture's chain |

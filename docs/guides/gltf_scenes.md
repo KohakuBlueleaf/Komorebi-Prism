@@ -197,8 +197,8 @@ mapped onto it by the first row that fits:
 
 | the glTF material | kind | numbers |
 |---|---|---|
-| `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | slot 0 the emissive texture when there is one (base 1, 1, 1), else base = clip(emissive x strength, 0, 1) |
-| `alpha_mode` BLEND, or `KHR_materials_transmission` with a `transmissionFactor` above 0 | transparent | transmission = `transmissionFactor x base rgb` with the extension, else `1 - base alpha` in each channel; slot 0 the base-colour texture when there is one |
+| `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | base = clip(emissive x strength, 0, 1) (glTF's emission: the texture times the factor times the strength); slot 0 the emissive texture when there is one |
+| `alpha_mode` BLEND, or `KHR_materials_transmission` with a `transmissionFactor` above 0 | transparent | with coverage `c` (base alpha under BLEND, else 1), `t` the `transmissionFactor` (0 without the extension) and `m` metallic: transmission = `1 - c + c t (1 - m) base rgb`; the own diffuse `c (1 - t)(1 - m) base rgb`, stored as base = that over `1 - max transmission` (0 when nothing is left); specular = `c` x the specular below; shadow = `1 - c` (a refractive surface lets no direct light through, as Cycles; under BLEND the share alpha does not cover); slot 0 the base-colour texture when there is one |
 | no base-colour texture, or the primitive has no `uv0` | flat | base = `base_color` rgb |
 | `alpha_mode` MASK | masked | slot 0 the base-colour texture; slot 1 stays -1 (the mask is that texture's alpha) |
 | it has a normal texture | lit | slot 0 the base-colour texture, slot 2 the normal texture (role "normal") |
@@ -206,7 +206,7 @@ mapped onto it by the first row that fits:
 
 For every kind: `exponent` = round(2 / a^2 - 2) with a = roughness^2, clipped to
 `EXPONENT_RANGE` (roughness 0.5 gives 30); `specular` = 0.04 (1 - metallic) + base rgb x
-metallic; `transmission` 0 unless transparent. A material drawn both with and without
+metallic (times the coverage for transparent); `transmission` 0 unless transparent. A material drawn both with and without
 `uv0`, whose kind needs a texture, gets a second, flat row named `<name> (no uv0)`.
 
 ## What is dropped
