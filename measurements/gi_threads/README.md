@@ -144,6 +144,11 @@ a frame already sent, so the span grows by part of a frame per apply and by up t
 frame at the swap: 20 ms on Sponza, 143 ms on the largest scene. The host span holds the
 host's own work of the sun change (110 to 280 ms before the first frame).
 
+On the first table's basis (the account and the trace off, 8 frames, the sun set, 32
+frames; Sponza, the same day, card 1 at 16 GT/s): `gi_threads` draws 6 frames during the
+update (the first 51.7 ms on the host, then 19.4 to 21.3) and its swap frame ends 172.5
+ms after the control was set; `gi`'s stop is 175.1 ms. Every code 0.
+
 ## What it does not show
 
 - The frames are at the view's camera with no sun moved and no camera move: what a

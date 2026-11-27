@@ -170,9 +170,23 @@ def bars(s, y, items, colour, h=20):
             s.text((x0 + x1) / 2, y + h / 2 + 4, label, 11, c["fg"], anchor="middle")
 
 
+# Sponza's sun move (measurements/gi_threads, the update with no reserved cores), card
+# ms from the first frame after the sun's pass: the frames, the applies between two of
+# them, the job thread's parts, the first frame with the new field
+FRAMES = ((0.0, 18.6), (19.9, 39.4), (42.1, 60.7), (63.5, 82.1), (83.5, 102.1))
+APPLIES = ((39.5, 42.1), (60.8, 63.4))
+SWAP = (125.5, 144.1)
+JOB = (
+    ("sources", -1.1, 21.4),
+    ("pass", 42.2, 60.8),
+    ("finish, scale", 63.5, 105.7),
+)
+SPAN_MS = 150.0  # the time axis's end
+
+
 def update_panel(s, top):
     c = s.c
-    hgt = 404
+    hgt = 420
     panel(
         s,
         top,
@@ -185,15 +199,13 @@ def update_panel(s, top):
     rows = {
         "host": top + 50,
         "frame's thread": top + 86,
-        "the ranks above": top + 122,
-        "the lowest ranks": top + 158,
-        "job thread": top + 194,
+        "every rank": top + 122,
+        "job thread": top + 176,
         "light pages": top + 232,
     }
     subs = {
         "frame's thread": "X280 cluster 1",
-        "the ranks above": "the frames' threads",
-        "the lowest ranks": "30 or more: the applies",
+        "every rank": "0 to 119: frames, applies",
         "job thread": "X280 clusters 2, 3",
         "light pages": "the field, twice",
     }
@@ -202,82 +214,85 @@ def update_panel(s, top):
         if name in subs:
             s.text(lx, y + 24, subs[name], 11, c["mute"])
         s.rule(x0, y + 10, x1, y + 10, 0.5, "2 4")
-    sun = x0 + 32
+    sun = x0 + 6
+    zero = sun + 96  # the first frame after the sun's pass
+
+    def at(ms):
+        return zero + (x1 - zero) * ms / SPAN_MS
+
     s.line(sun, rows["host"] + 2, sun, rows["frame's thread"] - 2, "y", 1.6)
     s.text(sun + 6, rows["host"] + 6, "sun set", 11, c["y"][0], True)
-    f, t = rows["frame's thread"], rows["the ranks above"]
-    j, a = rows["job thread"], rows["the lowest ranks"]
-    starts = (296, 420, 544)
-    swap = 668
-    bars(s, f, [(x0, x0 + 26, "")], "r")
-    bars(s, f, [(sun + 4, sun + 70, "sun's pass")], "y")
-    bars(s, f, [(x, x + 120, "old field") for x in starts], "r")
-    bars(s, f, [(swap, swap + 60, "new field"), (swap + 64, x1, "")], "w")
-    tiles = [(x0 + 2, x0 + 24, ""), (sun + 6, sun + 68, "")]
-    tiles += [(x + 4, x + 116, "") for x in starts]
-    tiles += [(swap + 4, swap + 56, ""), (swap + 68, x1 - 4, "")]
-    bars(s, t, tiles, "g", 16)
-    x = starts[0]
-    for label, colour, w in (
-        ("sources", "m", 64),
-        ("apply", "a", 40),
-        ("pass", "m", 56),
-        ("apply", "a", 40),
-        ("pass", "m", 56),
-        ("finish", "m", 46),
-        ("scale", "m", 40),
-    ):
-        if colour == "a":
-            bars(s, a, [(x, x + w, label)], "a")
-            s.line(x + 3, j + 4, x + 3, a + 22, "a", 1.0)
-        else:
-            bars(s, j, [(x, x + w, label)], "m")
-        x += w + 3
-    end = x - 3
-    s.line(starts[0] + 2, j - 2, starts[0] + 2, f + 22, "p", 1.2)
-    s.line(end - 2, j - 2, end - 2, f + 22, "p", 1.2)
-    s.text(starts[0] + 6, j + 33, "job_wants: the cores", 11, c["p"][0], True)
+    f, r = rows["frame's thread"], rows["every rank"]
+    j, lp = rows["job thread"], rows["light pages"]
+    bars(s, f, [(sun + 2, sun + 62, "sun's pass")], "y")
+    s.text((sun + 64 + zero) / 2, f + 14, "...", 11, c["mute"], anchor="middle")
+    for a, b in FRAMES:
+        bars(s, f, [(at(a), at(b), "old")], "r")
+        bars(s, r, [(at(a) + 1, at(b) - 1, "")], "r", 16)
+    bars(s, f, [(at(SWAP[0]), at(SWAP[1]), "new")], "w")
+    bars(s, r, [(at(SWAP[0]) + 1, at(SWAP[1]) - 1, "")], "w", 16)
+    for a, b in APPLIES:
+        bars(s, r, [(at(a), at(b), "")], "a", 16)
     s.text(
-        end + 2, j + 33, "job_wants: half B, scale", 11, c["p"][0], True, anchor="end"
+        at(APPLIES[0][0]),
+        r + 34,
+        "each apply: a core step on every rank, between two frames",
+        11,
+        c["a"][0],
+        True,
+        anchor="middle",
     )
-    lp = rows["light pages"]
-    bars(s, lp, [(x0, swap - 2, "half A: read by LIGHT")], "b")
-    bars(s, lp + 24, [(starts[0], end, "half B: written by the update")], "m", 18)
-    bars(s, lp, [(swap, x1, "half B: read")], "w")
-    s.line(swap - 1, f + 22, swap - 1, lp - 2, "w", 1.2, dash="3 2")
+    for label, a, b in JOB:
+        bars(s, j, [(at(a), at(b), label)], "m")
+    s.line(at(JOB[-1][2]) - 2, j - 2, at(JOB[-1][2]) - 2, f + 22, "p", 1.2)
+    s.text(
+        at(JOB[-1][2]) - 4,
+        j + 36,
+        "job_wants: half B, scale",
+        11,
+        c["p"][0],
+        True,
+        anchor="end",
+    )
+    bars(s, lp, [(x0, at(SWAP[0]) - 2, "half A: read by LIGHT")], "b")
+    bars(s, lp + 24, [(at(JOB[0][1]), at(JOB[-1][2]), "half B: written")], "m", 18)
+    bars(s, lp, [(at(SWAP[0]), x1, "half B: read")], "w")
+    s.line(at(SWAP[0]) - 1, f + 22, at(SWAP[0]) - 1, lp - 2, "w", 1.2, dash="3 2")
     s.line(x0, lp + 52, x1, lp + 52, "g", 1.0)
-    s.text(x1, lp + 66, "time (schematic)", 11, c["mute"], anchor="end")
-    g = top + 312
+    for ms in (0, 50, 100, 150):
+        s.rule(at(ms), lp + 48, at(ms), lp + 56, 1.0)
+        s.text(at(ms), lp + 68, f"{ms}", 11, c["mute"], anchor="middle")
+    s.text(
+        x1,
+        lp + 84,
+        "card ms after the sun's pass (host gap cut)",
+        11,
+        c["mute"],
+        anchor="end",
+    )
+    g = top + 340
     s.text(lx, g + 10, "gi", 12, c["fg"], True, mono=True)
     s.text(lx, g + 24, "stage-wise", 11, c["mute"])
-    bars(s, g, [(x0, x0 + 26, "")], "r")
     bars(
         s,
         g,
-        [(sun + 4, x1 - 64, "sun's pass, then the update on every core: no frame")],
+        [(sun + 2, x1 - 64, "sun's pass, then the update on every core: no frame")],
         "y",
     )
     bars(s, g, [(x1 - 60, x1, "")], "w")
     s.text(
         30,
-        top + hgt - 44,
-        "Sponza: gi_threads draws 3 frames during its update, 23.6 to "
-        "23.7 ms each against 18.60 steady; its first",
-        11.5,
-        c["fg"],
-    )
-    s.text(
-        30,
         top + hgt - 28,
-        "frame with the new field ends 138.5 ms after the sun was set. "
-        "gi stops 174.5 ms. Ten scenes: 2 to 7 frames,",
+        "Sponza: 5 frames during the update at 18.63 to 19.55 ms against 18.70 "
+        "steady, every rank in each; two applies of",
         11.5,
         c["fg"],
     )
     s.text(
         30,
         top + hgt - 12,
-        "each 1.25 to 1.36 times the steady frame " "(measurements/gi_threads).",
+        "2.60 ms between frames; the new field's first frame ends 145.3 ms after "
+        "the job's first command (measurements/gi_threads).",
         11.5,
         c["fg"],
     )

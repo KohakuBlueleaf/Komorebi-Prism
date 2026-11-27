@@ -74,7 +74,7 @@ command space the other stages share
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/field-dark.svg">
-  <img src="../images/field-light.svg" width="880" alt="A section with the field's voxels, one voxel gathering the elements it sees within 2h, its 32-bit texel, a pixel's lookup of 8 voxel centres; then the update in time: the job thread's commands and the applies on the lowest ranks while the frames go on with the old field, half B of the field's pages handed over by job_wants.">
+  <img src="../images/field-light.svg" width="880" alt="A section with the field's voxels, one voxel gathering the elements it sees within 2h, its 32-bit texel, a pixel's lookup of 8 voxel centres; then the update in time: the job thread's commands and the applies on every rank between two frames while the frames go on with the old field, half B of the field's pages handed over by job_wants.">
 </picture>
 
 *The field and its update in `gi_threads`, Sponza; the time axis is schematic, the numbers from [gi_threads](../performance/gi_threads.md).*
