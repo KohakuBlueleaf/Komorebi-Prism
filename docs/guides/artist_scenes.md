@@ -356,8 +356,9 @@ meshes (geometry keys' meshes) that carry it, into one shared atlas:
 
 Why the first uv layer: the importer reads `TEXCOORD_1` as `uv1` and the reference's
 surface samples a texture by its `texCoord`, but the card's converter
-(`prism_reference/scene/artist/convert.py`, `corner_uv`) reads `uv0` only and drops a
-material that names another set (`scene/artist/materials.py`, "second UV set"). So each
+(`prism_reference/scene/artist/convert.py`, `corner_uv`) stores one set a material, its
+base colour's, and reads a slot naming another set on that one
+(`scene/artist/materials.py`, "a slot on another uv set than the base colour's"). So each
 material on a mesh bake reads its first uv set, which holds the atlas's layout of its
 faces with all of its images baked into it.
 

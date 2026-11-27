@@ -29,7 +29,8 @@ Beside each mesh block of 32 triangles is a shade block of 128 words, four rows 
 | 3 | 96 to 127 | the specular texture's doubled area |
 
 The areas (`texel_areas`) are `|du1 dv2 - du2 dv1| x width x height` of level 0 of each
-texture (0 where not finite); SHADE compares them with the pixel's area to choose a mip
+texture, times the area of the slot's uv map (`|a e - b d|`, `texture.map_area`; 0 where
+not finite); SHADE compares them with the pixel's area to choose a mip
 level, as the reference's `mip_level` does. The material word is the material index with,
 at bits 16, 20 and 24, the number of levels of the albedo, normal and specular textures
 (1 where the material has none); SETUP copies it into record word 30 (`kRecShade`). On a lit
@@ -66,7 +67,7 @@ by word:
 | 528 to 783 | `TEXEL_UNIT`: a byte in [0, 1] |
 | 784 to 786 | FILL's background colour |
 | 800 to 815 | lit: the reader's copy of the camera |
-| 816 on | a row of 18 words a material, then 2 words an entry |
+| 816 on | a row of 37 words a material, then 2 words an entry |
 
 A material's row (`kMaterialWords`):
 
@@ -82,10 +83,14 @@ A material's row (`kMaterialWords`):
 | 13 | the specular exponent where it has the term, else 0 |
 | 14 to 16 | transparent: the transmission tau, else 0 |
 | 17 | transparent: 1 - max tau, else 1 |
+| 18 to 23 | the albedo's (and the mask's) uv map `a b c d e f`, float32 (`kMaterialMaps`) |
+| 24 to 29 | the normal's uv map |
+| 30 to 35 | the specular's uv map |
+| 36 | lit: the normal scale, float32 (`kMaterialNormalScale`) |
 
 An entry is the (texture, level)'s first page, then `width | height << 16`; texture `t`'s
 level `l` is entry `t x levels + l` (levels the most any texture has, 11), so the material
-row names a texture by its level 0 entry plus one. The table needs 816 words, 18 a
+row names a texture by its level 0 entry plus one. The table needs 816 words, 37 a
 material and 2 an entry.
 
 **Its size follows the scene.** The texture host states what the scene's table needs
@@ -109,6 +114,17 @@ load's L1 budget (the budget table, with the line of `frame_table`).
   (`table.exponents`) must fit the material word's 11 bits from bit 20 (`kExponentMax`).
 - **Transmission** (`table.transmission`): the materials file's tau where the kind is
   transparent, 0 elsewhere and in a file without it.
+
+- **A slot's uv** (the slot's map, `table.table`): a slot's `(u, v)` is
+  `(a u + b v + c, d u + e v + f)` of the stored one (`texture.mapped_uv`). SHADE's record
+  carries the raw `u`, `v` and, for each slot a row samples whose map is not the identity
+  (compared by bits, `keys.slot_map`), the six numbers after its eleven (`kConstMap`,
+  `kRecordNumbers` = 17): `key_row` maps the pixel's `u`, `v` with them before taking the
+  texel. An identity map costs nothing: the record keeps eleven numbers and the row its
+  plain path. Mapped, it is 4 multiply-adds a pixel a slot.
+- **The normal scale** (word 36) multiplies the slot's tangent and bitangent as the slot
+  is filled (`lit/slot.hpp`): `T (s x) + B (s y) + N z` is the normal with the map's x
+  and y scaled, at no cost a pixel.
 
 ## Layers
 

@@ -176,11 +176,18 @@ description's coverage alone (`scene.description.report.text`).
   image in another file or another export is decoded once. A scene without textures holds one white texel (a
   1 x 1 RGBA texture of one level, number 0, in no material's slot), so no table is
   empty.
-- The per-triangle `uv`: `uv0` through the base-colour texture's transform (glTF's
+- The per-triangle `uv`: the UV set the material's base-colour texture names (`uv0` or
+  `uv1`; `uv0` without a base-colour texture) through that texture's transform (glTF's
   order: scale, then rotation, then offset; the rotation matrix's rows `(cos, sin)` and
   `(-sin, cos)`, as Blender's exporter writes it), then written as `(u, 1 - v)`: the
   description's UV origin is the image's top left, the reference's v runs up. A triangle
-  of a primitive without `uv0` gets 0.
+  of a primitive without that set gets 0.
+- Per material and texture slot, `uv_maps` (M, 4, 2, 3): the map from the stored uv to
+  the slot's own, `(a u + b v + c, d u + e v + f)`, which is the slot's transform after
+  undoing the base colour's (`scene/artist/slots.py`; the identity for the base colour
+  itself and for a slot without a transform of its own). And `normal_scale` (M,), the
+  normal texture's `scale`, which multiplies the normal's x and y before the frame turns
+  it. A materials file written without the two reads as the identity maps and scale 1.
 
 - The entry's `source` (`scene/artist/source.py`): the file it was made from (its
   resolved path), its format (`glb`, `gltf`) and bytes, and what the description reads
@@ -199,7 +206,7 @@ mapped onto it by the first row that fits:
 |---|---|---|
 | `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | base = clip(emissive x strength, 0, 1) (glTF's emission: the texture times the factor times the strength); slot 0 the emissive texture when there is one |
 | `alpha_mode` BLEND, or `KHR_materials_transmission` with a `transmissionFactor` above 0 | transparent | with coverage `c` (base alpha under BLEND, else 1), `t` the `transmissionFactor` (0 without the extension) and `m` metallic: transmission = `1 - c + c t (1 - m) base rgb`; the own diffuse `c (1 - t)(1 - m) base rgb`, stored as base = that over `1 - max transmission` (0 when nothing is left); specular = `c` x the specular below; shadow = `1 - c` (a refractive surface lets no direct light through, as Cycles; under BLEND the share alpha does not cover); slot 0 the base-colour texture when there is one |
-| no base-colour texture, or the primitive has no `uv0` | flat | base = `base_color` rgb |
+| no base-colour texture, or the primitive has not the UV set it names | flat | base = `base_color` rgb |
 | `alpha_mode` MASK | masked | slot 0 the base-colour texture; slot 1 stays -1 (the mask is that texture's alpha) |
 | it has a normal texture | lit | slot 0 the base-colour texture, slot 2 the normal texture (role "normal") |
 | otherwise | textured | slot 0 the base-colour texture |
@@ -207,15 +214,14 @@ mapped onto it by the first row that fits:
 For every kind: `exponent` = round(2 / a^2 - 2) with a = roughness^2, clipped to
 `EXPONENT_RANGE` (roughness 0.5 gives 30); `specular` = 0.04 (1 - metallic) + base rgb x
 metallic (times the coverage for transparent); `transmission` 0 unless transparent. A material drawn both with and without
-`uv0`, whose kind needs a texture, gets a second, flat row named `<name> (no uv0)`.
+its UV set, whose kind needs a texture, gets a second, flat row named `<name> (no uv0)`.
 
 ## What is dropped
 
 Each is a `dropped` note with its count in the report: the metallic-roughness texture,
 the occlusion texture, an emissive material's base-colour texture, a normal texture of a
-kind that draws none, the normal scale, a second UV set (texture uses naming it, and
-drawn primitives carrying `uv1`), a texture transform on any texture but the base
-colour, `double_sided`, `unlit`, every carried material extension but transmission, the
+kind that draws none, a texture slot reading another UV set than its material's base
+colour (the slot is read on the base colour's set, as the identity map), `double_sided`, `unlit`, every carried material extension but transmission, the
 camera's roll, a spot light's cone (drawn as a
 point light) and area lights.
 
