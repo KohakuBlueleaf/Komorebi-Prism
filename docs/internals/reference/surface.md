@@ -18,6 +18,10 @@ Functions of float64 arrays; `n`, `v` (to the eye) and `l` (to the light) are un
 | `v_smith(n_l, n_v, a)` | `0.5 / (n_l sqrt(n_v^2 (1 - a^2) + a^2) + n_v sqrt(n_l^2 (1 - a^2) + a^2))` (height-correlated) |
 | `fresnel(f0, v_h)` | `f0 + (1 - f0) (1 - v_h)^5` (Schlick) |
 | `brdf(base, metallic, roughness, n, v, l)` | `diffuse (1 - F) + D V F`, 0 where `n_l <= 0` or `n_v <= 0` |
+| `dielectric_f0(ior, colour)` | `min(((ior - 1) / (ior + 1))^2 colour, 1)` |
+| `albedo_tables()`, `table_at`, `lobe_albedo`, `multiple_scattering` | the single-scattering lobe's albedo split by Schlick's terms, read at `(n.v, roughness)`; `f0 Ea + f90 Eb`; `1 + f0 (1 - E) / E` ([described light](described_light.md)) |
+| `valid_normal(n, ng, v)` | the shading normal bent so the view's mirror direction stays above the triangle's plane (Cycles' `ensure_valid_specular_reflection`) |
+| `d_charlie(n_h, r)`, `v_neubelt(n_l, n_v)`, `sheen_table`, `sheen_scale` | the sheen: `(2 + 1 / a) sin^(1 / a) / (2 pi)` with `a = r^2` (at least `0.07^2`), `1 / (4 (n_l + n_v - n_l n_v))`, its albedo and the scaling of the layers under it |
 
 The only floor is on `a` in D and V: `a >= 1e-6` (`1e-3` squared). Nothing else is
 clamped.
@@ -101,6 +105,9 @@ in level-0 texels; their lengths are the major and minor axis.
 | `material` | int32: the material's index; -1 where not covered, -2 for a triangle without a material (glTF's default material) |
 | `transparent` | bool: the nearest surface is `BLEND` or has `KHR_materials_transmission` above 0 (that surface is still shown) |
 | `uv` | `uv0` (the description's convention), 0 without |
+| `specular_colour` | the dielectric f0: `dielectric_f0` of `KHR_materials_ior` (1.5 without) and `KHR_materials_specular`'s colour factor x its colour texture (sRGB) |
+| `specular_weight` | `KHR_materials_specular`'s factor x its texture's alpha, 1 without |
+| `sheen_colour`, `sheen_roughness` | `KHR_materials_sheen`'s colour factor x colour texture (sRGB) and roughness factor x roughness texture's alpha; 0 without |
 
 A texture whose primitive lacks its uv set counts as white. `MASK` is not cut: the pixels
 under the cutoff are counted (`report["mask_below_cutoff"]`). The report also names, per
