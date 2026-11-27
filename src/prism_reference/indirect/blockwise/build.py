@@ -3,7 +3,6 @@ pairs, admissible blocks by cross approximation, then the same files as the dens
 """
 
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -34,8 +33,7 @@ from prism_reference.scene.public.materials import load_materials
 from prism_reference.scene.public.mesh import load_mesh
 from prism_reference.scene.public.table import table
 from prism_reference.scene.public.views import EPS_SCALE
-from prism_reference.trace.tree import build as build_tree
-from prism_reference.trace.tree import load_tree
+from prism_reference.trace.tree import triangles
 
 F = np.float32
 
@@ -119,23 +117,11 @@ def far_rows(
     return rows, rays, steps
 
 
-def ray_tree(name, data, mesh, materials, split):
-    """The ray tree with glass open, built once: a view's saved tree when the scene has
-    no glass and one is kept, else `trace.tree.build` with `split` over the others."""
+def ray_tree(mesh, materials):
+    """The ray tree with glass open: the triangles that are not `transparent`
+    (`trace.tree.triangles`)."""
     glass = materials["kind"][materials["material"]] == TRANSPARENT
-    if not glass.any():
-        for view in table()[name]["views"]:
-            path = Path(data) / f"{name}_{view}_tree.npz"
-            if path.exists():
-                tree = load_tree(path)
-                if len(tree["leaf_tri"]) == len(mesh["indices"]):
-                    return {k: np.ascontiguousarray(v) for k, v in tree.items()}
-    keep = np.nonzero(~glass)[0]
-    tree = build_tree(
-        {"positions": mesh["positions"], "indices": mesh["indices"][keep]}, split
-    )
-    tree["leaf_tri"] = keep[tree["leaf_tri"]].astype(np.int32)
-    return {k: np.ascontiguousarray(v) for k, v in tree.items()}
+    return triangles(mesh, np.nonzero(~glass)[0])
 
 
 def build(
@@ -145,10 +131,9 @@ def build(
     method="sketch",
     far_only=False,
     tolerance=TOLERANCE,
-    split="presorted",
 ):
     """The indirect files as `indirect.build.build` writes them, the blocks computed
-    directly by `method` (METHODS; no dense F, no y_exact), the ray tree by `split`;
+    directly by `method` (METHODS; no dense F, no y_exact), the ray tree `ray_tree`;
     `far_only` stores no near block. The counts."""
     entry = table()[name]["lighting"]
     mesh, _ = load_mesh(name, data)
@@ -162,7 +147,7 @@ def build(
         clock[0] = now
         log(f"{name}: {label} {times[label]} s")
 
-    tree = ray_tree(name, data, mesh, materials, split)
+    tree = ray_tree(mesh, materials)
     p = mesh["positions"].astype(np.float64)
     eps = EPS_SCALE * float(np.linalg.norm(p.max(0) - p.min(0)))
     step("tree")

@@ -128,3 +128,32 @@ random segments. What is left on the house: the box tree's numpy build (116 s of
 transport, about 70 s of the lights), which the walk no longer reads but whose triangle
 order the host's tree is made from, and the host's tree itself (15 to 18 s).
 
+## The tracer's callers without the box tree
+
+The bake and the block-by-block build give the tracer the triangles alone
+(`trace.tree.triangles`) instead of a box tree built in numpy whose nodes it no longer
+reads. Same host, CPUs and scenes as above; the far field as `prism_cli open` builds it
+(seconds; the transport's steps):
+
+| scene | before | after |
+| --- | --- | --- |
+| flat | 180.1: lights 81.3, transport 98.8 (tree 17.1, probe 3.6, near 9.5, far 29.6, transfer 13.7, checks 13.3) | 153.9: lights 67.8, transport 86.2 (tree 0.9, probe 3.5, near 10.0, far 31.3, transfer 14.1, checks 14.1) |
+| house | 482.0: lights 233.5, transport 248.5 (tree 120.4, probe 15.9, near 12.4, far 46.4, transfer 10.9, checks 17.0) | 279.3: lights 152.0, transport 127.3 (tree 5.2, probe 15.6, near 11.5, far 43.0, transfer 10.7, checks 17.3) |
+
+The visibility array and every file of the transport set are equal byte for byte before
+and after on both scenes.
+
+What the house's build is made of after it (a sampling profile at 10 Hz, its build 314 s
+under the profiler): the bake's tracing 1,191 thread-seconds (about 119 s on 10
+threads), its ray directions in numpy 78 thread-seconds, the host's tree 17 s for the
+bake and again 16 s for the transport (another set of triangles: glass open), the
+vertices' normals 10 s; in the transport, the main thread's tracing 47 s and 14 s
+waiting for the pool, the pool's kernels 124 running and 79 waiting for the
+interpreter's lock, the compressions 47 and 31, the checks' card numbers 11 s
+(`bfp8_b`).
+
+The block kernel compiled (a Rust module patched into a copy of the tree, not in the
+repository), the transport alone, numpy kernel against compiled: the house 137.6
+against 121.8 s (near 11.5 / 9.3, far 43.1 / 37.2), the flat 89.3 against 83.5 s (near
+9.8 / 7.9, far 31.6 / 26.3).
+

@@ -54,6 +54,11 @@ build's exact `y`: the card's quantization is larger than either build's error.
   0.11 and 0.34 against 0.15; the far field built at open takes 180 instead of 301 s on
   the flat and 473 instead of 681 s on the house, the visibility and the transport set
   equal byte for byte. On the house the box tree's numpy build is then the largest part.
+- **Without the numpy box tree** (the tracer's callers give it the triangles alone) the
+  far field built at open takes 154 instead of 180 s on the flat and 279 instead of 482 s
+  on the house, the results equal byte for byte; the house's build is then its tracing
+  (the bake's about 119 s), the pool's kernels and compressions, and the host's tree
+  made twice (33 s).
 - **Cross approximation (`--transport cross`) is wrong**: on Sponza its `y` error is
   3.9e-2 and its low-rank blocks' 0.160, because visibility makes far blocks sparse and
   a cross through occluded rows sees nothing. **Far field only (`--far-only`)** is a

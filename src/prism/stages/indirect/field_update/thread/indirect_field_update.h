@@ -36,6 +36,8 @@
 #define FU_T_SCALE 23u  /* float: the field's scale */
 #define FU_T_ZERO 24u   /* the pages zeroed (the first update only), part of PACK */
 #define FU_T_UNIT 25u   /* float x 3: LIGHT's units, (1 / max code)^2 x scale */
+#define FU_T_BEGAN 28u  /* job form: the timer's low word, sources' start */
+#define FU_T_ENDED 29u  /* job form: the timer's low word, finish's end */
 #define FU_T_WORDS 32u
 
 /* UPDATE's a0: the step */

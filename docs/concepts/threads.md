@@ -69,7 +69,10 @@ over the slices of their entries), checks every layer's entries against its list
 and gives the slices to the tile pull's choice. Before the tile pull it fills each
 step's words of the frame's page (`dp_frame_words`, each step's `<step>_frame_words` in
 the steps' order). The phases a view runs are the number `dispatch_phases` (0: all of
-them).
+them); a frame whose eye view stands (the camera, the size and the run those of the
+frame before) runs the tile pull alone on the lists the last whole view left, unless a
+DEPTH view or a failed view drew over them since
+([dispatch](../internals/program/dispatch.md)).
 
 A **slice** is a run of 16 tiles along a row of the frame's grid (`SLICE_TILES`), and a
 slice holds at most 32 records (`TR_SLICE_RECORDS`). A **record** is a tile thread: a
@@ -226,6 +229,7 @@ The slots a layer grew to are kept in the option `list_slots_least` for a later 
 |---|---|---|
 | `cores` | every rank | the view's group |
 | `range_blocks` | from the scene ([dispatch](../internals/program/dispatch.md)) | triangle blocks a count range |
+| `keep_lists` | True | the eye's lists kept while its view stands: such a frame runs the tile pull alone |
 | `policy` | `prefer` | the tile pull's choice |
 | `near` | 1 | the slices a near answer may be away |
 | `heavy` | 0 (never) | the weight over every layer past which a tile is cut into bands, `ceil(weight / heavy)` of them |

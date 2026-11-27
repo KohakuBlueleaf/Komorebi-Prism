@@ -55,7 +55,7 @@ def main():
     data = data_root()
     mesh, _ = load_mesh(args.scene, data)
     materials, _ = load_materials(args.scene, data)
-    tree = ray_tree(args.scene, data, mesh, materials, "presorted")
+    tree = ray_tree(mesh, materials)
     p = mesh["positions"].astype(np.float64)
     eps = EPS_SCALE * float(np.linalg.norm(p.max(0) - p.min(0)))
     sampled, _ = sample_elements(mesh, materials, args.elements)

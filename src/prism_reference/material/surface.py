@@ -4,6 +4,7 @@ computed from the pixel's ray and the triangle's plane."""
 
 import numpy as np
 
+from prism_reference.material.brdf import dielectric_f0
 from prism_reference.material.filter import COLOUR, DATA, FILTERS, Texture
 from prism_reference.material.tangents import tangents, unit_rows
 from prism_reference.raster.frames import rasterize
@@ -11,6 +12,7 @@ from prism_reference.scene.artist.convert import transformed
 from prism_reference.scene.artist.materials import transmission_factor
 from prism_reference.scene.description.flatten import draws, flatten
 from prism_reference.scene.description.types import Material
+from prism_reference.scene.importers.gltf.materials import texture_use
 
 MOST_TRIANGLES = 40_000_000
 NEAR_SCALE = 1e-4  # the near distance by the scene's diagonal when the camera has none
@@ -22,7 +24,15 @@ ROLES = {
     "normal_texture": DATA,
     "occlusion_texture": DATA,
     "emissive_texture": COLOUR,
+    "specularColorTexture": COLOUR,
+    "specularTexture": DATA,
+    "sheenColorTexture": COLOUR,
+    "sheenRoughnessTexture": DATA,
 }
+IOR = "KHR_materials_ior"
+SPECULAR = "KHR_materials_specular"
+DEFAULT_IOR = 1.5
+SHEEN = "KHR_materials_sheen"
 
 
 def lens(cam, width, height):
@@ -258,22 +268,34 @@ def mapped_normal(corners, r, b, n, texel, scale):
 
 
 def shade_material(scene, material, corners, r, weights, n, sample_fn, cache):
-    """The planes base_color, alpha, metallic, roughness, occlusion, emissive and normal
-    of k pixels of one material."""
+    """The planes base_color, alpha, metallic, roughness, occlusion, emissive, normal,
+    specular_colour (the dielectric f0), specular_weight, sheen_colour and
+    sheen_roughness of k pixels of one material."""
     b = weights[0]
 
-    def look(name):
-        return looked_up(
-            scene,
-            corners,
-            r,
-            weights,
-            getattr(material, name),
-            ROLES[name],
-            sample_fn,
-            cache,
-        )
+    def look_use(use, role):
+        return looked_up(scene, corners, r, weights, use, role, sample_fn, cache)
 
+    def look(name):
+        return look_use(getattr(material, name), ROLES[name])
+
+    specular = material.carried.get(SPECULAR, {})
+    ior = float(material.carried.get(IOR, {}).get("ior", DEFAULT_IOR))
+    tint = np.asarray(specular.get("specularColorFactor", [1.0, 1.0, 1.0]), np.float64)
+    weight = float(specular.get("specularFactor", 1.0))
+    tint_texel = extension_texel(specular, "specularColorTexture", look_use)
+    weight_texel = extension_texel(specular, "specularTexture", look_use)
+    sheen = material.carried.get(SHEEN, {})
+    sheen_colour = np.asarray(
+        sheen.get("sheenColorFactor", [0.0, 0.0, 0.0]), np.float64
+    )
+    sheen_colour = (
+        sheen_colour * extension_texel(sheen, "sheenColorTexture", look_use)[:, :3]
+    )
+    sheen_rough = float(sheen.get("sheenRoughnessFactor", 0.0))
+    sheen_rough = (
+        sheen_rough * extension_texel(sheen, "sheenRoughnessTexture", look_use)[:, 3]
+    )
     colour = interpolate(corners.color[r], b) * material.base_color
     texel, _ = look("base_color_texture")
     colour = colour * texel
@@ -295,7 +317,20 @@ def shade_material(scene, material, corners, r, weights, n, sample_fn, cache):
         "occlusion": 1.0 + material.occlusion_strength * (occlusion[:, 0] - 1.0),
         "emissive": material.emissive * material.emissive_strength * glow[:, :3],
         "normal": normal,
+        "specular_colour": dielectric_f0(
+            np.full(len(r), ior), tint * tint_texel[:, :3]
+        ),
+        "specular_weight": weight * weight_texel[:, 3],
+        "sheen_colour": sheen_colour,
+        "sheen_roughness": sheen_rough,
     }
+
+
+def extension_texel(extension, name, look_use):
+    """The texel (k, 4) of an extension's texture `name` at the pixels, ones without
+    it."""
+    use = texture_use(extension.get(name), {})
+    return look_use(use, ROLES[name])[0]
 
 
 def is_transparent(material):
@@ -356,6 +391,10 @@ PLANES = {
     "occlusion": (),
     "emissive": (3,),
     "uv": (2,),
+    "specular_colour": (3,),
+    "specular_weight": (),
+    "sheen_colour": (3,),
+    "sheen_roughness": (),
 }
 
 

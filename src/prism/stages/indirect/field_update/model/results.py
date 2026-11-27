@@ -8,6 +8,7 @@ from prism.stages.indirect.field_update.model.numbers import (
     F32,
     PASS_APART,
     PASS_PARTS,
+    STAMPS,
     TIMES_NAMES,
     TIMES_ROWS,
     TIMES_WORDS,
@@ -28,7 +29,8 @@ TICKS_MS = 1e3 / 50e6  # a thread timer tick's milliseconds
 def times(raw, ticks_ms=TICKS_MS):
     """The times region's rows (its bytes), oldest first: each update's parts in ms,
     each pass's (past PASS_APART passes the last entry their sum, `summed` the passes
-    it holds), its number, code, step, passes, scale."""
+    it holds), its number, code, step, passes, scale; in the job's form `span`, ms
+    from the sources' start to the finish's end."""
     words = np.frombuffer(np.asarray(raw, np.uint8).tobytes(), dtype=np.uint32)
     rows = words[: TIMES_ROWS * TIMES_WORDS].reshape(-1, TIMES_WORDS)
     out = []
@@ -57,6 +59,9 @@ def times(raw, ticks_ms=TICKS_MS):
         entry["scale"] = float(row[U["FU_T_SCALE"] : U["FU_T_SCALE"] + 1].view(F32)[0])
         at = U["FU_T_UNIT"]
         entry["unit"] = [float(v) for v in row[at : at + 3].view(F32)]
+        began, ended = (int(row[U[key]]) for key in STAMPS)
+        if began and ended:
+            entry["span"] = round(((ended - began) % (1 << 32)) * ticks_ms, 4)
         out.append(entry)
     return sorted(out, key=lambda entry: entry["number"])
 
