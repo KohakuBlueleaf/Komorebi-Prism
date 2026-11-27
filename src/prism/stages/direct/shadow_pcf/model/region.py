@@ -79,17 +79,25 @@ def map_pages(lights):
     return (shadow_side(lights) // PAGE) ** 2
 
 
-def times_bytes(quadrants):
+COMMANDS = {
+    H["SHADOW_PCF_COMMAND_SUN"]: "sun",
+    H["SHADOW_PCF_COMMAND_FIT"]: "fit",
+    H["SHADOW_PCF_COMMAND_LAMPS"]: "lamps",
+}
+
+
+def times_bytes(views):
     """The times region's bytes: SHADOW_PCF_TIMES_ROWS rows of the pass's words and a
-    word a quadrant, on lines."""
-    words = lines(H["SHADOW_PCF_T_QUADRANT"] + quadrants)
+    word a view (the most a command draws), on lines."""
+    words = lines(H["SHADOW_PCF_T_QUADRANT"] + views)
     return 4 * words * H["SHADOW_PCF_TIMES_ROWS"]
 
 
-def times_rows(raw, quadrants, served, microseconds):
-    """The SUN and FIT commands' rows (the last SHADOW_PCF_TIMES_ROWS of `served`) of
-    the times region's bytes `raw`: number, code, the pass, the map (-1: SUN's), its
-    levels and each view in microseconds (a FIT's its one view first)."""
+def times_rows(raw, views, served, microseconds):
+    """The SUN, FIT and LAMPS commands' rows (the last SHADOW_PCF_TIMES_ROWS of
+    `served`) of the times region's bytes `raw`: number, command, code, the pass, the
+    map (-1: SUN's; a LAMPS's first), its levels and each of `views` views in
+    microseconds (a FIT's its one view first, a LAMPS's each face's, 0 past them)."""
     rows = H["SHADOW_PCF_TIMES_ROWS"]
     words = np.frombuffer(raw, np.uint32).reshape(rows, -1)
     out = []
@@ -99,6 +107,7 @@ def times_rows(raw, quadrants, served, microseconds):
         out.append(
             {
                 "number": int(row[H["SHADOW_PCF_T_NUMBER"]]),
+                "command": COMMANDS.get(int(row[H["SHADOW_PCF_T_COMMAND"]])),
                 "code": int(row[H["SHADOW_PCF_T_CODE"]]),
                 "pass": float(row[H["SHADOW_PCF_T_PASS"]]) * microseconds,
                 "map": int(row[H["SHADOW_PCF_T_MAP"]]) - 1,
@@ -106,7 +115,7 @@ def times_rows(raw, quadrants, served, microseconds):
                 "copies": float(row[H["SHADOW_PCF_T_COPIES"]]) * microseconds,
                 "ended": int(row[H["SHADOW_PCF_T_ENDED"]]),
                 "quadrants": [
-                    float(t) * microseconds for t in row[first : first + quadrants]
+                    float(t) * microseconds for t in row[first : first + views]
                 ],
             }
         )

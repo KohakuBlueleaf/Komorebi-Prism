@@ -1,5 +1,6 @@
 /* The sun's pass: the sun region's words, a DEPTH view a quadrant, the times row; the
- * page of maps: a fitted map's DEPTH view, a map's levels, the half the frames read. */
+ * page of maps: a fitted map's or a lamp face's DEPTH view, a map's levels, the half
+ * the frames read. */
 #include "direct_shadow_pcf_unit.h"
 
 #define COPY_TICKS (4u * KMX_TICKS_PER_SECOND) /* a fetch's or a store's deadline */
@@ -116,11 +117,13 @@ static uint32_t levels_copy(
     return done == KMX_OK ? 0u : SHADOW_PCF_COPY;
 }
 
-/* The coarse levels' pages of a map of `side`: one a level of the tops' grid below 1.
- */
-static uint32_t coarse_pages(uint32_t side) {
+/* The coarse levels' pages of a map of `across` x `down` tiles: one a level of the
+ * tops' grid, each side halved (rounded up) down to 1 x 1. */
+static uint32_t coarse_pages(uint32_t across, uint32_t down) {
     uint32_t pages = 0;
-    for (uint32_t g = side / DEPTH_LEVELS_TILE; g > 1u; g /= 2u) {
+    while (across > 1u || down > 1u) {
+        across = (across + 1u) / 2u;
+        down = (down + 1u) / 2u;
         pages++;
     }
     return pages;
@@ -133,14 +136,15 @@ static uint32_t levels_before(
     const volatile uint32_t* sun,
     const volatile uint32_t* record
 ) {
-    const uint32_t across = record[SHADOW_PCF_R_SIDE] / DEPTH_LEVELS_TILE;
+    const uint32_t across = record[SHADOW_PCF_R_ACROSS];
+    const uint32_t tiles = across * record[SHADOW_PCF_R_DOWN];
     uint32_t* work = levels_work(
-        sun, across * across, coarse_pages(record[SHADOW_PCF_R_SIDE])
+        sun, tiles, coarse_pages(across, record[SHADOW_PCF_R_DOWN])
     );
-    if (work == 0 || across == 0) {
+    if (work == 0 || tiles == 0) {
         return SHADOW_PCF_BAD_FIT;
     }
-    for (uint32_t i = 0; i < across * across * DEPTH_LEVELS_TOP_BYTES / 4u; i++) {
+    for (uint32_t i = 0; i < tiles * DEPTH_LEVELS_TOP_BYTES / 4u; i++) {
         work[i] = 0;
     }
     return levels_copy(
@@ -150,7 +154,7 @@ static uint32_t levels_before(
         record[SHADOW_PCF_R_TOPS],
         DEPTH_LEVELS_TOP_BYTES,
         record[SHADOW_PCF_R_LEVELS_FIRST],
-        across * across,
+        tiles,
         1
     );
 }
@@ -165,12 +169,12 @@ static uint32_t levels_after(
     uint32_t* copies,
     uint32_t* ended
 ) {
-    const uint32_t side = record[SHADOW_PCF_R_SIDE];
-    const uint32_t across = side / DEPTH_LEVELS_TILE;
-    const uint32_t tiles = across * across;
-    const uint32_t coarse = coarse_pages(side);
+    const uint32_t across = record[SHADOW_PCF_R_ACROSS];
+    const uint32_t down = record[SHADOW_PCF_R_DOWN];
+    const uint32_t tiles = across * down;
+    const uint32_t coarse = coarse_pages(across, down);
     uint32_t* work = levels_work(sun, tiles, coarse);
-    if (work == 0 || across == 0) {
+    if (work == 0 || tiles == 0) {
         return SHADOW_PCF_BAD_FIT;
     }
     const uint32_t slots = record[SHADOW_PCF_R_LEVELS_TENSOR];
@@ -212,23 +216,28 @@ static uint32_t levels_after(
     uint32_t* pages = work + coarse_at / 4u;
     const uint32_t* from = work;
     uint32_t stride = tops * across, step = tops;
-    uint32_t g = across;
+    uint32_t ga = across, gd = down;
     for (uint32_t level = 0; code == 0 && level < coarse; level++) {
-        const uint32_t half = g / 2u;
+        const uint32_t ha = (ga + 1u) / 2u, hd = (gd + 1u) / 2u;
         uint32_t* to = pages + level * page_words;
-        for (uint32_t y = 0; y < half; y++) {
-            for (uint32_t x = 0; x < half; x++) {
-                const uint32_t* a = from + 2u * y * stride + 2u * x * step;
-                to[y * SHADOW_PCF_PAGE + x] = depth_levels_most(
-                    depth_levels_most(a[0], a[step]),
-                    depth_levels_most(a[stride], a[stride + step])
-                );
+        for (uint32_t y = 0; y < hd; y++) {
+            for (uint32_t x = 0; x < ha; x++) {
+                uint32_t most = 0;
+                for (uint32_t dy = 0; dy < 2u && 2u * y + dy < gd; dy++) {
+                    for (uint32_t dx = 0; dx < 2u && 2u * x + dx < ga; dx++) {
+                        most = depth_levels_most(
+                            most, from[(2u * y + dy) * stride + (2u * x + dx) * step]
+                        );
+                    }
+                }
+                to[y * SHADOW_PCF_PAGE + x] = most;
             }
         }
         from = to;
         stride = SHADOW_PCF_PAGE;
         step = 1u;
-        g = half;
+        ga = ha;
+        gd = hd;
     }
     if (code == 0 && coarse) {
         mark = kmx_time();
@@ -318,6 +327,7 @@ uint32_t direct_shadow_pcf_unit_sun(dr_frame_t* frame, const km_command_t* comma
     const uint32_t quadrants = sun[SHADOW_PCF_QUADRANTS];
     const uint32_t across = sun[SHADOW_PCF_ACROSS];
     const uint32_t half = command->a0 ? command->a0 - 1u : g_half;
+    row[SHADOW_PCF_T_COMMAND] = SHADOW_PCF_COMMAND_SUN;
     if (code == 0 &&
         (quadrants == 0 || quadrants >= DR_VIEWS || across == 0 ||
          across * across != quadrants || sun[SHADOW_PCF_TILES] == 0 ||
@@ -361,7 +371,7 @@ uint32_t direct_shadow_pcf_unit_sun(dr_frame_t* frame, const km_command_t* comma
 }
 
 /* Record `record`'s DEPTH view: its view index and camera (the page of maps' words at
- * byte `camera_at` of the region), a fitted view's grid and tiles, its pages. */
+ * byte `camera_at` of the region), its view's grid and tiles, its pages. */
 static void fit_view(
     const volatile uint32_t* maps,
     const volatile uint32_t* record,
@@ -374,12 +384,59 @@ static void fit_view(
         view->camera[i] = record[i];
     }
     view->camera_at = DR_ADDRESS(DR_DIRECT_SHADOW_PCF_REGION_SUN) + camera_at;
-    view->grid = maps[SHADOW_PCF_M_GRID];
-    view->tiles = maps[SHADOW_PCF_M_TILES];
+    view->grid = record[SHADOW_PCF_R_GRID];
+    view->tiles = record[SHADOW_PCF_R_TILES];
     view->target = record[SHADOW_PCF_R_TENSOR];
     view->target_first = record[SHADOW_PCF_R_FIRST];
     view->target_across = record[SHADOW_PCF_R_ACROSS];
     view->target_pages = maps[SHADOW_PCF_M_FIT_PAGES];
+}
+
+/* Record `record` of the page of maps `maps` (of kind `kind`) drawn: its levels'
+ * tops zeroed, its DEPTH view (its ticks in `row`'s view word `slot`), its levels
+ * ended. 0, `bad` for a record that is not one, or the first code. */
+static uint32_t record_drawn(
+    dr_frame_t* frame,
+    const volatile uint32_t* sun,
+    const volatile uint32_t* maps,
+    const volatile uint32_t* record,
+    uint32_t kind,
+    uint32_t bad,
+    uint32_t* row,
+    uint32_t slot,
+    uint64_t* mark
+) {
+    if (record == 0 || record[SHADOW_PCF_R_KIND] != kind ||
+        record[SHADOW_PCF_R_SIDE] == 0 || record[SHADOW_PCF_R_VIEW] == 0 ||
+        record[SHADOW_PCF_R_VIEW] >= DR_VIEWS || record[SHADOW_PCF_R_TILES] == 0) {
+        return bad;
+    }
+    dr_invalidate(
+        DR_REGION_LAYERS,
+        4u * DR_LAYER_WORDS * DR_LAYERS * record[SHADOW_PCF_R_VIEW],
+        4u * DR_LAYER_WORDS * DR_LAYERS
+    );
+    dr_view_t view;
+    const uint32_t camera_at = sun[SHADOW_PCF_MAPS_AT] +
+        (uint32_t)((const volatile uint8_t*)record - (const volatile uint8_t*)maps);
+    fit_view(maps, record, camera_at, &view);
+    view_levels(record, record[SHADOW_PCF_R_FIRST], &view);
+    uint32_t code = 0;
+    if (record[SHADOW_PCF_R_LEVELS]) {
+        code = levels_before(frame, sun, record);
+        row[SHADOW_PCF_T_LEVELS] += dr_ticks(mark);
+    }
+    if (code == 0) {
+        code = dr_view(frame, &view);
+        row[SHADOW_PCF_T_QUADRANT + slot] = dr_ticks(mark);
+    }
+    if (code == 0 && record[SHADOW_PCF_R_LEVELS]) {
+        code = levels_after(
+            frame, sun, record, &row[SHADOW_PCF_T_COPIES], &row[SHADOW_PCF_T_ENDED]
+        );
+        row[SHADOW_PCF_T_LEVELS] += dr_ticks(mark);
+    }
+    return code;
 }
 
 uint32_t direct_shadow_pcf_unit_fit(dr_frame_t* frame, const km_command_t* command) {
@@ -393,43 +450,59 @@ uint32_t direct_shadow_pcf_unit_fit(dr_frame_t* frame, const km_command_t* comma
     const volatile uint32_t* sun = sun_words();
     const volatile uint32_t* maps = maps_words(sun);
     const uint32_t bytes = sun[SHADOW_PCF_LEVELS_AT] - sun[SHADOW_PCF_MAPS_AT];
-    const volatile uint32_t* record = record_of(maps, bytes, half, map);
     row[SHADOW_PCF_T_MAP] = 1u + map;
-    if (code == 0 &&
-        (record == 0 || record[SHADOW_PCF_R_KIND] != SHADOW_PCF_KIND_FIT ||
-         record[SHADOW_PCF_R_SIDE] == 0 || record[SHADOW_PCF_R_VIEW] == 0 ||
-         record[SHADOW_PCF_R_VIEW] >= DR_VIEWS || maps[SHADOW_PCF_M_TILES] == 0 ||
-         SHADOW_PCF_T_QUADRANT + 1u > row_words)) {
+    row[SHADOW_PCF_T_COMMAND] = SHADOW_PCF_COMMAND_FIT;
+    if (code == 0 && SHADOW_PCF_T_QUADRANT + 1u > row_words) {
         code = SHADOW_PCF_BAD_FIT;
     }
     if (code == 0) {
-        dr_invalidate(
-            DR_REGION_LAYERS,
-            4u * DR_LAYER_WORDS * DR_LAYERS * record[SHADOW_PCF_R_VIEW],
-            4u * DR_LAYER_WORDS * DR_LAYERS
+        code = record_drawn(
+            frame,
+            sun,
+            maps,
+            record_of(maps, bytes, half, map),
+            SHADOW_PCF_KIND_FIT,
+            SHADOW_PCF_BAD_FIT,
+            row,
+            0u,
+            &mark
         );
-        dr_view_t view;
-        const uint32_t camera_at = sun[SHADOW_PCF_MAPS_AT] +
-            (uint32_t)((const volatile uint8_t*)record - (const volatile uint8_t*)maps);
-        fit_view(maps, record, camera_at, &view);
-        view_levels(record, record[SHADOW_PCF_R_FIRST], &view);
-        if (record[SHADOW_PCF_R_LEVELS]) {
-            code = levels_before(frame, sun, record);
-            row[SHADOW_PCF_T_LEVELS] = dr_ticks(&mark);
-        }
-        if (code == 0) {
-            code = dr_view(frame, &view);
-            row[SHADOW_PCF_T_QUADRANT] = dr_ticks(&mark);
-        }
-    }
-    if (code == 0 && record[SHADOW_PCF_R_LEVELS]) {
-        code = levels_after(
-            frame, sun, record, &row[SHADOW_PCF_T_COPIES], &row[SHADOW_PCF_T_ENDED]
-        );
-        row[SHADOW_PCF_T_LEVELS] += dr_ticks(&mark);
     }
     if (code == 0 && command->a2) {
         g_half = half;
+    }
+    times_end(row, row_words, at, code, started);
+    return dr_row_end(frame, code, started);
+}
+
+uint32_t direct_shadow_pcf_unit_lamps(dr_frame_t* frame, const km_command_t* command) {
+    uint32_t code = dr_ready(frame);
+    const uint64_t started = dr_row_start(frame);
+    uint64_t mark = started;
+    uint32_t row_words, at;
+    uint32_t* row = times_row(&row_words, &at);
+    const uint32_t first = command->a0;
+    const uint32_t faces = command->a1;
+    const volatile uint32_t* sun = sun_words();
+    const volatile uint32_t* maps = maps_words(sun);
+    const uint32_t bytes = sun[SHADOW_PCF_LEVELS_AT] - sun[SHADOW_PCF_MAPS_AT];
+    row[SHADOW_PCF_T_MAP] = 1u + first;
+    row[SHADOW_PCF_T_COMMAND] = SHADOW_PCF_COMMAND_LAMPS;
+    if (code == 0 && (faces == 0 || SHADOW_PCF_T_QUADRANT + faces > row_words)) {
+        code = SHADOW_PCF_BAD_LAMPS;
+    }
+    for (uint32_t face = 0; code == 0 && face < faces; face++) {
+        code = record_drawn(
+            frame,
+            sun,
+            maps,
+            record_of(maps, bytes, g_half, first + face),
+            SHADOW_PCF_KIND_FACE,
+            SHADOW_PCF_BAD_LAMPS,
+            row,
+            face,
+            &mark
+        );
     }
     times_end(row, row_words, at, code, started);
     return dr_row_end(frame, code, started);

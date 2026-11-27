@@ -3,7 +3,8 @@
 The sun's shadow map drawn on the card by the frame's own units: the thread command
 `sun` builds one DEPTH view a quadrant of the map (its camera, a quadrant's grid, its
 pages of the map as the target) and runs each through the director (`dr_view`), as the
-frame runs the eye's. Each unit decides for itself what a DEPTH view needs. It has no
+frame runs the eye's; `fit` draws a map fitted to a slice of the eye's view, `lamps`
+the lamps' faces, the same way. Each unit decides for itself what a DEPTH view needs. It has no
 class and no frame work; it writes `light.shadow_map` and gives its views as
 `view.depth`. LIGHT filters the map with its taps (the PCF).
 
@@ -12,13 +13,15 @@ class and no frame work; it writes `light.shadow_map` and gives its views as
 | File | What it holds |
 | --- | --- |
 | `__init__.py` | the declaration (`SHADOW_PCF`), registered as `direct.shadow_pcf` |
-| `unit.py` | the thread unit: serves `sun` and `fit`; regions `sun` (from the host) and `sun_times`; the column `sun_table`, shared with slot `light.shadow_map`; gives `light.shadow_maps` |
-| `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the whole map's coarse levels, the times row; FIT: a fitted map's DEPTH view and coarse levels, the half swapped in; the region's, the page of maps', a record's and the times row's word places |
-| `host.py` | `ShadowHost`: the lights at the sun (the map's side from the option `shadow_side`, else the lights'), the quadrants (the views of its own), slot `view.depth` (their cameras), the map's tensor (the light pages, else its own), the region's own words (from `SHADOW_PCF_SUN_AT`), the column naming LIGHT's table, the SUN command asked of the loop when the sun moves, the control `sun`, the map read back, the times |
+| `unit.py` | the thread unit: serves `sun`, `fit` and `lamps`; regions `sun` (from the host) and `sun_times`; the column `sun_table`, shared with slot `light.shadow_map`; gives `light.shadow_maps` |
+| `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the whole map's coarse levels, the times row; FIT: a fitted map's DEPTH view and coarse levels, the half swapped in; LAMPS: lamp faces' DEPTH views and coarse levels; the region's, the page of maps', a record's and the times row's word places |
+| `host.py` | `ShadowHost`: the lights at the sun (the map's side from the option `shadow_side`, else the lights'), the quadrants, the fitted maps and the lamps' faces (the views of its own), slot `view.depth` (their cameras), the map's tensor (the light pages, else its own), the region's own words (from `SHADOW_PCF_SUN_AT`), the column naming LIGHT's table, the SUN command asked of the loop when the sun moves, FIT and LAMPS, the control `sun`, the maps read back, the times |
 | `model/maps.py` | the page of maps as the header lays it out: its words, the two halves of records, a record's words; the levels' slots, tops and coarse pages; maps and levels read back |
+| `model/faces.py` | `Faces`: the lamps' faces (the reference's `lamp_maps.lamp_faces`), their records, pages and slots, the LAMPS commands paced by the time a face takes |
 | `model/fit.py` | `Fits`: the records of both halves, the fitted cameras kept while they hold the eye's slices (the reference's `kept_cameras`), the FIT commands of a redraw, the half the frames read |
 | `model/region.py` | the sun region as the header lays it out: LIGHT's table, the sun's words and a camera a quadrant (the light model's `quadrant_cameras`); the lights at a sun; the times rows |
 | `check/sun_map.py` | the sun set, frames, the card's map against the reference's at that sun (the light stage's `sun_check`), the passes and times |
+| `check/lamp_maps.py` | frames until every lamp face is drawn, each face's map against the reference's (`lamp_maps.face_view`) and its levels, the LAMPS commands and the faces' times |
 
 ## The sun region
 
@@ -35,16 +38,34 @@ side is the option `shadow_side` (whole quadrants of 1,024) or the lights' own m
 ## The page of maps
 
 Every map the lookup may read has a record in the page of maps: the sun's whole map
-first, then each fitted map (the option `cascades`, 0 by default; a lamp's faces later).
+first, then each fitted map (the option `cascades`, 0 by default), then each lamp face
+(the option `lamp_maps`, true by default).
 The page sits in the region `sun` after the quadrants' cameras, at the byte the sun's
 word `SHADOW_PCF_MAPS_AT` gives (the thread's image holds 16 regions, all taken, so the
 page and the levels' work bytes are parts of the unit's one region, apart from LIGHT's
 table). A record is `SHADOW_PCF_RECORD_WORDS` words: the map's camera as a block of the
-director's camera words first, then its tensor, first page, pages a row, side, texel,
+director's camera words first, then its tensor, first page, pages a row, width, texel,
 bias, filter, margin, levels, the slots' tensor and first slot, its kind, which
-cascade, the view that draws it, the tops' tensor, the coarse levels' tensor and first
-page. The page holds the records twice. The frames read one
+cascade (a face: its lamp times 256 plus the face of the lamp), the view that draws it,
+the tops' tensor, the coarse levels' tensor and first page, its pages down, the grid
+word and tiles of its view. The page holds the records twice. The frames read one
 half, `1 + half` given as slot `light.shadow_maps`; a redraw writes the other.
+
+## The lamps' faces
+
+A lamp's faces are those of `prism_reference.direct.lamp_maps`: a cosine lobe (an
+area light's stand-in) a hemicube (a front face of 512 and four halves of 512 x 288),
+a point a cube of six faces of 512, a spot one map of 1,024 over its cone, each with a
+guard band past its edges. A lamp does not move, so a face's record is the same in both
+halves and its map has one place, in the unit's own maps' tensor after the fitted maps'
+(with the levels, its coarse levels after theirs, its slots after theirs). Face `k` is
+view `1 + quadrants + cascades + k`. The command `lamps` (words: the first face's record
+and the faces) draws faces in turn, each its DEPTH view and its levels, into the half
+the frames read. The host asks for one before the frames while a face is not drawn
+(after `sun`, beside `fit`), one face the first time, then as many as half a second
+holds at the time the last command took a face (the director gives up a wait after a
+second); a reload draws them all again. A face's view costs what the scene's ranges
+cost, not what its texels do.
 
 ## The fit kept beside the frames
 
@@ -72,7 +93,8 @@ edge error: with the reach of the scene box, 0.25 costs an edge error of 0.117 o
 ## The levels
 
 With the option `shadow_levels`, each map has its levels: level `l + 1`'s texel is the
-largest 1/z of level `l`'s 2 x 2, down to 1 x 1 (no 1/z is negative, so the reduction
+largest 1/z of level `l`'s 2 x 2 (each side halved, rounded up; a texel past the edge
+empty), down to 1 x 1 (no 1/z is negative, so the reduction
 compares bits). A level is a reduction of pages a core already holds when it writes them,
 so the tile thread makes the levels finer than a tile: the DEPTH view's depth step
 (`raster/steps/depth`, `depth_out`), on the data-movement CPU that turns a tile's block
@@ -94,8 +116,9 @@ and the coarse levels' tensor and first page.
 
 ## The views' capacity
 
-Capacity belongs to a view kind and a layer. The host gives the quadrants' cameras and
-a quadrant's frame size as slot `view.depth`. The raster host makes the
+Capacity belongs to a view kind and a layer. The host gives the quadrants', the fitted
+maps' and the faces' cameras and a quadrant's frame size (no fitted map or face is
+larger) as slot `view.depth`. The raster host makes the
 opaque and masked layers' own lists and directory for the DEPTH views, sized by its list
 guess over those cameras at the quadrant's size and tiles (the most any quadrant needs),
 and writes them into views `1 .. n`'s layer rows. The eye's size never changes them.
@@ -122,14 +145,19 @@ grows that view kind's capacity for that layer, one reload, and `sun` is sent ag
 `sun` calls `dr_ready` (the numbers, and the units' setup once) before its rows are
 started, so neither row times the setup, then runs each quadrant's view; it writes a director row (`dr_row_start`, `dr_row_end`: the units'
 parts summed over the quadrants, the code, the view and layer that gave it) and a row
-of its own region `sun_times`: the number, the code, the pass's ticks and each
-quadrant's.
+of its own region `sun_times`: the number, the code, the pass's ticks, the map, the
+levels' ticks, their copies', the tiles ended on the X280, the command and each view's
+(a quadrant's, a fitted map's, a face's).
 
 ## Checks
 
 `python -m checks.shadow_maps` walks at the viewer's speed with fitted maps on and
 compares every map the frames read with the reference's at its camera, and every map's
 levels with the reference's levels of the card's map (exact).
+
+`check/lamp_maps.py` (`--check prism.stages.direct.shadow_pcf.check.lamp_maps.check`
+of `scripts/run/preset.py`, on a scene with the file's lamps) does the same for each
+lamp face and its levels.
 
 `check/sun_map.py` compares the card's map with the reference's: texels apart by more
 than 1e-5, and texels empty on one side only, by the reference's layer and by quadrant.

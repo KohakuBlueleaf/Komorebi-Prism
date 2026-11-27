@@ -153,7 +153,8 @@ def main():
         m.get("apart") or m.get("empty_one_side") or m.get("levels_apart")
         for m in record["maps"]
     )
-    fits = [t for t in times if t["map"] >= 0]
+    fits = [t for t in times if t["command"] == "fit"]
+    suns = [t for t in times if t["command"] == "sun"]
     summary = {
         "frames": len(frames),
         "codes": codes,
@@ -165,10 +166,10 @@ def main():
         "fit_levels_us": [round(t["levels"], 1) for t in fits],
         "fit_copies_us": [round(t["copies"], 1) for t in fits],
         "fit_ended": [t["ended"] for t in fits],
-        "sun_us": [round(t["pass"], 1) for t in times if t["map"] < 0],
-        "sun_levels_us": [round(t["levels"], 1) for t in times if t["map"] < 0],
-        "sun_copies_us": [round(t["copies"], 1) for t in times if t["map"] < 0],
-        "sun_ended": [t["ended"] for t in times if t["map"] < 0],
+        "sun_us": [round(t["pass"], 1) for t in suns],
+        "sun_levels_us": [round(t["levels"], 1) for t in suns],
+        "sun_copies_us": [round(t["copies"], 1) for t in suns],
+        "sun_ended": [t["ended"] for t in suns],
         "maps": record["maps"],
     }
     record["summary"] = summary
