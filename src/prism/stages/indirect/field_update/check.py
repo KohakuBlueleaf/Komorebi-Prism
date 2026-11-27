@@ -74,7 +74,7 @@ def verdict(out):
 def update_times(rows):
     """The parts in ms the table reports, from a times row: the largest apply of a
     pass told apart; `summed` the passes the last entry of passes_ms holds, if more
-    than one."""
+    than one; `span` in the job's form."""
     applies = [p["apply"] for p in rows["passes_ms"]]
     if "summed" in rows:
         applies = applies[:-1]
@@ -89,7 +89,7 @@ def update_times(rows):
         "apply_most": max(applies, default=None),
         "unit": rows["unit"],
         "passes_ms": rows["passes_ms"],
-    } | ({"summed": rows["summed"]} if "summed" in rows else {})
+    } | {key: rows[key] for key in ("summed", "span") if key in rows}
 
 
 def check(loaded):

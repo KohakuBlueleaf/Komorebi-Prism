@@ -103,6 +103,7 @@ TIMES_NAMES = {
     "total": "FU_T_TOTAL",
 }
 PASS_PARTS = ("store", "apply", "fetch", "next")
+STAMPS = ("FU_T_BEGAN", "FU_T_ENDED")  # the job's form: the timer at its ends
 
 
 def header_defines():
