@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from prism_reference.scene.frame import WIDTH, frame_grid
+from prism_reference.scene.frame import HEIGHT, WIDTH, frame_grid
 
 
 def normalize(v):
@@ -23,13 +23,17 @@ def cross(a, b):
 
 def sized_camera(camera, size):
     """The camera (16,) float32 of a view at frame size (W, H) from its camera at
-    WIDTH x HEIGHT: principal point (W / 2, H / 2), focal length times max(W, H) / WIDTH.
+    WIDTH x HEIGHT: focal length and the principal point's offset from the centre times
+    max(W, H) / WIDTH, the principal point (W / 2, H / 2) plus that offset.
     """
     width, height = (int(n) for n in size)
     frame_grid((width, height))
     out = np.array(camera, dtype=np.float32)
-    out[12] = np.float32(np.float64(out[12]) * max(width, height) / WIDTH)
-    out[13], out[14] = np.float32(width / 2), np.float32(height / 2)
+    scale = max(width, height) / WIDTH
+    offset = np.float64(out[13]) - WIDTH / 2, np.float64(out[14]) - HEIGHT / 2
+    out[12] = np.float32(np.float64(out[12]) * scale)
+    out[13] = np.float32(width / 2 + offset[0] * scale)
+    out[14] = np.float32(height / 2 + offset[1] * scale)
     return out
 
 

@@ -25,7 +25,19 @@ from prism_reference.direct.described.units import (
     world_light,
     world_radiance,
 )
-from prism_reference.material.brdf import d_ggx, diffuse, dot, f0, fresnel, v_smith
+from prism_reference.material.brdf import (
+    DIELECTRIC_F0,
+    d_charlie,
+    d_ggx,
+    diffuse,
+    dot,
+    lobe_albedo,
+    multiple_scattering,
+    sheen_scale,
+    v_neubelt,
+    v_smith,
+    valid_normal,
+)
 from prism_reference.trace.batch import trace
 from prism_reference.trace.tracer import TMAX
 
@@ -34,7 +46,7 @@ KIND_OF = {"point": "point", "spot": "spot", "directional": "sun", "area": "area
 RAY_OFFSET = 1e-5  # a shadow ray's start off the surface, by the scene's diagonal
 LIGHT_END = 1e-4  # a ray to a point on a light stops this share of the way short
 CHUNK = 1 << 15  # pixels lit at once
-PLANES = ("diffuse_light", "glossy_light", "direct")
+PLANES = ("diffuse_light", "glossy_light", "specular", "sheen", "direct")
 
 
 def described_lights(scene, folder):
@@ -130,21 +142,43 @@ def world_rays(world, p, origin, n):
 
 
 def shaded(rows, l, w, surface):
-    """Per sample the diffuse light w / pi, the glossy light w D V F / f0 and the
-    direct light w (diffuse (1 - F) + D V F), 0 where n.v <= 0 for the last two."""
+    """Per sample the diffuse light w / pi, the glossy light (the specular lobe's light
+    over its directional albedo), the specular lobe's light w D V F M S, the sheen's
+    w sheen D V and the direct light w ((diffuse (1 - F) + D V F M) S + sheen), S the
+    sheen's albedo scaling. The specular lobe uses the valid normal (its cosine in place
+    of the shading normal's in w), the others the shading normal; the specular and sheen
+    lobes are 0 where their normal faces away from the eye, the diffuse is not."""
     n, v = surface["n"][rows], surface["v"][rows]
     n_l, n_v = dot(n, l), dot(n, v)
     half = unit(v + l)
     a = surface["roughness"][rows] ** 2
     front = n_v > 0
     nl, nv = np.maximum(n_l, 1e-12), np.where(front, n_v, 1.0)
-    colour = surface["f0"][rows]
-    f = fresnel(colour, dot(v, half))
-    specular = (d_ggx(dot(n, half), a) * v_smith(nl, nv, a))[:, None] * f
-    glossy = np.where(colour > 0, specular / np.where(colour > 0, colour, 1.0), 0.0)
-    lobe = surface["diffuse"][rows] * (1.0 - f) + specular
+    ns = surface["n_specular"][rows]
+    ns_l, ns_v = dot(ns, l), dot(ns, v)
+    turned = np.maximum(ns_l, 0.0) / nl
+    nsl, nsv = np.maximum(ns_l, 1e-12), np.where(ns_v > 0, ns_v, 1.0)
+    colour, f90 = surface["f0"][rows], surface["f90"][rows]
+    schlick = (1.0 - np.clip(dot(v, half), 0.0, 1.0)) ** 5
+    f = colour + (f90[:, None] - colour) * schlick[:, None]
+    lobe = (d_ggx(dot(ns, half), a) * v_smith(nsl, nsv, a) * turned)[:, None] * f
+    lobe = np.where((ns_v > 0)[:, None], lobe, 0.0)
+    specular = lobe * surface["scattering"][rows]
+    albedo = surface["albedo"][rows]
+    glossy = np.where(albedo > 0, specular / np.where(albedo > 0, albedo, 1.0), 0.0)
+    tint, sheen_rough = surface["sheen"][rows], surface["sheen_roughness"][rows]
+    sheen = tint * (d_charlie(dot(n, half), sheen_rough) * v_neubelt(nl, nv))[:, None]
+    under = sheen_scale(tint, nv, nl, sheen_rough)[:, None]
     keep = front[:, None]
-    return w / np.pi, np.where(keep, w * glossy, 0.0), np.where(keep, w * lobe, 0.0)
+    sheen = np.where(keep, sheen, 0.0)
+    light = (surface["diffuse"][rows] * (1.0 - f) + specular) * under + sheen
+    return (
+        w / np.pi,
+        w * glossy,
+        w * specular * under,
+        w * sheen,
+        w * light,
+    )
 
 
 def lit_chunk(lights, world, surface, p, origin, tree, sums, counts):
@@ -175,24 +209,54 @@ def lit_chunk(lights, world, surface, p, origin, tree, sums, counts):
                 )
 
 
+def zeros_or(planes, name, ys, xs, shape):
+    """A plane's values at the pixels as float64, zeros when the planes lack it."""
+    plane = planes.get(name)
+    return np.zeros(shape) if plane is None else plane[ys, xs].astype(np.float64)
+
+
 def surface_of(planes, ys, xs, eye):
-    """The chunk's shading inputs: normals turned toward the eye, view vector, the
-    model's diffuse colour and f0, roughness; and the shadow rays' start points."""
+    """The chunk's shading inputs (normals toward the eye, the specular's made valid for
+    the view; the model's colours, roughness, the lobe's albedo and multiple-scattering
+    factor) and the shadow rays' start points."""
     p = planes["position"][ys, xs].astype(np.float64)
     n = unit(planes["normal"][ys, xs])
     ng = unit(planes["geometric_normal"][ys, xs])
     v = unit(eye - p)
     sign = np.where(dot(ng, v) < 0, -1.0, 1.0)[:, None]
+    n, ng = n * sign, ng * sign
+    n_specular = valid_normal(n, ng, v)
     base = planes["base_color"][ys, xs].astype(np.float64)
     metallic = planes["metallic"][ys, xs].astype(np.float64)
+    roughness = planes["roughness"][ys, xs].astype(np.float64)
+    count = len(ys)
+    dielectric = planes.get("specular_colour")
+    dielectric = (
+        np.full((count, 3), DIELECTRIC_F0)
+        if dielectric is None
+        else dielectric[ys, xs].astype(np.float64)
+    )
+    weight = planes.get("specular_weight")
+    weight = np.ones(count) if weight is None else weight[ys, xs].astype(np.float64)
+    m = metallic[:, None]
+    f0 = dielectric * weight[:, None] * (1.0 - m) + base * m
+    f90 = weight * (1.0 - metallic) + metallic
+    n_v = np.clip(dot(n_specular, v), 0.0, 1.0)
+    scattering = multiple_scattering(f0, n_v, roughness)
     surface = {
-        "n": n * sign,
+        "n": n,
+        "n_specular": n_specular,
         "v": v,
-        "roughness": planes["roughness"][ys, xs].astype(np.float64),
+        "roughness": roughness,
         "diffuse": diffuse(base, metallic),
-        "f0": f0(base, metallic),
+        "f0": f0,
+        "f90": f90,
+        "scattering": scattering,
+        "albedo": lobe_albedo(f0, f90, n_v, roughness) * scattering,
+        "sheen": zeros_or(planes, "sheen_colour", ys, xs, (count, 3)),
+        "sheen_roughness": zeros_or(planes, "sheen_roughness", ys, xs, (count,)),
     }
-    return surface, p, ng * sign
+    return surface, p, ng
 
 
 def direct_light(planes, eye, tree, diagonal, lights, world):

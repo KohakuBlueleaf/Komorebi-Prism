@@ -2,7 +2,8 @@
 without the token, the state and the catalog read (the pipeline, every threads' preset,
 the scene and its view listed), poses posted and their frames read
 from the stream, two sizes (one past the capacity), refusals, then at the view's own
-pose each control moved (and moved back) and a frame after it, then each kind's own
+pose each control moved (and moved back) and a frame after it (and after the field's
+update it starts), then each kind's own
 checks (prism_viewer.server.check_kinds), then the pose's field of view narrower, wider
 and back (prism_viewer.server.check_fov); the server stopped by SIGTERM; then, that
 control set and that pose on a loop of the check's own, each frame's JPEG against
@@ -42,6 +43,8 @@ POSES, POSE_GAP_S = 20, 0.1
 SIZES = ((1280, 720), (1920, 1080))  # within the capacity, then past it (a reload)
 SERVED_BOUND = 0.5  # served JPEG vs the loop's picture through the same encoder: mean
 THREADS = "_threads"  # a threads' preset's name ends with it
+FIELD = "indirect.field_update"  # the implementation whose readings count the updates
+UPDATING = (f"{FIELD}.bounces", "direct.shadow_pcf.sun")  # controls that start one
 
 
 def get(url, timeout=10.0):
@@ -147,22 +150,37 @@ def coded(image):
     return encode.decoded(encode.jpeg(image))
 
 
+def updates_of(state):
+    """The field's updates so far by the state's readings; None without a field."""
+    for given in state.get("readings", []):
+        if given["name"] == FIELD:
+            values = {one["name"]: one["value"] for one in given["values"]}
+            return values.get("updates")
+    return None
+
+
 def set_shown(base, token, reader, pose, size, record, control, value):
-    """`value` posted for `control`, waited for in the state and in a frame after it:
-    that frame's JPEG (None when not shown, a failure noted)."""
+    """`value` posted for `control`, waited for in the state (a control of UPDATING
+    that changes: also its field's update ended) and in a frame after it: that frame's
+    JPEG (None when not shown, a failure noted)."""
     name = control["name"]
     want = json.loads(json.dumps(value))
+    before = wait_state(base, token, lambda s: True, FOLLOW_S)
+    now = {c["name"]: c["value"] for c in before["controls"]}.get(name)
+    updates = updates_of(before) if name in UPDATING and now != want else None
     post(f"{base}/api/control", {"name": name, "value": value}, token, FOLLOW_S)
     shown = wait_state(
         base,
         token,
-        lambda s: {c["name"]: c["value"] for c in s["controls"]}.get(name) == want,
+        lambda s: {c["name"]: c["value"] for c in s["controls"]}.get(name) == want
+        and (updates is None or updates_of(s) > updates),
         FOLLOW_S,
     )
     if shown is None or shown["status"] != "running":
         record["failures"].append(f"control {name} = {value} not shown")
         return None
-    data = reader.frame_of(pose, size, FOLLOW_S, shown["frame"])
+    after = shown["frame"] + (updates is not None)
+    data = reader.frame_of(pose, size, FOLLOW_S, after)
     if data is None:
         record["failures"].append(f"no frame after {name} = {value}")
     return data
@@ -329,6 +347,15 @@ def served(base, token, args, record):
     return pictures, view_pose, last_pose, size
 
 
+def settled(loop, camera):
+    """A field's update the frames go on beside, waited for: one frame not judged
+    (it starts one a control asked for), then the update's end."""
+    graph = getattr(loop.loaded.hosts.get(FIELD), "graph", None)
+    if graph is not None:
+        loop.frame(camera)
+        graph.served(wait=True)
+
+
 def own_pictures(args, pose, other, size, pictures):
     """Each served picture (a label, the controls set, its JPEG, its pose when not
     `pose`), those controls set on a loop of its own at that pose (else `pose`, the
@@ -351,6 +378,7 @@ def own_pictures(args, pose, other, size, pictures):
                     loop.set(name, value)
                 at = posed[0] if posed else pose
                 camera = first if at == own_pose else camera_of(first, at)
+                settled(loop, sized_camera(camera, size))
                 frame = loop.frame(sized_camera(camera, size), picture=True)
                 if frame.code:
                     raise RuntimeError(f"the loop's frame code {frame.code}")
@@ -382,6 +410,8 @@ def own_pictures(args, pose, other, size, pictures):
                     out[label]["other_pose"] = compared(got, away)
                 for name in setting:
                     loop.set(name, before[name])
+                if setting:
+                    settled(loop, sized_camera(camera, size))
         finally:
             loop.stop()
     return out

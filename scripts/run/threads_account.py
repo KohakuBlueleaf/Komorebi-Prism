@@ -50,6 +50,11 @@ def parse():
     parser.add_argument(
         "--sun", type=float, nargs=2, default=None, help="the sun set at load: AZ EL"
     )
+    parser.add_argument(
+        "--keep-lists",
+        action="store_true",
+        help="the eye's lists kept while its view stands (frames 2 on stand)",
+    )
     return parser.parse_args()
 
 
@@ -90,6 +95,8 @@ def main():
         given |= {"trace": args.trace} if args.trace else {}
         given |= {} if args.heavy is None else {"heavy": args.heavy}
         given |= {} if args.sun is None else {"sun": tuple(args.sun)}
+        if args.way != account.STAGEWISE:
+            given |= {"keep_lists": args.keep_lists}
         preset = opened(name, args.scene, args.view, args.size, given)
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -106,6 +113,7 @@ def main():
         "trace": args.trace,
         "heavy": args.heavy,
         "sun": args.sun,
+        "keep_lists": args.way != account.STAGEWISE and args.keep_lists,
         "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "komorebi": km.__version__,
         "tree": commit(),

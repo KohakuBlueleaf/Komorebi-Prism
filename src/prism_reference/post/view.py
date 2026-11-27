@@ -52,16 +52,17 @@ def load_view(path):
 
 def view_of(sidecar):
     """The view of a sidecar's view transform and the notes: None (the standard
-    transfer) when it names none, or names one whose file is not beside it."""
+    transfer) when it names none, or names one whose file is not beside it (the one
+    `render.view_tables` names, else `<stem>.view.npz`)."""
     sidecar = Path(sidecar)
     render = json.loads(sidecar.read_text()).get("render") or {}
-    name, notes = render.get("view_tables"), list(render.get("view_notes") or [])
+    notes = list(render.get("view_notes") or [])
     transform = render.get("view_transform", "")
     if transform in NO_TRANSFORM and render.get("look", "") in NO_LOOK:
         return None, notes
-    path = sidecar.parent / name if name else None
-    if path is None or not path.is_file():
-        stem = sidecar.name[: -len(SIDECAR_SUFFIX)]
+    stem = sidecar.name[: -len(SIDECAR_SUFFIX)]
+    path = sidecar.parent / (render.get("view_tables") or stem + VIEW_SUFFIX)
+    if not path.is_file():
         notes.append(
             f"view transform {transform!r}: no tables ({stem}{VIEW_SUFFIX}); the "
             "standard transfer used"
@@ -80,19 +81,33 @@ def view_from(path):
     return view, record["notes"]
 
 
+def scene_sidecar(name):
+    """The sidecar of a scene's (or a view's scene's) source file; None for a scene of
+    no file or with no sidecar."""
+    source = (table().get(scene_of(name), {}).get("source") or {}).get("file")
+    if source is None or not sidecar_path(source).is_file():
+        return None
+    return sidecar_path(source)
+
+
 def scene_view(name):
     """The view and notes of a scene (or a view's scene): its source file's sidecar's;
     (None, []) for a scene of no file or with no sidecar."""
-    source = (table().get(scene_of(name), {}).get("source") or {}).get("file")
-    if source is None or not sidecar_path(source).is_file():
-        return None, []
-    return view_of(sidecar_path(source))
+    sidecar = scene_sidecar(name)
+    return (None, []) if sidecar is None else view_of(sidecar)
 
 
 def with_view(lights, name):
-    """`lights` of the scene `name` with its view transform: the curve CURVE_VIEW and
-    the view under "view" when its sidecar has tables; else `lights` as they are."""
-    view, _ = scene_view(name)
+    """`lights` of the scene `name` with its file's display: the exposure 2 ^ the
+    sidecar's `render.exposure` (stops) when it has one; the curve CURVE_VIEW and the
+    view under "view" when its sidecar has tables; else `lights` as they are."""
+    sidecar = scene_sidecar(name)
+    if sidecar is None:
+        return lights
+    render = json.loads(sidecar.read_text()).get("render") or {}
+    if "exposure" in render:
+        lights = {**lights, "exposure": float(2.0 ** float(render["exposure"]))}
+    view, _ = view_of(sidecar)
     return lights if view is None else {**lights, "curve": CURVE_VIEW, "view": view}
 
 

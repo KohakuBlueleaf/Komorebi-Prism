@@ -200,23 +200,40 @@ preset, to judge them against a traced truth:
   (`{"kind": "box", "width"}`, (width + 1)^2 texel reads; width 1 is the present
   filter), rotated disk taps (`"disk"`, a golden-angle spiral turned per pixel), and
   PCSS (`"pcss"`, a blocker search, then the disk at the radius the sun's angle gives).
+  With `"levels": True` the search reads the map's nearest-depth levels
+  (`nearest_levels`: each texel the nearest 1/z of 2 x 2 below), on the level where its
+  reach spans 4 texels, a tap blocking where that cell's nearest surface is nearer than
+  the receiver's nearest in the cell. In a cascade's fine map the search from the near
+  plane reaches about 150 texels: 16 taps there miss blockers in one pixel and find them
+  in the next (square dark blocks along the penumbra), and a 32 x 32 tile's taps touch
+  121 to 220 map pages, against 8 to 14 with the levels.
   With `receiver_plane`, the comparisons follow the receiver's own slope (capped at 10
   texel widths), so a slanted receiver does not count as its own blocker.
 - `shadow_cascade`: the eye's seen depth range split (practical split, 0.75 toward
   logarithmic) into cameras with the sun camera's axes and distance, each fitted to
   its slice, the whole map last; a point takes the finest camera it lies in by a
-  margin of texels.
+  margin of texels. A fit can be kept: `fitted_camera` widens the slice by a margin (a
+  share of its extent on each side), puts the half width on steps of 2^(1/8) and the
+  centre on the camera's own texel grid, so a fit made again from nearby corners draws
+  the same texels; `kept_cameras` keeps each camera while `fit_holds` (its frame still
+  covers its slice) and fits again only those that do not. A wider margin is redrawn
+  less often and is coarser: walking at a tenth of the box's diagonal a second and
+  turning 15 degrees a second, the two maps are fitted again 8.2 and 1.3 times a second
+  on Sponza's overview with no margin, 2.0 and 0.9 with 0.1, 0.9 and 0.2 with 0.25,
+  while the edge error with the 2 x 2 filter grows 0.117, 0.129, 0.153 (at a close pose
+  in italian_flat_97f97a20ba, 2.4 and 0.4, 1.6 and 0, 0.8 and 0 a second, the error
+  0.163, 0.161, 0.159: there the fine map is finer than the frame needs).
 - `shadow_traced.traced_sun`: the truth. Rays over the sun's disk (Blender's sun
   angle, 0.00918 rad), turned per pixel, against every triangle but transparent ones;
   masked holes pass. On a written plate and floor it is within 0.002 (mean) of the
   closed form.
 
-Against the traced truth, the mean error in the pixels within 2 of an edge, side 2,048
-(host, 2026-11-27): italian_flat_97f97a20ba at a close pose 0.244 with the 2 x 2
-filter, 0.198 with a box of 5, 0.215 with PCSS, 0.200 at side 4,096, 0.175 with a
-cascade, 0.078 with a cascade and PCSS; breakfast_room's overview 0.183 with the 2 x 2
-filter, 0.094 with PCSS; Sponza's overview 0.423 with the 2 x 2 filter, 0.347 with a
-cascade and PCSS (before the DEPTH view's shifted planes). The texel reads a pixel:
+Against the traced truth, the mean error in the pixels within 2 of an edge, side 2,048,
+the DEPTH views' shifted planes in (host, 2026-11-27): italian_flat_97f97a20ba at a
+close pose 0.247 with the 2 x 2 filter, 0.209 with a box of 5, 0.220 with PCSS, 0.165
+with a cascade, 0.057 with a cascade and PCSS, 0.064 with its search on the levels;
+breakfast_room's overview 0.180 with the 2 x 2 filter, 0.087 with PCSS; Sponza's
+overview 0.200 with the 2 x 2 filter, 0.107 with a cascade and PCSS (either search). The texel reads a pixel:
 4 for the 2 x 2 filter, 36 for a box of 5, 160 for PCSS of 32 taps (search and filter).
 `checks/shadow_edge` checks these parts.
 

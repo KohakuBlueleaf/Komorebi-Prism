@@ -87,8 +87,9 @@ def times_bytes(quadrants):
 
 
 def times_rows(raw, quadrants, served, microseconds):
-    """The SUN commands' rows (the last SHADOW_PCF_TIMES_ROWS of `served`) of the times
-    region's bytes `raw`: number, code, the pass and each quadrant in microseconds."""
+    """The SUN and FIT commands' rows (the last SHADOW_PCF_TIMES_ROWS of `served`) of
+    the times region's bytes `raw`: number, code, the pass, the map (-1: SUN's), its
+    levels and each view in microseconds (a FIT's its one view first)."""
     rows = H["SHADOW_PCF_TIMES_ROWS"]
     words = np.frombuffer(raw, np.uint32).reshape(rows, -1)
     out = []
@@ -100,6 +101,9 @@ def times_rows(raw, quadrants, served, microseconds):
                 "number": int(row[H["SHADOW_PCF_T_NUMBER"]]),
                 "code": int(row[H["SHADOW_PCF_T_CODE"]]),
                 "pass": float(row[H["SHADOW_PCF_T_PASS"]]) * microseconds,
+                "map": int(row[H["SHADOW_PCF_T_MAP"]]) - 1,
+                "levels": float(row[H["SHADOW_PCF_T_LEVELS"]]) * microseconds,
+                "copies": float(row[H["SHADOW_PCF_T_COPIES"]]) * microseconds,
                 "quadrants": [
                     float(t) * microseconds for t in row[first : first + quadrants]
                 ],
