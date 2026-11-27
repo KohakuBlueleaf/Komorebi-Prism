@@ -255,6 +255,41 @@ With d the diagonal of the mesh's bounding box and c its centre, `light` is
 `sun` and `lights` are present only when the file has such lights; without `lights` the
 lamps are found among the emissive triangles, as for a public scene.
 
+### The file's own lighting (`file_lights`)
+
+When the file has a directional, point or spot light or a world (the sidecar's), the
+entry also holds the file's own lighting under `file`, in radiometric units (the
+reference's [described light](../internals/reference/described_light.md): 683 lumens a
+watt, as Blender's exporter writes them). It is drawn only with the option `file_lights`
+(`--option file_lights=True`); without it everything above is what is drawn.
+
+| key | value |
+| --- | --- |
+| `sun` | the first directional light: `direction` its node's world -Z axis, `colour` its colour, `irradiance` colour x lux / 683 (W/m^2) |
+| `lights` | each point, spot and area light: `kind`, `position` (its node's, an area light's centre), `colour`, `intensity` (candela / 683, W/sr; an area light power / pi), a spot's `axis`, `inner`, `outer`, an area light's `axis` (its emitting normal) and `area` |
+| `world` | the sidecar's world: `colour` and `strength`, or `environment` (the map's resolved path), `strength` and `rotation`; null without one |
+| `exposure` | 2^(the sidecar's exposure), 1 without a sidecar |
+| `turn`, `ambient`, `lamp_scale`, `emissive_scale`, `shadow_bias` | 0, (0, 0, 0), 1, 1, 3 |
+| `merge_distance`, `radius`, `size` | 0.01 d, 10 d, 0.002 d |
+| `notes` | what the file's lighting drops or stands in for |
+
+The lights file holds it beside the defaults' arrays, each named `file_` and the
+default's name (`direct.prepare.file_part`): the sun's irradiance and direction as they
+are (no sun: irradiance 0); each lamp its colour, intensity and shape (`file_lamp_shape`),
+so LIGHT's lamp term `I max(0, n.l) / (d^2 + s^2)` is the irradiance of the file's light
+(`radius` 10 d leaves the window at 1 inside the scene); the sky's 9 coefficients
+projected from the world's radiance over the map's own grid of directions (Blender's
+equirectangular lookup with the world's rotation), and the background's octahedral map
+from the same radiance (side 2,048 for a map, 32 for a colour); the shadow camera only
+where the file's sun is not the defaults'. A map the reference does not read (`.exr`) is
+replaced by the world's colour, with a note in `file_counts` saying why;
+`scripts/blender/world_map.py` converts it once (the export writes `.hdr` itself). A
+spot keeps its cone, and an area light is carried as a stand-in: a lamp at its centre
+whose intensity falls as a cosine about its normal, unshadowed (LIGHT's lamp shape:
+[direct light](../internals/direct/light_model.md#lights-table)), drawn only with the
+option `area_lights` too. The loader (`direct.lights.load`) reads the `file_` arrays only
+under the option; without it the file is read as before.
+
 ## Lights, then a preset
 
 A scene converted by `gltf_scene.py convert` has no lights until they are made:

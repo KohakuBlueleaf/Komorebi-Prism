@@ -60,13 +60,20 @@ namespace light_k {
     constexpr uint32_t kCurveView = 2;  // x itself: SHOW's view transform tones it
     constexpr uint32_t kLtCamera = 96;  // 16 words, mover A's copy of the camera
     constexpr uint32_t kLtLamp = 128;
-    // a lamp: position, colour, intensity, radius, 1 / radius, size^2
+    // a lamp: position, colour, intensity, radius, 1 / radius, size^2, its shape (an
+    // axis, then scale, offset, square: t = clamp(offset - scale l.axis, 0, 1),
+    // x t (square (t - 1) + 1); scale 0: none)
     constexpr uint32_t kLampWords = 16;
     constexpr uint32_t kLampColour = 3;
     constexpr uint32_t kLampIntensity = 6;
     constexpr uint32_t kLampRadius = 7;
     constexpr uint32_t kLampInvRadius = 8;
     constexpr uint32_t kLampSize2 = 9;
+    constexpr uint32_t kLampAxis = 10;
+    constexpr uint32_t kLampScale = 13;
+    constexpr uint32_t kLampOffset = 14;
+    constexpr uint32_t kLampSquare = 15;
+    static_assert(kLampSquare < kLampWords);
     constexpr uint32_t kLampsMax = 32;
     static_assert(4 * (kLtLamp + kLampWords * kLampsMax) <= kLightTableBytes);
     // Indirect light (kTermIndirect; model field.field_words), floats: the field's

@@ -7,10 +7,10 @@ times."""
 import numpy as np
 
 from prism.stages.indirect.field_update.host import SCALE_COMMAND
+from prism.stages.indirect.field_update.model.kept import kept
 from prism.stages.indirect.field_update.model.numbers import F32
 from prism.stages.indirect.field_update.model.regions import element_arrays
 from prism.stages.indirect.field_update.model.results import (
-    expected,
     field_texels,
     times,
     work_arrays,
@@ -96,12 +96,16 @@ def verdict(out):
 
 
 def judged_by(lights, model, bounces, transport, stepped):
-    """The reference the field is judged by and float32's: with passes and whole, the
-    card's apply emulated (`card_product`), else float32's own."""
-    exact = expected(lights, model, bounces)
+    """The reference the field is judged by and float32's, kept (`model/kept.py`): with
+    passes and whole, the card's apply emulated (`card_product` of `transport`: its
+    folder, set and raw), else float32's own."""
+    exact = kept(lights, model, bounces)
     if stepped or not exact["passes"]:
         return exact, exact
-    return expected(lights, model, bounces, card_product(transport)), exact
+    card = kept(
+        lights, model, bounces, transport.folder, lambda: card_product(transport)
+    )
+    return card, exact
 
 
 def update_times(rows):

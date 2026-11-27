@@ -75,6 +75,36 @@ namespace light_k {
         }
     }
 
+    // The lamp's shape (prism_reference.direct.lamps shaped) on L7: t = clamp(offset -
+    // scale l.axis, 0, 1), L7 x t (square (t - 1) + 1); l the unit direction to the
+    // lamp in the row scratch; L0 to L6 used.
+    inline void shape_row(const uint32_t* lamp) {
+        for (uint32_t axis = 0; axis < 3; ++axis) {
+            load(L0 + axis, sx_vector(kSxLight + axis));
+        }
+        immediate(L3, lamp[kLampAxis]);
+        mul(L0, L3, L4);
+        immediate(L3, lamp[kLampAxis + 1]);
+        TT_SFPMAD(L1, L3, L4, L4, 0);
+        immediate(L3, lamp[kLampAxis + 2]);
+        TT_SFPMAD(L2, L3, L4, L4, 0);  // l . axis
+        immediate(L3, lamp[kLampScale]);
+        immediate(L5, lamp[kLampOffset]);
+        mul(L3, L4, L6);
+        sub(L5, L6, L6);  // offset - scale l . axis
+        TTI_SFPNOP;
+        at_least_zero(L6, L0);
+        add(ONE, ZERO, L0);
+        TTI_SFPNOP;
+        TT_SFPSWAP(0, L0, L6, kMinMax);  // t = min(t, 1)
+        TTI_SFPNOP;
+        sub(L6, ONE, L0);
+        immediate(L3, lamp[kLampSquare]);
+        TT_SFPMAD(L0, L3, ONE, L0, 0);  // square (t - 1) + 1
+        mul(L6, L0, L6);
+        mul(L7, L6, L7);
+    }
+
     // Row k under one lamp (prism_reference.direct.lamps point_irradiance): its
     // irradiance in the lamps' sum, with the specular term its share of the specular
     // sum.
@@ -126,6 +156,9 @@ namespace light_k {
         TT_SFPSETCC(0, L1, 0, kGte0);
         add(ZERO, ZERO, L7);
         TTI_SFPENCC(3, 0, 0, 10);
+        if (lamp[kLampScale] != 0) {
+            shape_row(lamp);
+        }
         store(L7, sx_vector(kSxE));
         for (uint32_t channel = 0; channel < 3; ++channel) {
             immediate(L0, lamp[kLampColour + channel]);

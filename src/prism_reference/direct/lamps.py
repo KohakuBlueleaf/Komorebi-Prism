@@ -1,5 +1,6 @@
-"""Point lights: the lamps found among the emissive triangles and the irradiance of one
-point light."""
+"""Lamps: the lamps found among the emissive triangles, the irradiance of one point
+light and a lamp's shape (an axis and a falloff about it: a spot's cone, a cosine lobe,
+none for a point)."""
 
 import numpy as np
 
@@ -8,6 +9,8 @@ from prism_reference.material.texture import TEXEL_LINEAR
 from prism_reference.raster.vector import dot3
 
 F = np.float32
+SHAPE_WORDS = 6  # a lamp's shape: axis (3), scale, offset, square
+LEAST_CONE = 1e-3  # glTF's floor on cos(inner) - cos(outer)
 
 
 def emission_colours(materials):
@@ -86,3 +89,65 @@ def point_irradiance(intensity, size, radius, position, points, normals):
     fall = (F(1) - q * q) * (F(1) - q * q)
     e = F(intensity) * np.maximum(dot3(normals, to_light), F(0)) / (d2 + F(size) ** 2)
     return np.where(d < F(radius), e * fall, F(0)), to_light
+
+
+def lamp_shapes(lights):
+    """The lamps' shapes (L, SHAPE_WORDS) float32: the lights' `lamp_shape`, else every
+    lamp a point (zeros)."""
+    if "lamp_shape" in lights:
+        return np.asarray(lights["lamp_shape"], dtype=F).reshape(-1, SHAPE_WORDS)
+    return np.zeros((len(lights["lamp_intensity"]), SHAPE_WORDS), dtype=F)
+
+
+def is_area(shape):
+    """Whether a lamp's shape is an area light's stand-in (a cosine lobe: a scale,
+    offset and square 0)."""
+    return shape[3] != 0 and shape[4] == 0 and shape[5] == 0
+
+
+def without_areas(lights):
+    """The lights without the area lights' stand-ins (their lamps left out)."""
+    if "lamp_shape" not in lights:
+        return lights
+    kept = np.array([not is_area(s) for s in lamp_shapes(lights)], dtype=bool)
+    lamps = ("lamp_position", "lamp_colour", "lamp_intensity", "lamp_shape")
+    return lights | {k: np.asarray(lights[k])[kept] for k in lamps}
+
+
+def shaped(e, to_light, shape):
+    """Irradiance e (n,) times the lamp's falloff about its axis: c = -l.axis,
+    t = clamp(scale c + offset, 0, 1), t (square (t - 1) + 1); a scale of 0: none."""
+    axis, scale, offset, square = shape[0:3], shape[3], shape[4], shape[5]
+    if scale == 0:
+        return e
+    along = (to_light[:, 0] * axis[0] + to_light[:, 1] * axis[1]) + to_light[
+        :, 2
+    ] * axis[2]
+    t = np.minimum(np.maximum(offset - scale * along, F(0)), F(1))
+    return e * (t * (square * (t - F(1)) + F(1)))
+
+
+def lamp_irradiance_at(lights, k, points, normals):
+    """Irradiance (n,) float32 of the lights' lamp k at points with normals (its
+    `point_irradiance` and its shape's falloff) and the unit directions to it."""
+    e, to_light = point_irradiance(
+        lights["lamp_intensity"][k],
+        lights["size"],
+        lights["radius"],
+        lights["lamp_position"][k],
+        points,
+        normals,
+    )
+    return shaped(e, to_light, lamp_shapes(lights)[k]), to_light
+
+
+def spot_shape(axis, inner, outer):
+    """A spot's shape: its axis (the way it emits) and glTF's cone, t^2 with
+    t = clamp((c - cos outer) / max(cos inner - cos outer, LEAST_CONE))."""
+    scale = 1.0 / max(np.cos(inner) - np.cos(outer), LEAST_CONE)
+    return np.array([*axis, scale, -np.cos(outer) * scale, 1.0], dtype=F)
+
+
+def lobe_shape(axis):
+    """A cosine lobe's shape about its axis, 0 behind: t = clamp(c, 0, 1), t^1."""
+    return np.array([*axis, 1.0, 0.0, 0.0], dtype=F)

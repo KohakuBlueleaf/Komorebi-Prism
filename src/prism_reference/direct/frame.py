@@ -9,7 +9,7 @@ from prism_reference.direct.glass import (
     sun_glass_map,
     sun_through,
 )
-from prism_reference.direct.lamps import point_irradiance
+from prism_reference.direct.lamps import lamp_irradiance_at
 from prism_reference.direct.shadow import sun_shadow
 from prism_reference.direct.sky import background, sky_irradiance
 from prism_reference.direct.visibility import vertex_normals
@@ -154,14 +154,7 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
     shine = specular * gloss(sun_dir[None, :])[:, None] * (sun_e * inv_pi)
     points_e = np.zeros_like(albedo)
     for k in range(len(lights["lamp_intensity"]) if "lamps" in terms else 0):
-        e, to_light = point_irradiance(
-            lights["lamp_intensity"][k],
-            lights["size"],
-            lights["radius"],
-            lights["lamp_position"][k],
-            position,
-            normal,
-        )
+        e, to_light = lamp_irradiance_at(lights, k, position, normal)
         lamp_e = lights["lamp_colour"][k] * e[:, None]
         points_e = points_e + lamp_e
         shine = shine + specular * gloss(to_light)[:, None] * (lamp_e * inv_pi)
