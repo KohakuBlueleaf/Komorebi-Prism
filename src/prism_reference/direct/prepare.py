@@ -7,6 +7,11 @@ import time
 
 import numpy as np
 
+from prism_reference.direct.described.lighting import (
+    file_lamps,
+    file_shapes,
+    file_sun_sky,
+)
 from prism_reference.direct.lamps import find_lamps
 from prism_reference.direct.shadow import SHADOW_SIDE, shadow_map, sun_view
 from prism_reference.direct.sky import (
@@ -95,6 +100,39 @@ def sky_visibility(name, data, mesh, workers, rebake, visibility):
         return f["visibility"], json.loads(str(f["counts"])) | {"visibility": "baked"}
 
 
+def file_part(own, mesh, materials, shadow, shadow_side, sun_view_of):
+    """The arrays of the file's own lighting (the entry's `file`), each named `file_`
+    and a LIGHT_KEYS name or `lamp_shape`: its sun, sky, background and lamps, and its
+    shadow camera, texel and map when its sun's direction is not the defaults';
+    `sun_view_of` the defaults' (direction, camera, texel, map)."""
+    env = file_sun_sky(own)
+    position, colour, intensity, lamps = file_lamps(own)
+    out = {
+        "sun_direction": env["sun_direction"],
+        "sun_irradiance": env["sun_irradiance"].astype(F),
+        "sh": env["sh"],
+        "octahedral": env["octahedral"],
+        "turn": np.float32(env["turn"]),
+        "lamp_position": position,
+        "lamp_colour": colour,
+        "lamp_intensity": intensity,
+        "lamp_shape": file_shapes(own),
+    }
+    direction, camera, texel, depth = sun_view_of
+    if not np.array_equal(env["sun_direction"], direction):
+        if shadow == "card":
+            camera, texel = sun_view(mesh, env["sun_direction"], shadow_side)
+            depth = np.zeros((1, 1), dtype=F)
+        else:
+            depth, camera, texel = shadow_map(
+                mesh, env["sun_direction"], materials, shadow_side
+            )
+        out |= {"shadow_camera": camera, "shadow_texel": texel, "shadow_map": depth}
+    counts = lamps | {"notes": env["notes"] + list(own.get("notes", []))}
+    out["counts"] = json.dumps(counts)
+    return {f"file_{key}": value for key, value in out.items()}
+
+
 def prepare(
     name,
     data,
@@ -105,8 +143,9 @@ def prepare(
     shadow="host",
 ):
     """Writes <scene>_lighting.npz: the environment, the sky's visibility (`visibility`
-    "bake": baked, kept in <scene>_visibility.npz unless rebake; "open": the kept one,
-    else 1), the lamps, the shadow map (`shadow` "card": 1 x 1 of 0); path, counts."""
+        "bake": baked, kept in <scene>_visibility.npz unless rebake; "open": the kept one,
+        else 1), the lamps, the shadow map (`shadow` "card": 1 x 1 of 0), and with the
+    entry's `file` the file's own lighting beside them (`file_part`); path, counts."""
     if shadow not in ("host", "card"):
         raise ValueError(f"shadow {shadow!r}: one of host, card")
     entry = table()[name]["lighting"]
@@ -140,6 +179,10 @@ def prepare(
     counts |= lamps
     counts["sun_share"], counts["turn"] = env["sun_share"], turn
     counts["sky_side"] = side = int(entry.get("sky_side", OCTA_SIDE))
+    own = {}
+    if "file" in entry:
+        sun = (env["sun_direction"], camera, texel, depth)
+        own = file_part(entry["file"], mesh, materials, shadow, shadow_side, sun)
     out = lighting_path(name, data)
     part = out.with_name(f"{out.stem}.{os.getpid()}.part.npz")
     np.savez(
@@ -158,6 +201,7 @@ def prepare(
         lamp_colour=colour,
         lamp_intensity=intensity,
         counts=json.dumps(counts),
+        **own,
     )
     part.replace(out)
     counts["bytes"] = os.path.getsize(out)

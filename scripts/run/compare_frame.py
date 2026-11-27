@@ -9,6 +9,7 @@ from prism_cli.preset import opened
 from prism.stages.direct.light.model.expect import with_map
 from prism_reference.direct.frame import rasterize_lighted
 from prism_reference.direct.lights import load as load_lights
+from prism_reference.direct.lights import options_of
 from prism_reference.indirect.bounces import bounces_of
 from prism_reference.indirect.field.values import field_values
 from prism_reference.indirect.files import load_model
@@ -50,7 +51,7 @@ def frame_of(pipeline, name, size, data):
     view = with_size(preset.scene, size)
     options = preset.options
     materials = options["materials"]
-    lights = load_lights(name, data)
+    lights = load_lights(name, data, *options_of(options))
     if "bounces" in options:
         lights = {**lights, "bounces": options["bounces"]}
     lights = with_map(view, materials, lights)

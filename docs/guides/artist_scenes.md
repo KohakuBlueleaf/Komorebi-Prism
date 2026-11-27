@@ -201,8 +201,12 @@ camera's f-stop and focus distance when its depth of field is on (the distance t
 focus object along the view axis when it has one), else null; the importer does not read
 them (no lens blur). The world is read when a
 Background node feeds the output: its colour and strength. An Environment Texture on its
-colour is copied beside the stem as `<stem>.world.<extension>`, with the rotation of a
-Mapping node feeding it. Any other world gives its viewport colour, strength 1, and
+colour is written beside the stem as `<stem>.world.hdr` (Radiance HDR, the format the
+reference reads: an `.hdr` copied, any other image saved as HDR by Blender, its pixels
+as they are), with the rotation of a Mapping node feeding it. A sidecar written before
+that names an `.exr`; `blender --background --python scripts/blender/world_map.py --
+<scene.prism.json> [--out <folder>]` converts it once and writes the sidecar naming the
+`.hdr` (a new sidecar is a new file key: the scene is converted again on its next open). Any other world gives its viewport colour, strength 1, and
 `"world"` in `not_exported.objects`. An area light points along its local -Z; its matrix
 is in glTF's axes and `power` is in watts. `not_exported.triangles` lists each node
 whose mesh in the written `.glb` holds other than the triangles handed to the exporter
@@ -513,7 +517,7 @@ The reference's own comparisons against Cycles' passes, both without a card:
 [--factor N]` (the surface's planes, [surface](../internals/reference/surface.md)) and
 `python scripts/run/light_compare.py passes|compare|table [KEY ...] [--data FOLDER]
 [--size W H] [--samples N] [--timeout SECONDS] [--runs ...]` (the direct light: `passes`
-renders Cycles' direct-light passes in Blender, `compare` sets the reference's direct
+renders Cycles' direct-light passes of `scene_gltf.blend` in Blender, `compare` sets the reference's direct
 light against them, writing the pictures and `compare.json` under
 `<data>/artist/<key>/light/`; `table` gathers them into a README table).
 

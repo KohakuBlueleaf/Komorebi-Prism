@@ -18,6 +18,11 @@ TARGETS = np.array([[0.25, 0.25], [1.75, 0.25], [0.75, -0.25], [0.25, 2.75]])
 QUAD_INDICES = np.array([[0, 1, 2], [0, 2, 3]], dtype=np.uint16)
 CAMERA = {"yfov": 0.7, "aspectRatio": 1.5, "znear": 0.05}
 CAMERA_PARENT = [1.0, 0.0, 0.0]
+LIGHTS = [
+    {"type": "directional", "color": [1.0, 0.9, 0.8], "intensity": 3.0},
+    {"type": "point", "color": [0.2, 0.4, 1.0], "intensity": 50.0},
+    {"type": "spot", "color": [1.0, 1.0, 1.0], "intensity": 50.0},
+]
 CAMERA_TRS = {"translation": [0.5, 1.0, 6.0], "axis": [0.3, 1.0, 0.2], "angle": 0.6}
 
 # name, the glTF material, then the expected kind, base, slots, exponent, specular,
@@ -186,11 +191,6 @@ def write(path):
         for n, p in (("colours", COLOURS), ("normals", NORMALS))
     ]
     t, axis, angle = CAMERA_TRS["translation"], CAMERA_TRS["axis"], CAMERA_TRS["angle"]
-    lights = [
-        {"type": "directional", "color": [1.0, 0.9, 0.8]},
-        {"type": "point", "color": [0.2, 0.4, 1.0]},
-        {"type": "spot", "color": [1.0, 1.0, 1.0]},
-    ]
     doc = {
         "asset": {"version": "2.0"},
         "scene": 0,
@@ -222,7 +222,7 @@ def write(path):
         "textures": [{"source": 0}, {"source": 1}],
         "images": images,
         "cameras": [{"type": "perspective", "perspective": CAMERA}],
-        "extensions": {"KHR_lights_punctual": {"lights": lights}},
+        "extensions": {"KHR_lights_punctual": {"lights": LIGHTS}},
     }
     build.write_glb(path, doc, w)
 

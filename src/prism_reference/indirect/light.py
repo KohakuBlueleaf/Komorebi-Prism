@@ -3,7 +3,7 @@ field holds, and the indirect irradiance a pixel receives."""
 
 import numpy as np
 
-from prism_reference.direct.lamps import point_irradiance
+from prism_reference.direct.lamps import lamp_irradiance_at, lamp_shapes
 from prism_reference.direct.lights import bounce_count
 from prism_reference.direct.shadow import sun_shadow
 from prism_reference.indirect.bounces import bounces_of
@@ -18,17 +18,10 @@ F = np.float32
 
 
 def lamp_irradiance(lights, position, normal):
-    """The point lights' irradiance (n, 3) float32, without shadows (as a pixel's)."""
+    """The lamps' irradiance (n, 3) float32, without shadows (as a pixel's)."""
     out = np.zeros((len(position), 3), F)
     for k in range(len(lights["lamp_intensity"])):
-        e, _ = point_irradiance(
-            lights["lamp_intensity"][k],
-            lights["size"],
-            lights["radius"],
-            lights["lamp_position"][k],
-            position,
-            normal,
-        )
+        e, _ = lamp_irradiance_at(lights, k, position, normal)
         out = out + lights["lamp_colour"][k] * e[:, None]
     return out
 
@@ -73,6 +66,7 @@ def signature(lights):
     turn, the lamps and the emissive scale."""
     small = [lights[k] for k in ("sun_direction", "sun_irradiance", "turn")]
     small += [lights[k] for k in ("lamp_position", "lamp_colour", "lamp_intensity")]
+    small += [lamp_shapes(lights)]
     small += [np.float32(lights["emissive_scale"]), lights["shadow_camera"]]
     return b"".join(np.asarray(a, F).tobytes() for a in small)
 

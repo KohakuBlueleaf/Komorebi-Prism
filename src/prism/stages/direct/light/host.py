@@ -108,7 +108,8 @@ class LightHost(Host):
         """The lights (with the field for the term indirect), the pages, each
         surface's table and profile pages, and the class's examples."""
         if self.lights is None:
-            self.lights = reference_lights.load(self.name, data_root())
+            asked = reference_lights.options_of(self.options)
+            self.lights = reference_lights.load(self.name, data_root(), *asked)
         side, held = self.options.get("shadow_side"), shadow_side(self.lights)
         if side is not None and int(side) != held:
             raise ValueError(
