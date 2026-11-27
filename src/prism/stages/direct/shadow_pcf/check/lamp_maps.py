@@ -92,6 +92,7 @@ def check(loop):
         "frames": len(codes),
         "codes": sorted(set(codes)),
         "frames_s": round(seconds, 3),
+        "levels": host.levels_state(),
         "faces": len(host.faces.faces),
         "left": len(host.faces.left),
         "commands": [p["lamps"][1] for p in host.passes if "lamps" in p],

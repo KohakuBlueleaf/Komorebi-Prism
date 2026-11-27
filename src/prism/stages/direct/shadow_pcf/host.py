@@ -15,6 +15,7 @@ from prism.core.control import Control
 from prism.core.implementation import Command, Host
 from prism.program.assemble import MissingSlot
 from prism.program.loaded import MICROSECONDS
+from prism.program.threads.tile_option import depth_levels
 from prism.stages.direct.light.model.sun import scene_box, shadow_of_pages
 from prism.stages.direct.shadow_pcf.model.faces import Faces
 from prism.stages.direct.shadow_pcf.model.fit import Fits
@@ -80,10 +81,19 @@ class ShadowHost(Host):
         self.fitted = {}  # the tensors: fitted maps and coarse levels, slots, tops
         self.swap = 0  # 1 + the half the next SUN swaps in (0: none)
         self.lamps_began = 0.0  # when the LAMPS command asked was asked for
+        self.levels_not_made = False  # levels asked, the DEPTH views write none
+
+    def levels_state(self):
+        """The levels: "made", "not asked", or "not made" (asked, but the tile thread's
+        DEPTH views write no slots, so nothing can make them)."""
+        if self.levels_not_made:
+            return "not made"
+        return "made" if self.fits.levels else "not asked"
 
     def prepare(self):
         """The lights, the scene's box, the views of its own: the quadrants, the fitted
-        maps, the lamps' faces (option `lamp_maps`, default true)."""
+        maps, the lamps' faces (option `lamp_maps`, default true); the levels (option
+        `shadow_levels`) only where the tile thread's DEPTH views write them."""
         if self.lights is None:
             self.lights = reference_lights.load(self.name, data_root())
         if self.side is not None:
@@ -95,12 +105,14 @@ class ShadowHost(Host):
         side = int(self.options.get("cascade_side", QUADRANT[0]))
         if count and side != QUADRANT[0]:
             raise ValueError(f"direct.shadow_pcf: a fitted map's side is {QUADRANT[0]}")
+        asked = bool(self.options.get("shadow_levels", False))
+        self.levels_not_made = asked and not depth_levels(self.options)
         self.fits = Fits(
             self.scene,
             count,
             side,
             float(self.options.get("cascade_margin", 0.25)),
-            bool(self.options.get("shadow_levels", False)),
+            asked and not self.levels_not_made,
             self.options.get("cascade_reach"),
             1 + quadrants,
             grid_of(QUADRANT),

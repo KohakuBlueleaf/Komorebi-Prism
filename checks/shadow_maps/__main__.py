@@ -5,7 +5,8 @@ frames, the records swapped in when whole); then frames standing (each frame who
 stood, its kept lists),
 each map the frames read against the reference's at its camera (texels over 1e-5
 relative apart, texels empty on one side only), each map's levels against the
-reference's of the card's map (exact); the redraws, the FIT and SUN commands' times and
+reference's of the card's map (exact; `levels` says "not made" on a preset whose tile
+thread writes no DEPTH levels, e.g. the stage-wise `gi`); the redraws, the FIT and SUN commands' times and
 the frames' seconds. One JSON line; the record to <out>/<scene>_<view>.json (out:
 <cache root>/shadow_maps). Exit 1 on a frame's code or a map or level apart. Example:
 python -m checks.shadow_maps --scene italian_flat_97f97a20ba --view camera --card 1"""
@@ -158,6 +159,7 @@ def main():
     summary = {
         "frames": len(frames),
         "codes": codes,
+        "levels": host.levels_state(),
         "redraws": len(host.fits.redraws),
         "whole": sum(f["kind"] == "whole" for f in frames),
         "stood": sum(f["kind"] == "tile" for f in frames),

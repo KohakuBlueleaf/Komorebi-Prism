@@ -130,6 +130,14 @@ around its quadrants (sent at every load), `fit` for a fitted
 map around its view. The record names the slots' tensor and first slot, the tops' tensor,
 and the coarse levels' tensor and first page.
 
+Only a tile thread whose DEPTH step has the word `levels` writes the slots and tops (the
+threads' presets `lit_threads`, `gi_threads`); the stage-wise presets draw a DEPTH view
+with no depth step. There the X280 would read slots nobody wrote, end every tile as a band
+(a 1,024 map's 1,024 tiles, a 2,048 map's 4,096) and store levels of nothing, so the host
+makes none: with `shadow_levels` asked on such a preset the maps have no levels, the
+records say so (`LEVELS` 0) and `levels_state()` gives "not made"
+(`prism.program.threads.tile_option.depth_levels` decides from the option `tile_thread`).
+
 ## The views' capacity
 
 Capacity belongs to a view kind and a layer. The host gives the quadrants', the fitted
