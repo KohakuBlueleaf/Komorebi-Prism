@@ -8,6 +8,9 @@
 
 #include "../../../../material/texture/steps/kernels/requests.hpp"
 #include "planes.hpp"
+#if defined(PRISM_LIGHT_NEAR)
+#include "near_rows.hpp"
+#endif
 
 namespace light_step {
 
@@ -16,6 +19,9 @@ namespace light_step {
     struct LitPass {
         Pass pass;
         material_step::Requests requests;
+#if defined(PRISM_LIGHT_NEAR)
+        const NearPlanes* near = nullptr;  // the one-tile product's E, when it is on
+#endif
     };
 
     // Rows [first, end) of the quarter in page passes of `scan` and `gather`, counted
@@ -91,16 +97,24 @@ namespace light_step {
         }
         if (field) {
             // keys and the point; the shadow's and background's texels; then the
-            // field's pages, texels and each row's colour
+            // field's pages, texels and each row's colour (with the one-tile product
+            // on: I from its E, no field pages)
             pass.keys();
-            return (!keyed ||
-                    lit_passes(
-                        lit,
-                        pass.counts,
-                        ScanTaps{pass, 0, kLightKeys},
-                        GatherTaps{pass, 0, kLightKeys, false}
-                    )) &&
-                lit_passes(lit, pass.field_counts, FieldScan{pass}, FieldRows{pass});
+            if (keyed &&
+                !lit_passes(
+                    lit,
+                    pass.counts,
+                    ScanTaps{pass, 0, kLightKeys},
+                    GatherTaps{pass, 0, kLightKeys, false}
+                )) {
+                return false;
+            }
+#if defined(PRISM_LIGHT_NEAR)
+            if (lit.near != nullptr) {
+                return NearRows{pass, *lit.near}(pass.first, pass.end);
+            }
+#endif
+            return lit_passes(lit, pass.field_counts, FieldScan{pass}, FieldRows{pass});
         }
         if (!keyed) {
             if (pointed) {  // the scene point only (keys 0)

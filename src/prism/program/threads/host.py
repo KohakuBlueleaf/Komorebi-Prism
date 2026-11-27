@@ -30,6 +30,7 @@ CAMERAS = "view.depth"  # another host's DEPTH views: indices, cameras, frame si
 DEPTH_LAYERS = raster_host.DEPTH_LAYERS  # the layers a DEPTH view draws
 BALANCE = 5  # the pull's end imbalance over a range's own cost, in blocks walked
 BOX_WORDS = 16  # a count range's box: a 64-byte page
+GROUP_RANGES = 16  # the count ranges a group's box holds, unless given
 POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
@@ -90,7 +91,8 @@ class ThreadsHost(Host):
     the cores), policy, near, heavy, list_slots_least
     (a number or a dict by layer name), account (the records a core's page of the
     account holds; 0: no account, the build without it), keep_lists (False: every
-    frame counts and places), cull (False: every count range walked)."""
+    frame counts and places), cull (False: every count range walked), group_ranges
+    (the count ranges a group's box holds)."""
 
     threads = True  # the frame's host of the threads' form
 
@@ -111,6 +113,9 @@ class ThreadsHost(Host):
         self.account = int(options.get("account") or 0)
         self.keep_lists = bool(options.get("keep_lists", True))
         self.cull = bool(options.get("cull", True))
+        self.group_ranges = int(options.get("group_ranges") or GROUP_RANGES)
+        self.groups = None  # every layer's groups' boxes (groups, 6), in layer order
+        self.generation = 0  # the groups' boxes' generation last written
         self.account_pages = None
         self.layers = {}  # by name: its tensors and numbers
         self.depth_views = ()  # another host's DEPTH views
@@ -140,17 +145,27 @@ class ThreadsHost(Host):
         if not self.range_blocks:
             blocks = sum(one["blocks"] for one in self.layers.values())
             self.range_blocks = range_blocks_of(blocks, self.cores)
+        first, groups = 0, []
         for name, one in self.layers.items():
-            one["boxes"] = self.boxes_of(self.scenes[name]) if self.cull else None
+            one["boxes"], one["group_first"] = None, first
+            if self.cull:
+                ranges = self.ranges_of(self.scenes[name])
+                one["boxes"] = self.boxes_of(ranges)
+                groups.append(cull.group_boxes(ranges, self.group_ranges))
+                first += len(groups[-1])
+        self.groups = np.concatenate(groups).reshape(first, 6) if groups else None
 
-    def boxes_of(self, scene):
-        """A layer's count ranges' boxes as a tensor: a 64-byte page a range, its
-        least corner then its most (float32)."""
+    def ranges_of(self, scene):
+        """A layer's count ranges' boxes (ranges, 2, 3) float32."""
         positions = np.asarray(scene["positions"], dtype=np.float32)
         blocks = cull.block_boxes(positions, np.asarray(scene["indices"]))
-        groups = cull.group_boxes(blocks, self.range_blocks).reshape(-1, 6)
-        rows = np.zeros((len(groups), BOX_WORDS), dtype=np.uint32)
-        rows[:, :6] = groups.view(np.uint32)
+        return cull.group_boxes(blocks, self.range_blocks)
+
+    def boxes_of(self, ranges):
+        """A layer's count ranges' boxes as a tensor: a 64-byte page a range, its
+        least corner then its most (float32)."""
+        rows = np.zeros((len(ranges), BOX_WORDS), dtype=np.uint32)
+        rows[:, :6] = ranges.reshape(-1, 6).view(np.uint32)
         return self.tensor(rows)
 
     def lists_for(self, name, slots):
@@ -281,6 +296,7 @@ class ThreadsHost(Host):
             one["rows"].address,
             one["positions"].address,
             0 if one["boxes"] is None else one["boxes"].address,
+            one["group_first"],
         )
         return row | {"depth": int(name in DEPTH_LAYERS)}
 
@@ -298,6 +314,7 @@ class ThreadsHost(Host):
             loaded.numbers(self.numbers() | {dispatch.PHASES: 0})
             for index, name in enumerate(self.layers):
                 loaded.layer(index, **self.columns(name))
+            self.write_groups(loaded)
             self.loaded, self.written = loaded, None
         loaded.number("camera", camera)
         if tuple(size) != self.written:
@@ -308,6 +325,18 @@ class ThreadsHost(Host):
             self.written = self.size
         loaded.number(dispatch.KEEP, int(keep))
         self.standing = eye
+
+    def write_groups(self, loaded):
+        """The groups' boxes into the dispatcher's region, the ranges a group holds and
+        a new generation (dispatch.CULL) to read them at; without the cull, 0."""
+        if self.groups is None:
+            loaded.number(dispatch.CULL, 0)
+            return
+        loaded.write(dispatch.BOXES, self.groups.reshape(-1).view(np.uint32))
+        self.generation += 1
+        loaded.numbers(
+            {dispatch.GROUP: self.group_ranges, dispatch.CULL: self.generation}
+        )
 
     def needed(self, loaded):
         """The need page the dispatcher wrote when its view stopped with

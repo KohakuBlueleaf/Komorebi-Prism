@@ -46,8 +46,11 @@ def previous_frame(camera, frame):
     return {"frame": frame, "rotation": turn, "offset": (old_eye - eye) @ axes}
 
 
-def near_operator(frame, receivers, spacing, rule=None, settings=None, log=None):
-    """The near operator (`march`) with the rule's ranges in world units."""
+def near_operator(
+    frame, receivers, spacing, rule=None, settings=None, log=None, workers=1
+):
+    """The near operator (`march`, by `workers` processes) with the rule's ranges in
+    world units."""
     rule = {**RULE, **(rule or {})}
     r, t = rule["near_range"] * spacing, rule["thickness"] * spacing
     ranges = {"near": r, "thickness": t, "cap": rule["coarse_cap"] * t}
@@ -57,6 +60,7 @@ def near_operator(frame, receivers, spacing, rule=None, settings=None, log=None)
         ranges | {k: rule[k] for k in ("plane", "backface", "facing")},
         settings,
         log,
+        workers,
     )
     return op | {"rule": rule}
 

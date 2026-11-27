@@ -20,8 +20,11 @@ WORD = 4
 STREAM_INDICES = FIRST_UPPER  # a stream's half is among a core's first buffers
 
 
-def field_of(pages, page_bytes, pusher):
-    """A ring's annotation and its km.own (raw words; pusher None: no ring)."""
+def field_of(pages, page_bytes, pusher, format=None):
+    """A ring's annotation and its km.own (pusher None: no ring): raw words, or with
+    `format` (a Komorebi format) its tiles, a page a tile."""
+    if format is not None:
+        return km.L1[format, pages, 32, 32], km.own(push=pusher)
     if page_bytes % WORD:
         raise ValueError(f"frame program: a ring's pages of {page_bytes} bytes, words")
     return km.L1[km.u32, pages, page_bytes // WORD], km.own(push=pusher, raw=True)
@@ -31,8 +34,8 @@ def frame_class(composition, program_file):
     """The class of the handler `work` for the composition and its generated program
     `program_file`: the rings by name, the common fields its steps and kinds name."""
     annotations, owns = {}, {}
-    for name, (pages, page_bytes, pusher) in composition.rings.items():
-        annotations[name], owns[name] = field_of(pages, page_bytes, pusher)
+    for name, ring in composition.rings.items():
+        annotations[name], owns[name] = field_of(*ring)
     common = composition.common()
     annotations |= {name: fields.field(name) for name in common}
     owns |= {name: fields.own(name) for name in common}
