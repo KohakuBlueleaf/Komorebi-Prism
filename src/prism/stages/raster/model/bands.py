@@ -5,7 +5,7 @@ import itertools
 import numpy as np
 
 from prism.stages.raster.model.cost import COST, cost_of
-from prism.stages.raster.model.numbers import GROUPS, MAX_BANDS, SPLIT, TILES
+from prism.stages.raster.model.numbers import GROUPS, MAX_BANDS, SPLIT
 
 
 def heavy_tiles(counts, rows, cores, split=SPLIT):
@@ -49,7 +49,7 @@ def items_of(counts, rows, heavy, starts, ends):
     per_core, cost, items = [], [], []
     tile_cost = cost_of(counts, rows)
     heavy_index = {tile: position for position, (tile, _) in enumerate(heavy)}
-    for tile in range(TILES):
+    for tile in range(counts.shape[1]):
         if tile not in heavy_index:
             items.append((tile, 0, 32))
             per_core.append(counts[:, tile])

@@ -4,7 +4,7 @@ and SETUP's items page."""
 import numpy as np
 
 from prism.stages.raster.model.cost import assign, cost_of
-from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS, SLOT, TILES, K
+from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS, SLOT, K
 
 
 def middle(counts, rows, cores, mode="balanced", bands=None):
@@ -13,7 +13,7 @@ def middle(counts, rows, cores, mode="balanced", bands=None):
     core's next slot per item (setup cores, items), the items in tile order, the slots.
     """
     if bands is None:
-        items = [(tile, 0, 32) for tile in range(TILES)]
+        items = [(tile, 0, 32) for tile in range(counts.shape[1])]
         per_core, cost = counts, cost_of(counts, rows)
     else:
         items, per_core, cost = bands
@@ -65,14 +65,14 @@ def middle(counts, rows, cores, mode="balanced", bands=None):
     }
 
 
-def item_table(items):
-    """SETUP's items page: per tile its first item and their number, then per item its
-    rows (2,048 uint32)."""
-    table = np.zeros(2048, dtype=np.uint32)
-    tiles = np.array([tile for tile, _, _ in items])
-    first_item = np.searchsorted(tiles, np.arange(TILES))
-    counts = np.bincount(tiles, minlength=TILES)
-    table[:TILES] = first_item | counts << 16
-    rows = table[1024:].view(np.uint16)
+def item_table(items, tiles, capacity):
+    """SETUP's items page for a frame of `tiles` tiles and `capacity` items: per tile
+    its first item and their number, then per item its rows (uint16)."""
+    table = np.zeros(tiles + -(-capacity // 2), dtype=np.uint32)
+    first = np.array([tile for tile, _, _ in items])
+    first_item = np.searchsorted(first, np.arange(tiles))
+    counts = np.bincount(first, minlength=tiles)
+    table[:tiles] = first_item | counts << 16
+    rows = table[tiles:].view(np.uint16)
     rows[: len(items)] = [first_row | end_row << 8 for _, first_row, end_row in items]
     return table
