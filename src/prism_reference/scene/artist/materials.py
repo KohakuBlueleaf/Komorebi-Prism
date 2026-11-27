@@ -131,10 +131,9 @@ def map_material(material, scene, texture_number, has_uv=True):
     slots, base, tau = [-1, -1, -1, -1], base_rgb.copy(), np.zeros(3)
     if glowing is not None or glow.max() >= EMISSIVE_MIN:
         kind = "emissive"
+        base = np.clip(glow, 0.0, 1.0)
         if glowing is not None:
-            slots[0], base = texture_number(glowing, "colour"), np.ones(3)
-        else:
-            base = np.clip(glow, 0.0, 1.0)
+            slots[0] = texture_number(glowing, "colour")
     elif material.alpha_mode == "BLEND" or (factor is not None and factor > 0):
         kind = "transparent"
         if factor is not None:

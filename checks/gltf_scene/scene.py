@@ -36,8 +36,12 @@ KINDS = [
     ),
     (
         "emissive texture",
-        {"emissiveTexture": B, "pbr": {"roughnessFactor": 0.5}},
-        ("emissive", [1.0, 1.0, 1.0], [0, -1, -1, -1], 30, [0.04] * 3, [0.0] * 3),
+        {
+            "emissiveTexture": B,
+            "emissiveFactor": [0.3, 0.3, 0.3],
+            "pbr": {"roughnessFactor": 0.5},
+        },
+        ("emissive", [0.3, 0.3, 0.3], [0, -1, -1, -1], 30, [0.04] * 3, [0.0] * 3),
     ),
     (
         "emissive strength",

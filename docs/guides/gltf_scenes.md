@@ -197,7 +197,7 @@ mapped onto it by the first row that fits:
 
 | the glTF material | kind | numbers |
 |---|---|---|
-| `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | slot 0 the emissive texture when there is one (base 1, 1, 1), else base = clip(emissive x strength, 0, 1) |
+| `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | base = clip(emissive x strength, 0, 1) (glTF's emission: the texture times the factor times the strength); slot 0 the emissive texture when there is one |
 | `alpha_mode` BLEND, or `KHR_materials_transmission` with a `transmissionFactor` above 0 | transparent | transmission = `transmissionFactor x base rgb` with the extension, else `1 - base alpha` in each channel; slot 0 the base-colour texture when there is one |
 | no base-colour texture, or the primitive has no `uv0` | flat | base = `base_color` rgb |
 | `alpha_mode` MASK | masked | slot 0 the base-colour texture; slot 1 stays -1 (the mask is that texture's alpha) |
