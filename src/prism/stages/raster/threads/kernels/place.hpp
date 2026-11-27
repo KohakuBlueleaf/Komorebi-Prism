@@ -24,6 +24,46 @@ namespace geometry_k {
         return held;
     }
 
+    // One out page's list writes (posted): the last record each DRAM bank was sent.
+    struct ListWrites {
+        uint64_t to[NUM_DRAM_BANKS];
+        uint32_t from[NUM_DRAM_BANKS];
+        uint32_t touched;
+    };
+
+    // The record at L1 `record` to byte `offset` of list page `list`, posted.
+    inline void list_put(
+        ListWrites& writes,
+        const InterleavedAddrGen<true>& lists,
+        uint32_t record,
+        uint32_t list,
+        uint32_t offset
+    ) {
+        const uint64_t to = lists.get_noc_addr(list, offset);
+        const uint32_t bank = interleaved_addr_gen::get_bank_index<true>(
+            list, interleaved_addr_gen::get_bank_offset_index<true>(list)
+        );
+        noc_async_write_one_packet<false, true>(record, to, 128);
+        writes.to[bank] = to;
+        writes.from[bank] = record;
+        writes.touched |= 1u << bank;
+    }
+
+    // Each bank written sent its last record again, acknowledged: behind its posted
+    // writes on the same path, so they have arrived when it is. False: gave up.
+    template <typename Core>
+    inline bool list_close(const Core& core, ListWrites& writes, uint32_t where) {
+        for (uint32_t bank = 0; bank < NUM_DRAM_BANKS; ++bank) {
+            if ((writes.touched >> bank & 1) != 0) {
+                noc_async_write_one_packet<false, false>(
+                    writes.from[bank], writes.to[bank], 128
+                );
+            }
+        }
+        writes.touched = 0;
+        return sent(core, where);
+    }
+
     // Layer `layer`'s positions of this core into L1 (its tiles' words and its slices'
     // band entries) with every slice's place of the layer added. False: gave up.
     template <typename Ctx>
@@ -93,6 +133,8 @@ namespace geometry_k {
             .bank_base_address = layer_word(page, layer, TF_L_LISTS),
             .page_size = setup_k::kListPageBytes
         };
+        ListWrites writes;
+        writes.touched = 0;
         for (;;) {
             const uint32_t since = prism_frame::account_now();
             if (!front(movement, out, 1, kWhereOut)) {
@@ -134,13 +176,12 @@ namespace geometry_k {
                         const uint32_t word = positions[at_tile];
                         if ((word & kPosCut) == 0) {
                             positions[at_tile] = word + 1;
-                            noc_async_write(
+                            list_put(
+                                writes,
+                                lists,
                                 record,
-                                lists.get_noc_addr(
-                                    word / fill_k::kSlotsPerPage,
-                                    (word % fill_k::kSlotsPerPage) * 128
-                                ),
-                                128
+                                word / fill_k::kSlotsPerPage,
+                                (word % fill_k::kSlotsPerPage) * 128
                             );
                             prism_frame::account_add(ctx, FX_BYTES_LISTS, 128);
                             continue;
@@ -158,20 +199,19 @@ namespace geometry_k {
                             }
                             const uint32_t slot = band[1];
                             band[1] = slot + 1;
-                            noc_async_write(
+                            list_put(
+                                writes,
+                                lists,
                                 record,
-                                lists.get_noc_addr(
-                                    slot / fill_k::kSlotsPerPage,
-                                    (slot % fill_k::kSlotsPerPage) * 128
-                                ),
-                                128
+                                slot / fill_k::kSlotsPerPage,
+                                (slot % fill_k::kSlotsPerPage) * 128
                             );
                             prism_frame::account_add(ctx, FX_BYTES_LISTS, 128);
                         }
                     }
                 }
             }
-            if (!sent(movement, kWhereListsSent)) {
+            if (!list_close(movement, writes, kWhereListsSent)) {
                 return false;
             }
             cb_pop_front(out, 1);
