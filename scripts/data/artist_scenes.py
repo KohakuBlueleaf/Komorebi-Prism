@@ -10,7 +10,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from prism_common.paths import data_root
+from prism_common.paths import cache_root, data_root
 from prism_reference.scene.artist.table import (
     artist_dir,
     attribution,
@@ -122,7 +122,9 @@ def run(command, keys, data, args):
             arguments = [str(folder / "stats.json")]
             record |= blender(key, data, "measure", arguments, args.timeout)
         elif command == "export":
-            arguments = [str(folder / "scene"), *frame, *["--plain"] * args.plain]
+            bakes = cache_root() / "bakes" / key
+            arguments = [str(folder / "scene"), *frame, "--cache", str(bakes)]
+            arguments += ["--plain"] * args.plain
             record |= blender(key, data, "export", arguments, args.timeout)
         elif command == "planes":
             (folder / PLANES).parent.mkdir(exist_ok=True)

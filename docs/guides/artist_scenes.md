@@ -57,7 +57,9 @@ with `measure.py <out.json>`, `export.py <out_stem> [--frame N] [--plain]` and
 `blender --background --python scripts/blender/from_gltf.py -- <stem> <out.blend>`.
 
 Cycles writes, besides Combined, the passes the surface's comparison reads: Z, Normal,
-Position, UV, Diffuse Color, Glossy Color, Emission and Object Index. Before the render,
+Position, UV, Diffuse Color, Glossy Color, Emission and Object Index. In that session the
+camera's depth of field is off: the planes and Combined are the reference of the surface,
+not the final picture (the sidecar keeps the lens, below). Before the render,
 `render.py` numbers every object of the file in that session (its pass index is its row,
 from 1, objects sorted by name; 0 is none) and writes the rows' names and types to
 `truth.objects.json`. `planes.py` reads the render layer of the EXR with the most
@@ -80,8 +82,10 @@ of later samples is kept.
 FONT and META that Cycles' camera rays see (below), and skips those with no triangles;
 an object whose evaluation gives no mesh counts no triangles and is listed by its type. A copy's base is the original object's
 name when the object has a modifier or a shape key, or is not a mesh; otherwise it is the
-mesh data's name. Its key is the base and a number k: the k-th distinct evaluated mesh
-(by its address during the walk) met under that base. Copies of one evaluated mesh share
+mesh data's name. Its key is the base and a number k: the k-th distinct pair of an
+evaluated mesh (by its address during the walk) and its object's slot materials met under
+that base, so objects sharing a mesh but linking other materials to their slots get keys
+of their own, each mesh carrying its object's materials. Copies of one such pair share
 a key, also when geometry nodes instance it; one object whose geometry nodes emit several
 meshes gives one key a mesh. No triangle count decides a key. Each key's mesh is taken at
 its first copy, during the walk: a geometry-nodes instance is a temporary that the walk
@@ -153,7 +157,9 @@ copy: a reader draws a node only at its matrices.
 {"version": 1,
  "source": {"file": "<.blend base name>", "blender": "<version>", "frame": N},
  "render": {"size": [W, H], "camera": "<name>", "shift": [x, y],
-            "sensor_fit": "AUTO" | "HORIZONTAL" | "VERTICAL", "exposure": float,
+            "sensor_fit": "AUTO" | "HORIZONTAL" | "VERTICAL",
+            "aperture_fstop": float | null, "focus_distance": float | null,
+            "exposure": float,
             "view_transform": str, "look": str, "gamma": float},
  "world": {"color": [r, g, b], "strength": float, "environment": str | null,
            "rotation": [x, y, z]},
@@ -161,7 +167,13 @@ copy: a reader draws a node only at its matrices.
                   "power": float, "matrix": [16 floats, row-major]}],
  "instances": {"file": "<stem>.instances.npz"},
  "materials": {"<name>": {"class": "P" | "S" | "X", "node": str (X only),
-                "sockets": {"<input>": {"done": str, "node": str (lost only)}}}},
+                "sockets": {"<input>": {"done": str,
+                                        "node": str (lost, mesh_baked),
+                                        "per_object": "first object's"}},
+                "meshes": [str], "atlas": {"side": int, "meshes": int,
+                                           "under_a_texel": float,
+                                           "cut": [int, int]},
+                "tiles": [int], "missing": int}},
  "not_exported": {"materials": [str], "lights": [str],
                   "objects": [{"name": str, "type": str, "reason": str}],
                   "triangles": [{"node": str, "expected": int, "written": int}]}}
@@ -181,7 +193,10 @@ is recovered there and kept at the drawn size. The importer gives the render cam
 `shift_y` and `sensor_fit`; the reference's surface draws with them, and the scene's view
 carries the shift as `shift` (x, y) in units of the longer side, the side of its `fov`
 (the fit's side at the file's aspect converted), so the reference's raster and the card
-draw with the principal point moved. The world is read when a
+draw with the principal point moved. `aperture_fstop` and `focus_distance` are the
+camera's f-stop and focus distance when its depth of field is on (the distance to its
+focus object along the view axis when it has one), else null; the importer does not read
+them (no lens blur). The world is read when a
 Background node feeds the output: its colour and strength. An Environment Texture on its
 colour is copied beside the stem as `<stem>.world.<extension>`, with the rotation of a
 Mapping node feeding it. Any other world gives its viewport colour, strength 1, and
@@ -190,9 +205,12 @@ is in glTF's axes and `power` is in watts. `not_exported.triangles` lists each n
 whose mesh in the written `.glb` holds other than the triangles handed to the exporter
 (read back from the `.glb`'s JSON chunk after writing). `materials` is the record of the
 material rewrite (below); `not_exported.materials` names the materials of class X or with
-an input `lost`. A material with a tiled (UDIM) image is written once per tile, named
-`<name>.<tile>` in the `.glb`; its record is under `<name>`. The export's summary line gives the materials by class, those with a
-loss, the seconds of the rewrite and its bakes.
+an input `lost`. A material written in several copies (one a tile) is recorded once
+under `<name>`. The export's summary line gives the materials by class, those with a
+loss, the seconds of the rewrite, its bakes, the atlases of the mesh bake (their count,
+the largest side and how many the cap cut) and `bake_device`: the device the bake scene
+used (`OPTIX`, `CUDA`, or `CPU` when Cycles lists no GPU) and Cycles' device list as
+`[name, type, used]`.
 
 ## The table
 
@@ -243,9 +261,17 @@ Class S, a shader at a time (each input then follows the rows of P):
 | Mix or Add of a Principled BSDF and a Diffuse or Translucent | the Principled's inputs (the other lobe dropped) |
 | Mix or Add with an Emission | the other side's inputs, the emission's colour and strength |
 | Mix with a constant factor of 0 or 1 | the side it selects |
+| Mix whose factor is constant for a ray from the camera: Light Path's ray outputs (Is Camera Ray 1, the other flags and the depths 0; not Ray Length) through Math nodes (add, subtract, multiply, divide, maximum, minimum, greater than, less than, with their clamp) | the factor taken as that constant, then the rows above |
+| Mix or Add with one shader input unlinked | the linked side's inputs (the factor's weight on that side is dropped) |
+| Mix of two Principled BSDFs | each input a Mix node of the two by the factor (one constant when both hold the same constant); the normal the side's that is linked, a mix only when both are |
+| Mix or Add of a Glass or Refraction and a Glossy | the glass's inputs (the Principled BSDF's transmission keeps its own reflection; the glossy lobe dropped) |
 
 Class P, each input the exporter reads (base colour, metallic, roughness, alpha, emission
-colour and strength, transmission weight, IOR, normal):
+colour and strength, transmission weight, IOR, sheen weight, tint and roughness, normal;
+the exporter writes a sheen of weight above 0 as `KHR_materials_sheen` with the tint
+alone as its colour, so a constant weight under 1 is folded into a constant tint, the
+weight then 1; sheen weight and roughness, like emission strength and IOR, only as
+constants):
 
 | what feeds it | done |
 | --- | --- |
@@ -253,7 +279,8 @@ colour and strength, transmission weight, IOR, normal):
 | an Image Texture on uv coordinates (unlinked vector, UV Map, Texture Coordinate UV, through one Mapping of constant inputs), or one channel of it through a Separate Color in RGB mode; for the normal, a tangent-space Normal Map over such an image | `as_is`: the same nodes rebuilt |
 | a chain of nodes that depend only on their inputs (mixes, colour ramps, hue and saturation, curves, maths, invert, gamma, brightness, clamp, map range, separate and combine, ...) over constants, Image Textures and procedural textures on uv coordinates, every leaf in one texture space (uv map and Mapping) | `baked` (below), the leaves' Mapping put in front of the baked image |
 | a Bump node over such a chain (its own normal unlinked, strength and distance constant) | `bump`: the height baked and turned into a normal map |
-| a chain with a node that depends on the geometry or the object (generated or object coordinates, a procedural texture off uv, geometry, layer weight, Fresnel, ambient occlusion, attributes, object info, light path, ...), leaves in different texture spaces, an image of several UDIM tiles under a bake (the quad covers tile 1001; reason `UDIM tiles`), a Bump over a normal map, or a non-constant chain on emission strength or IOR (the exporter writes those as constants) | `lost`: the constant is the mean of the chain baked on the quad (generated and object coordinates are the quad's) (a missing attribute is 0 there, as Cycles reads it) when no node in it depends on the ray or the view (light path, camera data, light falloff, particle, point and hair info), else the socket's own value; the normal is left unlinked |
+| a chain with a node that depends on the geometry or the object (generated or object coordinates, a procedural texture off uv, a box-projected image, geometry, layer weight, Fresnel, ambient occlusion, attributes, object info, ...), leaves in different texture spaces, an image of several UDIM tiles under a bake (the quad covers tile 1001; reason `UDIM tiles`), tiled images kept as they are but read through different uv maps or a Mapping (`UDIM tiles`), or a normal not carried by the rows above (a Normal Map over such a chain or with a linked strength, a Bump over a normal map or over such a chain, a mix of normals), when no node of the chain depends on the ray or the view (light path, camera data, light falloff, particle, point and hair info, UV along stroke) | `mesh_baked` (below); `node` names the node or reason that kept it off the quad |
+| a chain with a node that depends on the ray or the view, a non-constant chain on emission strength or IOR (the exporter writes those as constants), a mesh bake that failed (`bake_error` in the record) or a material on no mesh | `lost`: the constant is the mean of the chain baked on the quad (generated and object coordinates are the quad's) (a missing attribute is 0 there, as Cycles reads it) when no node in it depends on the ray or the view, else the socket's own value; the normal is left unlinked |
 
 A bake: a copy of the material whose surface is an Emission of the socket, on a unit
 quad (uv = position, every uv map the chain names) in a scene of its own, baked by
@@ -261,19 +288,138 @@ Cycles (type EMIT, one sample, no margin) at the largest leaf image's size, at m
 a side (8 x 8 without an image leaf), with the leaves' Mapping muted. A result whose
 values lie within 1e-4 of each other becomes the input's constant. Otherwise a new packed
 8-bit image: sRGB for base and emission colour (encoded with the standard transfer),
-non-colour data for the others.
+non-colour data for the others (sheen tint as a colour).
 
-A Bump's height `h` over the uv square (W x H texels, rows from v = 0) gives, by central
-differences repeating at the edges, `du = (h[x+1] - h[x-1]) W / 2`, `dv = (h[y+1] -
-h[y-1]) H / 2`, the normal `n = normalize(-d du, -d dv, 1)` with `d` the node's distance
-(negated when inverted), then `normalize(s n + (1 - s) (0, 0, 1))` with `s` its strength
-(at least 0); stored as `n / 2 + 1 / 2` in a non-colour 8-bit image under a tangent-space
-Normal Map of strength 1. The quad's uv square is one metre a side: on a mesh whose uv
-density differs, Blender's Bump (which works in world units) bends the normal by another
-amount.
+A Bump's height `h` over the texture square (W x H texels, rows from v = 0; the square
+the leaves' Mapping maps the uv onto) gives, by central differences repeating at the
+edges, `du = (h[x+1] - h[x-1]) W / 2 ku`, `dv = (h[y+1] - h[y-1]) H / 2 kv`, the normal
+`n = normalize(-d du, -d dv, 1)` with `d` the node's distance (negated when inverted),
+then `normalize(s n + (1 - s) (0, 0, 1))` with `s` its strength (at least 0); stored as
+`n / 2 + 1 / 2` in a non-colour 8-bit image under a tangent-space Normal Map of strength
+1. `ku, kv` are the texture units a metre along u and v, so that the slope is a height
+over a world distance, as Blender's Bump takes it: the Mapping's x and y scale (their
+inverses for a Mapping of type Texture; its rotation is not counted) over `L`, the
+world length of one uv unit on the material's drawn triangles. `L` is, over every
+triangle of every mesh drawn with the material in the uv map the chain reads (else the
+active render map), counting each copy, `sqrt(world area / uv area)` with the copy's
+length scale `|det M|^(1/3)` applied, binned in steps of 0.2 % of its logarithm: the
+median. The record keeps it per material under the normal's `length` as `metres` with
+the 10th and 90th percentiles (`p10`, `p90`: the spread when meshes of other scales
+share the material) and the `triangles` counted; with no drawn triangle with a uv area,
+`metres` is null and `L` is one metre.
+
+### The mesh bake
+
+A material with an input `mesh_baked` is baked by Cycles once an input over all the
+meshes (geometry keys' meshes) that carry it, into one shared atlas:
+
+1. Each mesh's faces of that material are copied into a mesh of their own (the other
+   faces deleted, its attributes and uv maps kept), moved by the key's first copy's
+   matrix into the bake scene (normals flipped back under a mirroring matrix). Object
+   and world coordinates are that copy's, and a value read across the deleted faces
+   (such as pointiness at their border) sees them gone. A mesh several objects share is
+   baked once, at its first object: an input whose chain reads a value that differs by
+   object (Object Info, an object or instancer attribute) records
+   `"per_object": "first object's"`. No mesh is copied for another object.
+2. The copies are joined into one object (each corner keeping its mesh and its corner
+   there), since Blender runs a Cycles pass and the margin for each selected object of
+   a bake. One Smart UV Project over it (angle limit 66 degrees, area weight 0, aspect
+   corrected, islands 2 texels of the atlas apart as a fraction of its side) gives each
+   mesh its own islands, packed together into one uv square. The artist's layer is never
+   used: it may overlap.
+3. The atlas's side is chosen before any bake (below).
+4. Every input of the material that an image carries (`as_is`, `baked`, `bump` and
+   `mesh_baked`) is baked once over all the copies, in passes (the bake jobs below):
+   a base or emission colour alone, an Emission of the input's chain (1 - it where the
+   shader rule says); the scalar inputs three to a pass, in the red, green and blue of
+   one Emission; the normal alone, a Diffuse BSDF with the chain's normal baked as a
+   tangent-space normal of that layer (Cycles' NORMAL bake). Each pass has a margin of
+   2 texels (extend). A texel no face wrote then takes the mean of the written ones
+   (the normal: the flat normal), so no unwritten texel reaches the file. The
+   material's other inputs stay as they were chosen. Written texels whose values lie
+   within 1e-4 of each other give the input's constant; otherwise an 8-bit image (sRGB
+   for base and emission colour, encoded with the standard transfer; a scalar reads its
+   channel of the pass's image), its extension EXTEND, the normal under a tangent-space
+   Normal Map of strength 1.
+5. Each copy's layout is written into its mesh's first uv layer at the corners of those
+   faces (a layer is made when the mesh has none), and that layer becomes the render
+   layer: the rebuilt material reads the render uv, which the exporter writes as that
+   layer's set and from which it computes the tangents. Faces of other materials keep
+   their uv. The material is written once; its record lists the meshes and the atlas.
+
+Why the first uv layer: the importer reads `TEXCOORD_1` as `uv1` and the reference's
+surface samples a texture by its `texCoord`, but the card's converter
+(`prism_reference/scene/artist/convert.py`, `corner_uv`) reads `uv0` only and drops a
+material that names another set (`scene/artist/materials.py`, "second UV set"). So each
+material on a mesh bake reads its first uv set, which holds the atlas's layout of its
+faces with all of its images baked into it.
+
+The atlas's side follows the surface. Each copy asks a number of texels a unit of its
+surface, the largest that its baked inputs' chains give:
+
+- an image: the square of its larger side times the largest scale of the Mapping in
+  front of it, times, on uv coordinates, the square root of the uv area its uv map
+  covers on those faces over their surface;
+- a procedural texture: the same with its Scale (when a constant) times 8 texels
+  (`TEXELS_A_FEATURE`) in place of the image's side;
+- vertex or object data (attributes, geometry, object info, ...), or a chain with none
+  of the above: 16 texels (`FACE_TEXELS`) over the copy's median face area.
+
+The copies' surfaces times their texels a unit, summed, are the texels wanted; the side
+is their square root rounded up to a power of two, at least 8 and at most 4,096
+(`bake.MOST_SIDE`). Then the packed atlas is measured, still before any bake: the share
+of the surface on faces whose uv area times the side squared is under one texel. While
+that share passes 10 % the side doubles (the islands re-packed at it), up to the cap.
+An atlas still more than 50 % under a texel at the cap is not baked: its inputs are
+`lost` with the node `bake under a texel` and the mean as the constant. The record keeps
+the side, the meshes, that share, and `"cut": [wanted, given]` when the cap cut it
+(wanted counting the doubling the cap stopped).
+
+### Bake jobs and their cache
+
+Blender's bake operator spends its time on one thread before Cycles starts, in an amount
+that grows with the texels the faces cover and with their triangles, while the GPU waits
+(on a 143,000-triangle atlas: about 15 s a pass at a side of 1,024, about 250 s at
+4,096, the same on the CPU device and without a margin). An atlas does not depend on
+another, so the export runs the passes as jobs in other Blender processes:
+
+- Each pass is written as a small `.blend` (the joined copy and the material's bake
+  tree, images by absolute path) and run by `bakejobs.py` in its own Blender process
+  (`--factory-startup`), which bakes it, fills the unwritten texels, and writes the
+  result: a `.json` (each input's constant, or its channel of the image) and, when an
+  image is needed, an 8-bit `.png`. The export reads them back and packs the images.
+- Jobs start as soon as they are written, while the export goes on with the other
+  materials; as many run at once as the cores the export may use (its CPU affinity)
+  over the cores one bake keeps busy (`CORES_A_BAKE = 1`), or `--bake-processes N`.
+  Each process opens Cycles on the GPU when one is listed (OptiX, else CUDA); they
+  share it.
+- A pass's key hashes what its result depends on: the material's node tree as
+  resolved (every node's settings and unlinked inputs, the links, the groups, the
+  images' paths, sizes and file dates), the joined copy (its faces and every
+  attribute, the bake layout among them), the inputs baked, the side, the bake's
+  settings and Blender's version. A result whose key is found in the cache folder is
+  read instead of baked, so an export bakes only what changed and a stopped export
+  resumes. The workbench passes `--cache <PRISM_CACHE>/bakes/<scene>`; the folder is
+  outside the repository.
+- One line an atlas when its passes are done: `PRISM atlas {"material", "side",
+  "seconds"}`. The summary line's `bake_jobs` gives the processes, the jobs run, the
+  passes found in the cache, the jobs that failed (their inputs are `lost`, node
+  `bake job failed`), the processes' seconds and the devices they used.
+
+### Tiled images
+
+A material whose images, kept as they are, hold UDIM tiles (one tile or several) and read
+one uv map without a Mapping is split by tile before the export: on each mesh its faces
+are made triangles, each triangle goes to the tile its uv centroid lies in (`1001 +
+floor(u) + 10 floor(v)`, tile 0 off the grid), its corners are moved by that whole offset,
+and a copy of the material named `<name>.<tile>` reads that tile's own file (extension
+EXTEND). Where an image lacks the tile, its outputs take Cycles' value for a missing tile:
+colour (1, 0, 1), alpha 1. The record gives `tiles` (the tiles used) and `missing` (the
+triangles in a tile an image lacks). The glTF exporter's own split, which keeps a
+triangle only when its first corner lies on an existing tile, is then never reached.
 
 The record gives, per material, its class and, per input, `as_is`, `baked`, `bump`,
-`constant` or `lost` with the node type (or the reason) that caused a loss.
+`mesh_baked`, `constant` or `lost` with the node type (or the reason) that caused a loss.
 
 `selftest_materials.py` checks the rewrite on materials it makes in an empty file: a
 Diffuse and a Glossy mixed by a Fresnel node, a Glossy alone, a Transparent mixed by an
@@ -282,7 +428,19 @@ colour ramp over one (the baked image against 1 - the image and the ramp of it, 
 255 in the stored sRGB values; the image's values are Cycles' own, read by a bake of the
 image alone, as Cycles' decoding of an 8-bit sRGB image differs from the standard
 transfer by up to about one step), a Bump over an image (the normal map at four texels
-against the formula above) and a Noise texture on object coordinates (`lost`).
+against the formula above), a Noise texture on object coordinates (`lost`: it is on no
+mesh), and a case each of the later rows: two Principled BSDFs mixed by 0.25 (roughness
+and base colour the mix), a Glass and a Transparent mixed by Is Shadow Ray plus Is
+Diffuse Ray (the glass), a Glass and a Glossy mixed by Layer Weight (the glass's colour
+and roughness), a Mix with one shader input unlinked (the Diffuse's colour), the base
+colour of geometry X times 0.5 plus 0.25 on two 8 x 8-quad unit squares (`mesh_baked`,
+one material, one 64-texel atlas holding both, every texel within the values the faces
+give, each face's centre on a texel of its own and against its x to 1.5 texels' change),
+Object Info's random on a mesh two objects share (`"per_object": "first object's"`) and a two-tile image on
+four triangles (each on its centroid's tile and its file, one in a missing tile), a Bump
+over the image through a Mapping of scale 4 on a 4 m square drawn at half size (`length`
+2 m, the normal map at four texels against the formula with `ku = kv = 2`), and a
+Principled sheen (weight 0.4 folded into the tint, the roughness kept).
 
 ## The same glTF as the truth
 
@@ -358,8 +516,8 @@ light against them, writing the pictures and `compare.json` under
 
 ## Not carried yet
 
-- Material inputs the exporter does not read (coat, sheen, subsurface, specular tint and
-  the like): the rebuilt Principled BSDF has their defaults.
+- Material inputs the exporter does not read (coat, subsurface, specular tint and the
+  like): the rebuilt Principled BSDF has their defaults.
 - Area lights in the `.glb`: they are in the sidecar only.
 - Hair curves, particle hair, point clouds, volumes, world volumes and grease pencil:
   listed in `not_exported.objects`, no geometry made for them.
