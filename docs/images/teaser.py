@@ -1,239 +1,332 @@
-"""Draws the README's first figure, docs/images/teaser-{light,dark}.svg: glTF in, frame
-out. The host opens the file once and loads its tensors; each frame it sends one
-command, FRAME, to the frame's thread on X280 cluster 1, whose pulls hand the frame's
-tile threads to the 120 Tensix cores that ask; a core runs every step of the tile it
-took and writes its display page; the host reads the pages back.
+"""Draws the README's first figure, docs/images/teaser-{light,dark}.svg: what one gives
+the renderer, the card drawing by itself, what comes out.
 
-usage: python docs/images/teaser.py [output folder]    (the standard library only)
+usage: python docs/images/teaser.py [output folder]    (needs Pillow, for the four
+pictures)
 
-Names: prism_cli open, prism.loop (Loop.frame), the frame's thread
-(prism.core.unit.FRAMES, cluster 1), the job thread (program/jobs/thread.py CLUSTERS 2
-and 3), the tile thread LIT (program/threads/tiles.py), the grid of 32 x 32 tiles and
-slices of 16 (docs/internals/program/dispatch.md). Numbers: measurements/gi_threads
-(Sponza's overview, 1,920 x 1,080, gi_threads 18.610 ms, gi less its push 22.447 ms).
+Left, cards of real lines (teaser_lines.py), each marked in the colour of the mark the
+centre draws for it; the shell commands of docs/guides/quick_start.md wrapped at their
+arguments, the C lines without their indentation. Centre: the card as levels.py draws it
+(ports: X280 1; the job thread: clusters 2 and 3, program/jobs/thread.py; an update's
+applies on ranks 0 to 29, update_cores 30); one frame's phases and the update after a
+sun move from measurements/gi_threads (Sponza). Right: frames of gi_threads from the
+viewer (docs/images/frame-*.jpg), triangles from docs/concepts/scenes.md, ms from
+measurements/gi_threads; the rows from measurements/gi_threads (frame ratio less push,
+lynxsdesign_a01894bbb8, the update), docs/internals/raster/model.md (lists grown,
+checks/camera_moves), measurements/transport_build (the artists' scene, 8 threads) and
+measurements/account with threads_account (lit, Sponza: FILL, SHADE, LIGHT written
+against the rows out), as resident.py quotes them.
 """
 
-import random
+import base64
+import io
 import sys
 
-from draw import Svg, box, chip, write
+from draw import REPO, Svg, write
+from PIL import Image
+from teaser_lines import (
+    CARDS,
+    FRAME_MS,
+    FRAMES_DURING,
+    GI_LESS_PUSH_MS,
+    GI_STOP_MS,
+    NOTES,
+    PHASES,
+    PICTURES,
+    RATIOS,
+    ROWS,
+    SWAP_MS,
+)
 
 FW = 880
+LX, LW = 8, 408  # the columns: left, centre, right
+MX, MW = 426, 276
+RX, RW = 712, 160
+TOP = 34
+STEP, HEAD = 14, 24  # a code line; a card's title row
+PW, PH = 160, 92  # a picture
 
 
-def file_icon(s, x, y, w, h, name):
+def pale(c, colour):
+    return c[colour][1] if colour == "g" else c[colour][2]
+
+
+def mark(s, x, y, colour, kind, length=20):
+    s.line(
+        x,
+        y,
+        x + length,
+        y,
+        colour,
+        2.0,
+        dash="4 3" if kind == "dash" else None,
+        tail=kind == "both",
+    )
+
+
+def card(s, x, y, w, title, colour, kind, source, lines):
+    """A card of real lines; returns its bottom."""
     c = s.c
-    fold = 12
-    d = (
-        f"M{x},{y} L{x + w - fold},{y} L{x + w},{y + fold} L{x + w},{y + h} "
-        f"L{x},{y + h} z"
-    )
-    s.add(f'<path d="{d}" fill="{c["box"]}" stroke="{c["rule"]}" stroke-width="1.3"/>')
-    s.add(
-        f'<path d="M{x + w - fold},{y} L{x + w - fold},{y + fold} L{x + w},{y + fold}" '
-        f'fill="none" stroke="{c["rule"]}" stroke-width="1.3"/>'
-    )
-    s.text(x + w / 2, y + h / 2 + 4, name, 12, c["fg"], True, True, "middle")
+    h = HEAD + STEP * len(lines) + 6
+    s.rect(x, y, w, h, c["box"], c["line"], rx=4, layer=0)
+    mark(s, x + 8, y + 12, colour, kind)
+    s.text(x + 34, y + 16.5, title, 12, c["fg"], True)
+    s.text(x + w - 8, y + 16.5, source, 11, c["mute"], anchor="end")
+    for i, (text, tint, note, ink) in enumerate(lines):
+        ly = y + HEAD + STEP * i
+        if tint and tint != "skip":
+            s.rect(x + 1, ly, w - 2, STEP, pale(c, tint), rx=0)
+            s.rect(x + 1, ly, 3, STEP, c[tint][0], rx=0)
+        fill = c["mute"] if tint == "skip" else c["fg"]
+        s.text(x + 9, ly + 10.5, text, 11, fill, mono=True)
+        if note:
+            fill = c["mute"] if ink == "mute" else c[ink][0]
+            s.text(x + w - 8, ly + 10.5, note, 11, fill, ink != "mute", anchor="end")
+    return y + h
 
 
-def label(s, x, y, text, colour, anchor="middle", size=11.5, bold=True):
-    s.text(x, y, text, size, s.c[colour][0], bold, anchor=anchor)
+def grid(s, x, y):
+    """The card: DRAM columns, 120 cores in two blocks, the X280 clusters, the marks;
+    returns the bottom."""
+    c = s.c
+    pitch, cell, rows = 14, 12, 15
+    bw = 60  # an X280 box
+    dl, tl = x + 6, x + 17
+    xc = tl + 6 * pitch + 5
+    tr = xc + bw + 5
+    dr = tr + 6 * pitch + 3
+    at = {}
+    for row in range(10):
+        ry = y + row * rows
+        for px in (dl, dr):
+            s.rect(px, ry, 8, cell, c["dram"], rx=2, layer=0)
+        for k in range(12):
+            rank = row * 12 + k
+            px = (tl if k < 6 else tr) + (k % 6) * pitch
+            apply = rank < 30
+            s.rect(
+                px,
+                ry,
+                cell,
+                cell,
+                c["r"][1],
+                c["a"][0] if apply else c["r"][0],
+                rx=2,
+                sw=1.6 if apply else 0.6,
+                layer=0,
+            )
+            at[rank] = (px + cell / 2, ry + cell / 2)
+    boxes = (("X280 0", "g", "Komorebi"), ("X280 1", "w", "frame"))
+    boxes += (("X280 2", "m", "jobs"), ("X280 3", "m", "jobs"))
+    mid = {}
+    for i, (name, colour, sub) in enumerate(boxes):
+        by = y + i * 38
+        s.rect(xc, by, bw, 33, c[colour][2], c[colour][0], rx=3, sw=1.4, layer=0)
+        s.text(xc + bw / 2, by + 13, name, 11, c[colour][0], True, anchor="middle")
+        s.text(xc + bw / 2, by + 27, sub, 11, c["fg"], anchor="middle")
+        mid[name] = by + 16.5
+    # pulls: cores and their port on X280 1, both ways
+    w1 = mid["X280 1"]
+    for rank in (39, 87):
+        s.line(at[rank][0] + 6, at[rank][1], xc - 1, w1, "w", 1.6, tail=True)
+    for rank in (44, 104):
+        s.line(xc + bw + 1, w1, at[rank][0] - 6, at[rank][1], "w", 1.6, tail=True)
+    # the job thread queues the applies on ranks 0 to 29
+    w2 = mid["X280 2"]
+    s.line(xc - 1, w2, at[26][0] + 5, at[26][1] + 5, "m", 1.6)
+    s.line(xc + bw + 1, w2, at[21][0] - 5, at[21][1] + 5, "m", 1.6)
+    # the display pages leave the card
+    s.line(dr + 9, y + 75, RX - 4, y + 75, "p", 2.2)
+    s.text(dr + 8, y + 162, "DRAM", 11, c["mute"], True, anchor="end")
+    return y + 10 * rows
+
+
+def key(s, x, y):
+    """What each mark on the card is; returns the bottom."""
+    c = s.c
+    items = (
+        ("w", "pulls: a core asks X280 1 for a thread"),
+        ("r", "every core inside a tile thread"),
+        ("a", "ranks 0 to 29: an update's applies"),
+        ("m", "X280 2, 3: the job thread's graph"),
+        ("p", "the display pages leave"),
+    )
+    for i, (colour, text) in enumerate(items):
+        ly = y + i * 15
+        if colour == "r":
+            s.rect(x + 4, ly - 9, 12, 12, c["r"][1], c["r"][0], rx=2, sw=0.6)
+        elif colour == "a":
+            s.rect(x + 4, ly - 9, 12, 12, c["r"][1], c["a"][0], rx=2, sw=1.6)
+        else:
+            mark(s, x, ly - 3, colour, "both" if colour == "w" else "solid", 18)
+        s.text(x + 26, ly, text, 11, c["fg"])
+    return y + 5 * 15
+
+
+def tile(s, x, y, w):
+    """One core's tile thread: its steps, its planes in L1; returns the bottom."""
+    c = s.c
+    s.text(x, y, "the core that takes a tile runs, in order:", 11, c["fg"], True)
+    px = x
+    for name in ("visibility", "material_lit", "light", "post"):
+        bw = len(name) * 6.62 + 10
+        s.rect(px, y + 6, bw, 19, c["r"][2], c["r"][0], rx=4, sw=1.2)
+        s.text(px + 5, y + 19.5, name, 11, c["fg"], mono=True)
+        px += bw + 4
+    s.rect(x, y + 30, w, 18, c["y"][2], c["y"][0], rx=4, sw=1.2)
+    s.text(x + 6, y + 43, "frame.visibility, frame.surface: L1", 11, c["fg"], mono=True)
+    s.text(x, y + 63, "in: lists, pages; out: one display page", 11, c["mute"])
+    return y + 63
+
+
+def frame(s, x, y, w):
+    """One gi_threads frame's phases and gi less push; returns the bottom."""
+    c = s.c
+    s.text(x, y, "one gi_threads frame, Sponza", 12, c["fg"], True)
+    s.text(x + w, y, f"{FRAME_MS:.2f} ms", 12, c["r"][0], True, anchor="end")
+    label = 58
+    x0, span = x + label, w - label - 2
+    scale = (span - 40) / GI_LESS_PUSH_MS
+    rows = ("host", "X280 1", "cores")
+    ys = [y + 10 + 22 * i for i in range(3)]
+    for name, ly in zip(rows, ys, strict=True):
+        s.text(x, ly + 13, name, 11, c["fg"], True)
+        s.rule(x0, ly + 9, x + w, ly + 9, 0.6)
+    s.rect(x0 + 4, ys[0] + 2, 170, 15, c["bg"], rx=2)
+    s.text(x0 + 6, ys[0] + 13, "FRAME: no round trip", 11, c["mute"])
+    s.rect(x0, ys[1], FRAME_MS * scale, 18, c["w"][2], c["w"][0], rx=2, sw=1)
+    s.text(x0 + 6, ys[1] + 13, "answers the pulls", 11, c["fg"])
+    t = 0.0
+    for name, ms in PHASES:
+        colour = c["r"][0] if name == "tile" else c["r"][1]
+        s.rect(
+            x0 + t * scale + 0.4, ys[2], max(ms * scale - 0.8, 1.2), 18, colour, rx=1
+        )
+        t += ms
+    tx = x0 + (t - PHASES[-1][1] / 2) * scale
+    label = f"tile {PHASES[-1][1]:.2f}"
+    s.text(tx, ys[2] + 13, label, 11, c["ink"], True, anchor="middle")
+    first = ", ".join(f"{n} {ms:.2f}" for n, ms in PHASES[:3])
+    s.text(x0, ys[2] + 32, first, 11, c["mute"])
+    by = ys[2] + 42
+    s.text(x, by + 13, "gi", 11, c["fg"], True)
+    s.rect(x0, by, GI_LESS_PUSH_MS * scale, 18, c["g"][1], c["rule"], rx=2, sw=0.8)
+    s.text(x0 + 6, by + 13, "stage-wise, less push", 11, c["fg"])
+    s.text(x + w, by + 13, f"{GI_LESS_PUSH_MS:.2f}", 11, c["fg"], True, anchor="end")
+    return by + 18
+
+
+def update(s, x, y, w):
+    """The field's update after a sun move, in each form; returns the bottom."""
+    c = s.c
+    s.text(x, y, "the sun moved: the field's update", 12, c["fg"], True)
+    label = 72
+    x0 = x + label
+    scale = (w - label - 44) / GI_STOP_MS
+    gy = y + 10
+    s.text(x, gy + 13, "gi_threads", 11, c["fg"], True)
+    s.rect(x0, gy, SWAP_MS * scale, 18, c["r"][2], c["m"][0], rx=2, sw=1.2)
+    s.text(x0 + 6, gy + 13, f"{FRAMES_DURING} frames drawn", 11, c["fg"])
+    s.rule(x0 + SWAP_MS * scale, gy - 3, x0 + SWAP_MS * scale, gy + 21, 2)
+    s.text(x0 + SWAP_MS * scale + 4, gy + 13, f"{SWAP_MS}", 11, c["fg"], True)
+    sy = gy + 24
+    s.text(x, sy + 13, "gi", 11, c["fg"], True)
+    s.rect(x0, sy, GI_STOP_MS * scale, 18, c["bg"], c["rule"], rx=2, sw=1, dash="4 3")
+    s.text(x0 + 6, sy + 13, "stopped: no frame", 11, c["mute"])
+    s.text(x0 + GI_STOP_MS * scale + 4, sy + 13, f"{GI_STOP_MS}", 11, c["fg"], True)
+    s.text(x, sy + 34, "ms from the sun set to the new field's frame", 11, c["mute"])
+    return sy + 34
+
+
+def ratios(s, x, y, w):
+    """Each scene's frame over gi's less push as a dot on 0.6 to 1.1; returns the
+    bottom."""
+    c = s.c
+    s.text(x, y, "every scene: gi_threads / gi less push", 12, c["fg"], True)
+    label, low, high = 124, 0.6, 1.1
+    x0, span = x + label, w - label - 30
+
+    def at(r):
+        return x0 + (r - low) / (high - low) * span
+
+    top = y + 8
+    for i, (name, ratio) in enumerate(RATIOS):
+        ry = top + 14 * i
+        s.text(x, ry + 10.5, name, 11, c["fg"], mono=" " not in name)
+        s.rule(x0, ry + 7, x0 + span, ry + 7, 0.5, "1 3")
+        colour = "p" if ratio > 1 else "r"
+        s.rect(at(ratio) - 4, ry + 3, 8, 8, c[colour][0], rx=4)
+        s.text(x0 + span + 4, ry + 10.5, f"{ratio:.2f}", 11, c[colour][0], True)
+    bottom = top + 14 * len(RATIOS)
+    s.rule(at(1.0), top - 2, at(1.0), bottom + 2, 1.2)
+    for r in (0.6, 0.8, 1.0):
+        s.text(at(r), bottom + 12, f"{r:.1f}", 11, c["mute"], anchor="middle")
+    return bottom + 12
+
+
+def jpeg_uri(path, middle):
+    """A picture cut to PW x PH around `middle` (of its height), at twice the size."""
+    image = Image.open(path).convert("RGB")
+    side = image.width
+    h = round(side * PH / PW)
+    top = min(max(round(middle * side - h / 2), 0), side - h)
+    image = image.crop((0, top, side, top + h)).resize((2 * PW, 2 * PH), Image.LANCZOS)
+    data = io.BytesIO()
+    image.save(data, "JPEG", quality=72, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(data.getvalue()).decode()
+
+
+def outcomes(s, x, y):
+    """The pictures and the rows; returns the bottom."""
+    c = s.c
+    for stem, name, triangles, ms, middle in PICTURES:
+        uri = jpeg_uri(REPO / "docs" / "images" / f"frame-{stem}.jpg", middle)
+        s.add(f'<image x="{x}" y="{y}" width="{PW}" height="{PH}" href="{uri}"/>', 0)
+        s.rect(x, y, PW, PH, "none", c["line"], rx=0, layer=0)
+        s.text(x, y + PH + 13, name, 11, c["fg"], True)
+        s.text(x, y + PH + 26, f"{triangles} tris, {ms:.2f} ms", 11, c["mute"])
+        y += PH + 33
+    for what, condition, value, against, colour in ROWS:
+        s.rect(x, y, RW, 44, c["box"], c["line"], rx=4, layer=0)
+        s.text(x + 7, y + 14, what, 11, c["fg"], True)
+        s.text(x + RW - 7, y + 14, condition, 11, c["mute"], anchor="end")
+        s.text(x + 7, y + 27, value, 11.5, c[colour][0], True)
+        s.text(x + 7, y + 40, against, 11, c["mute"])
+        y += 48
+    return y - 4
 
 
 def teaser(theme):
-    s = Svg(theme, "Komorebi-Prism: glTF in, frame out, the card drawing alone", FW)
+    s = Svg(theme, "Komorebi-Prism: what one gives it, the card drawing alone", FW)
     c = s.c
-    s.text(
-        16, 26, "glTF in, frame out: the card draws each frame alone", 17, None, True
-    )
-    s.text(
-        16,
-        45,
-        "the host sends one command a frame; the cores take the frame's tiles "
-        "one by one and run every step of the tile they took",
-        12,
-        c["mute"],
-    )
-    top, hgt = 60, 318
+    s.text(LX, 22, "you give it", 17, c["fg"], True)
+    s.text(MX, 22, "the card draws it by itself", 17, c["w"][0], True)
+    s.text(RX, 22, "what comes out", 17, c["fg"], True)
 
-    # the host
-    hx, hw = 16, 170
-    box(s, hx, top, hw, hgt, "the host", "Python: prism.loop", "g")
-    file_icon(s, hx + 40, top + 50, 90, 34, "scene.glb")
-    s.line(hx + 40, top + 86, hx + 40, top + 108, "g", 1.6)
-    s.text(hx + 48, top + 101, "prism_cli open", 11.5, c["fg"], mono=True)
-    chip(s, hx + 14, top + 110, hw - 28, 40, "tables, once", "g", "loaded to DRAM once")
-    s.text(hx + 14, top + 186, "each frame:", 12, c["mute"])
-    s.text(hx + 14, top + 204, "Loop.frame(camera)", 11.5, c["fg"], True, True)
-    s.text(hx + 14, top + 236, "sends camera + FRAME", 11.5, c["w"][0], True)
-    s.text(hx + 14, top + 268, "after the frame:", 12, c["mute"])
-    s.text(hx + 14, top + 286, "display pages read", 12, c["fg"])
+    y = TOP
+    for spec in CARDS:
+        y = card(s, LX, y, LW, *spec) + 5
+    left = y - 5
+    s.line(LX + LW + 1, 300, MX - 3, 300, "g", 1.8)
 
-    # the card
-    cx, cw = 214, 370
-    box(s, cx, top, cw, hgt, "one Blackhole P150A", "", "w")
-    s.rect(cx + 12, top + 32, cw - 24, 34, c["dram"], rx=4)
-    s.text(cx + 20, top + 47, "DRAM", 12, c["fg"], True)
-    s.text(
-        cx + 20,
-        top + 61,
-        "mesh blocks, lists, textures, shadow map, field",
-        11,
-        c["fg"],
-    )
-    # load arrow: host tables -> DRAM
-    s.poly(
-        [
-            (hx + hw - 14, top + 122),
-            (cx - 10, top + 122),
-            (cx - 10, top + 49),
-            (cx + 10, top + 49),
-        ],
-        "g",
-        1.6,
-    )
+    s.rect(MX, TOP, MW, left - TOP, c["bg"], c["w"][0], rx=6, sw=1.6, layer=0)
+    ix, iw = MX + 10, MW - 20
+    s.text(ix, TOP + 18, "host", 11, c["fg"], True)
+    s.text(ix + 34, TOP + 18, "the camera and one command a frame", 11, c["mute"])
+    s.rule(MX + 6, TOP + 26, MX + MW - 6, TOP + 26, 0.8)
+    s.text(ix, TOP + 44, "P150A: 120 Tensix cores, 4 X280s", 11, c["fg"], True)
+    gy = grid(s, MX, TOP + 54) + 22
+    ky = key(s, ix, gy) + 10
+    ty = tile(s, ix, ky, iw) + 22
+    fy = frame(s, ix, ty, iw) + 26
+    uy = update(s, ix, fy, iw) + 26
+    ratios(s, ix, uy, iw)
 
-    # X280 cluster 1: the frame's thread
-    xx, xy, xw, xh = cx + 12, top + 92, 110, 108
-    s.rect(xx, xy, xw, xh, c["w"][2], c["w"][0], rx=6, sw=1.4)
-    s.text(xx + 8, xy + 17, "X280 cluster 1", 11.5, c["w"][0], True)
-    s.text(xx + 8, xy + 32, "the frame's", 12, c["fg"], True)
-    s.text(xx + 8, xy + 46, "thread", 12, c["fg"], True)
-    for i in range(4):
-        s.rect(xx + 8 + i * 21, xy + 56, 17, 17, c["bg"], c["w"][0], rx=3, sw=1)
-    s.text(xx + 8, xy + 88, "4 cores: a port", 11, c["mute"])
-    s.text(xx + 8, xy + 101, "for 30 cores each", 11, c["mute"])
-    # FRAME arrow: host -> X280 1
-    s.line(hx + hw - 14, top + 214, xx - 2, xy + 62, "w", 2.2)
-    # X280 2, 3: the job thread
-    jx, jy, jh = xx, xy + xh + 14, 92
-    s.rect(jx, jy, xw, jh, c["m"][2], c["m"][0], rx=6, sw=1.4)
-    s.text(jx + 8, jy + 17, "X280 clusters 2, 3", 11, c["m"][0], True)
-    s.text(jx + 8, jy + 33, "the job thread", 12, c["fg"], True)
-    s.text(jx + 8, jy + 50, "the indirect", 11, c["mute"])
-    s.text(jx + 8, jy + 64, "field's update,", 11, c["mute"])
-    s.text(jx + 8, jy + 78, "beside the frames", 11, c["mute"])
-    # display pages back: DRAM -> host
-    s.line(cx + 2, top + 282, hx + hw - 14, top + 282, "r", 1.6, dash="5 3")
-
-    # the 120 Tensix cores
-    gx, gy, cell, gap = cx + 136, top + 92, 15, 3
-    rng = random.Random(3)
-    busy = {}
-    for i in range(120):
-        r, k = divmod(i, 12)
-        x = gx + k * (cell + gap) + (6 if k >= 6 else 0)
-        y = gy + r * (cell + gap)
-        on = rng.random() < 0.85
-        busy[i] = (x, y)
-        fill = c["r"][1] if on else c["cell"]
-        s.rect(x, y, cell, cell, fill, c["r"][0] if on else c["line"], rx=2, sw=0.8)
-    s.text(
-        gx, gy + 10 * (cell + gap) + 12, "120 Tensix cores, each asking", 11.5, c["fg"]
-    )
-    s.text(gx, gy + 10 * (cell + gap) + 26, "for its next tile thread", 11.5, c["fg"])
-    # pulls: X280 1 <-> a few cores
-    for core in (13, 40, 66, 99):
-        x, y = busy[core]
-        s.line(xx + xw + 2, xy + 64, x - 1, y + cell / 2, "w", 1.1, tail=True)
-    label(s, xx + xw + 6, xy - 6, "pulls: ask, answer", "w", "start", 11.5)
-
-    # the frame
-    fx, fw = 600, FW - 600 - 16
-    box(s, fx, top, fw, hgt, "the frame", "1,920 x 1,080: 60 x 34 tiles", "r")
-    tx, ty, t = fx + 14, top + 52, 4
-    rng = random.Random(11)
-    order = list(range(60 * 34))
-    runs = []  # (row, first, last, fill): a row's tiles of one fill as one rect
-    for tile in order:
-        r, k = divmod(tile, 60)
-        slice_ = r * 4 + k // 16
-        if r < 22 or (r < 26 and (slice_ * 5) % 7 < 3):
-            fill = c["r"][1]
-        elif r < 26 and rng.random() < 0.25:
-            fill = c["r"][0]
-        else:
-            fill = c["cell"]
-        if runs and runs[-1][0] == r and runs[-1][3] == fill:
-            runs[-1][2] = k
-        else:
-            runs.append([r, k, k, fill])
-    for r, a, b, fill in runs:
-        s.rect(tx + a * t, ty + r * t, (b - a + 1) * t, t, fill, rx=0)
-    grid = "".join(f"M{tx + k * t:.1f},{ty} v{34 * t}" for k in range(61))
-    grid += "".join(f"M{tx},{ty + r * t:.1f} h{60 * t}" for r in range(35))
-    s.add(f'<path d="{grid}" stroke="{c["bg"]}" stroke-width="0.6" fill="none"/>')
-    # one slice outlined: row 24, tiles 16..31
-    sr = 24
-    s.rect(
-        tx + 16 * t - 1,
-        ty + sr * t - 1,
-        16 * t + 1,
-        t + 1.4,
-        "none",
-        c["a"][0],
-        rx=1,
-        sw=1.4,
-    )
-    gh = 34 * t
-    s.text(tx, ty + gh + 16, "a slice: 16 tiles of a row", 11.5, c["a"][0], True)
-    # the core -> its tile
-    core_x, core_y = busy[40]
-    hot_x, hot_y = tx + 22 * t, ty + sr * t + 2
-    s.rect(hot_x - 1.5, hot_y - 3.5, t + 3, t + 3, c["r"][0], rx=1)
-    s.add(
-        f'<rect x="{core_x - 2:.1f}" y="{core_y - 2:.1f}" width="{cell + 4}" '
-        f'height="{cell + 4}" rx="3" fill="none" stroke="{c["fg"]}" stroke-width="1.6"/>',
-        2,
-    )
-    s.poly(
-        [
-            (core_x + cell + 2, core_y + cell / 2),
-            (fx - 6, core_y + cell / 2),
-            (hot_x, hot_y),
-        ],
-        "r",
-        1.6,
-    )
-    # the steps of a tile thread
-    sy = ty + gh + 30
-    s.text(tx, sy, "the core that took a tile runs:", 11.5, c["fg"])
-    steps = ("visibility", "material_lit", "light", "post")
-    widths = (74, 92, 46, 40)
-    x = tx
-    for name, w in zip(steps, widths, strict=True):
-        chip(s, x, sy + 8, w, 22, name, "r", size=11)
-        x += w + 4
-    s.rect(tx, sy + 36, fw - 28, 18, c["y"][2], c["y"][0], rx=4, sw=1)
-    s.text(tx + 6, sy + 49, "the tile's planes stay in its L1", 11.5, c["fg"])
-    s.text(tx, sy + 72, "then writes one display page", 11.5, c["fg"])
-    s.text(tx, sy + 87, "(32 x 32 pixels) to DRAM", 11.5, c["fg"])
-
-    # legend line and the numbers
-    ly = top + hgt + 22
-    items = (
-        (c["r"][1], c["r"][0], "a core with a tile thread; a tile written"),
-        (c["r"][0], c["r"][0], "a tile being drawn"),
-        (c["cell"], c["line"], "idle core; tile not yet taken"),
-    )
-    x = 16
-    for fill, edge, text in items:
-        s.rect(x, ly - 10, 12, 12, fill, edge, rx=2, sw=0.8)
-        s.text(x + 18, ly, text, 11.5, c["fg"])
-        x += 30 + 6.3 * len(text)
-    ny = ly + 26
-    s.text(16, ny + 4, "Sponza, 1,920 x 1,080, ms a frame", 12, c["fg"], True)
-    scale = 330 / 22.447
-    bars = (
-        ("gi_threads", 18.610, "r", "threads"),
-        ("gi less push", 22.447, "g", "stage-wise"),
-    )
-    for i, (name, ms, colour, note) in enumerate(bars):
-        y = ny + 16 + i * 24
-        s.text(320, y + 12, name, 11.5, c["fg"], True, True, "end")
-        s.rect(330, y, ms * scale, 17, c[colour][1], c[colour][0], rx=3, sw=1)
-        s.text(336 + ms * scale, y + 13, f"{ms:.3f}  {note}", 11.5, c["fg"])
-    return s.finish(ny + 70)
+    right = outcomes(s, RX, TOP)
+    ny = max(left, right) + 16
+    for i, note in enumerate(NOTES):
+        s.text(LX, ny + 14 * i, note, 11, c["mute"])
+    return s.finish(ny + 14 * len(NOTES) - 4)
 
 
 def main():

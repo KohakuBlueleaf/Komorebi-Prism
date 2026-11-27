@@ -7,13 +7,19 @@ and matrix-heavy. glTF in, frame out.**
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/teaser-dark.svg">
-  <img src="docs/images/teaser-light.svg" width="880" alt="glTF in, frame out: the host opens scene.glb once with prism_cli open and loads its tables into the card's DRAM; each frame Loop.frame(camera) sends the camera and one command, FRAME, to the frame's thread on X280 cluster 1, whose four cores are the ports of the 120 Tensix cores; the cores ask it for tile threads (pulls) and each runs every step of the tile it took (visibility, material_lit, light, post) with the tile's planes in its L1, then writes one display page of 32 x 32 pixels; the frame of 1,920 x 1,080 is 60 x 34 tiles, cut into slices of 16 tiles; the job thread on X280 clusters 2 and 3 updates the indirect field beside the frames; the host reads the display pages back. Sponza at 1,920 x 1,080: gi_threads 18.610 ms a frame against the stage-wise gi's 22.447 ms less its push.">
+  <img src="docs/images/teaser-light.svg" width="880" alt="You give it: the commands prism_cli open with a glTF file and prism_viewer.server with --pipeline gi_threads; the preset configs/pipeline/gi_threads.py, which names an implementation for each item of the pipeline; the light stage's Step, which reads and leaves planes kept in L1, and the tile thread LIT; the pull (kmx_pull_run on X280 1, port.next on a core); the transport's apply y = M x on 32 x 32 tiles (matmul_block); the field update's graph. The card draws it by itself: 120 Tensix cores, each inside a tile thread, asking X280 1 for threads; X280 2 and 3 run the job thread, whose graph queues the update's applies on ranks 0 to 29; the display pages leave; one core runs visibility, material_lit, light, post with frame.visibility and frame.surface in its L1. One gi_threads frame on Sponza: 18.61 ms (count 1.04, sums 0.32, place 1.81, tile 15.43), the host sending one command, against the stage-wise gi less its push, 22.45 ms; after a sun move gi_threads draws 3 frames during the update and swaps at 138.5 ms, where gi stops for 174.5 ms; each of ten scenes' gi_threads frame over gi less push, 0.71 to 0.92 and 1.08 on the largest. What comes out: gi_threads frames of Sponza (18.61 ms), Breakfast Room (15.30 ms), Bistro interior (24.18 ms) and The Modern Living Room (18.20 ms); 0 pixels different from gi in 1,920 frames; 102.09 ms against 94.16 on the 29.8 M-triangle scene; lists grown in 5.3 ms against a reload of 6.5 to 7.3 s; the transport built block by block in 205 s against 986 s dense; 8.36 MB written a frame against 207.52 MB between the stage-wise steps.">
 </picture>
 
-*The host opens the file once; after that a frame is one command. The frame's thread on the card's
-X280 cores hands the frame's tiles to the Tensix cores that ask, and a core runs every step of
-the tile it took. Sponza's overview, 1,920 x 1,080, one P150A, the median frame on the card
-([gi_threads](measurements/gi_threads/README.md)); every `gi_threads` picture equal to `gi`'s.*
+*What you give it, real lines of the files each card names, marked in the colour of what it
+causes on the card; the card running a frame by itself and the field's update beside the
+frames; real `gi_threads` frames and what each number is compared with. One P150A, 1,920 x
+1,080, the median frame on the card at each scene's overview
+([gi_threads](measurements/gi_threads/README.md)); the pictures from the viewer at 1,024 x
+1,024; every `gi_threads` picture equal to `gi`'s. The transport build:
+[transport_build](measurements/transport_build/README.md); the bytes:
+[account](measurements/account/README.md) and
+[threads_account](measurements/threads_account/README.md); the lists grown: [the raster's
+model](docs/internals/raster/model.md).*
 
 A frame is drawn by the card alone. The host writes the camera and sends one command,
 FRAME, to a thread on the card's X280 cores, **the frame's thread**. It cuts the view's
@@ -351,7 +357,9 @@ The code is under the Apache License 2.0 ([LICENSE](LICENSE)).
 
 The repository holds no scene: the scenes are public ones, downloaded from their sources
 by `scripts/data/public_scenes.py`, each under its own licence. The pictures in the docs
-show Crytek Sponza (Frank Meinl, Crytek; CC BY 3.0) and the Amazon Lumberyard Bistro
-(Amazon Lumberyard, ORCA; CC BY 4.0), both from Morgan McGuire's Computer Graphics Archive.
+show Crytek Sponza (Frank Meinl, Crytek; CC BY 3.0), the Amazon Lumberyard Bistro
+(Amazon Lumberyard, ORCA; CC BY 4.0) and the Breakfast Room (Wig42; CC BY 3.0), from
+Morgan McGuire's Computer Graphics Archive, and The Modern Living Room (Wig42; CC BY 3.0),
+from Benedikt Bitterli's Rendering Resources.
 Every scene's source, credit and licence is in
 [docs/concepts/scenes.md](docs/concepts/scenes.md#scenes-and-attribution).
