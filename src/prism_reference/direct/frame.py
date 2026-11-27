@@ -3,7 +3,12 @@ shadow, lamps, specular), the background, glass and the optional indirect term."
 
 import numpy as np
 
-from prism_reference.direct.glass import glass_over
+from prism_reference.direct.glass import (
+    GLASS_LIGHT,
+    glass_over,
+    sun_glass_map,
+    sun_through,
+)
 from prism_reference.direct.lamps import point_irradiance
 from prism_reference.direct.shadow import sun_shadow
 from prism_reference.direct.sky import background, sky_irradiance
@@ -42,7 +47,7 @@ from prism_reference.raster.vector import dot3, normalized
 F = np.float32
 # The terms of the colour (all by default) and the one off by default (bounced light).
 TERMS = ("sky", "ambient", "sun", "shadow", "lamps", "specular", "background", "glass")
-OPTIONAL_TERMS = ("indirect",)
+OPTIONAL_TERMS = ("indirect", GLASS_LIGHT)
 
 
 def smooth_setup(scene):
@@ -143,6 +148,9 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
             lights["sun_irradiance"]
             * (np.maximum(dot3(normal, sun_dir[None, :]), F(0)) * shadow)[:, None]
         )
+        if variant.get("sun_glass") is not None:
+            through = sun_through(lights, variant["sun_glass"], position, normal)
+            sun_e = sun_e * np.where(glass[:, None], F(1), through)
     shine = specular * gloss(sun_dir[None, :])[:, None] * (sun_e * inv_pi)
     points_e = np.zeros_like(albedo)
     for k in range(len(lights["lamp_intensity"]) if "lamps" in terms else 0):
@@ -209,6 +217,9 @@ def rasterize_lighted(scene, materials, lights, smooth=False, pcf=True, terms=TE
     if "indirect" in variant["terms"]:
         field_for(lights)
         variant["indirect"] = lambda p, n: irradiance(lights, p, n)
+    through = {"sun", "shadow", "glass", GLASS_LIGHT} <= variant["terms"]
+    through = through and bool((glass["tri"] >= 0).any())
+    variant["sun_glass"] = sun_glass_map(scene, materials, lights) if through else None
     opaque_colour, _, opaque_parts = light_layer(
         scene, materials, prepared, opaque, lights, variant
     )
@@ -241,7 +252,10 @@ def rasterize_lighted(scene, materials, lights, smooth=False, pcf=True, terms=TE
         )
         tau, _ = glass_numbers(materials, glass, front)
         behind = (colour, own, tau)
-        colour = glass_over(scene, lights, glass, glass_parts, front, behind, terms)
+        field = variant.get("indirect")
+        colour = glass_over(
+            scene, lights, glass, glass_parts, front, behind, terms, field
+        )
         parts["glass_material"] = np.where(front, glass_parts["material"], -1)
         parts["glass_normal"] = np.where(front[:, :, None], glass_parts["normal"], F(0))
     display = tone(

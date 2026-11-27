@@ -257,21 +257,47 @@ table lookup or a texel fetch.
    tone curve, or the background's radiance), `a` the glass's albedo x base colour,
    `n` its triangle's normal turned toward the eye (no normal map, also in the smooth
    variant), `v` toward the eye:
-   `colour = tau C + (1 - max tau) a / pi E + S + F reflection R`. `E` is the glass's own
-   irradiance by the rules of "Lighting" (sky x visibility, ambient, sun with shadow,
-   lamps); `S` the `lit` kind's Blinn-Phong term for the sun and each lamp with the
-   material's specular colour and exponent (always, when it has a specular colour);
-   `R` the environment's radiance along `2 (n.v) n - v` (the octahedral map's nearest
-   texel, turned like the background); `F = F0 + (1 - F0)(1 - n.v)^5`, `F0 = 0.04`,
-   `n.v` clamped at 0; `reflection` the scene's number of its `lighting` entry. Then
-   the tone curve as for every pixel. `rasterize_shaded` (no lighting) uses
+   `colour = tau C + (1 - max tau) a / pi E + S + F reflection R`. `E` is the glass's
+   own irradiance by the rules of "Lighting" (sky x visibility, ambient, sun with
+   shadow, lamps); `S` the `lit` kind's Blinn-Phong term for the sun and each lamp with
+   the material's specular colour and exponent (always, when it has a specular colour);
+   `R` the environment's radiance along `r = 2 (n.v) n - v` (the octahedral map's
+   nearest texel, turned like the background); `F = F0 + (1 - F0)(1 - n.v)^5`,
+   `F0 = 0.04`, `n.v` clamped at 0; `reflection` the scene's number of its `lighting`
+   entry. Then the tone curve as for every pixel. With the term `glass_light` (off by
+   default, until the card draws it):
+   `colour = tau (1 - (F - F0)) C + (1 - max tau) a / pi E + S + F R'`, `F0` the
+   material's specular colour, `R'` the radiance arriving along `r`: with `reflection`
+   above 0, `reflection` x the environment's; else, with the term indirect, the field's
+   irradiance at the glass for the normal `r` over pi (the room and the sky as the field
+   holds them, a hemisphere's mean); else the sky's irradiance for `r` over pi. The
+   converter's numbers make a BLEND material a coverage (its own diffuse and specular
+   weighted by alpha, `tau = 1 - alpha` and its transmitted part) and a metal opaque
+   ([glTF scenes](../../guides/gltf_scenes.md), "The mapping"). A thin surface: nothing
+   is refracted, the surface behind is seen where it lies.
+   `rasterize_shaded` (no lighting) uses
    `tau C + (1 - max tau) a light` with its light term and no `S` or `R`; on scenes without
    transparent materials its results are unchanged (no third FILL runs).
-3. **Shadows.** Transparent triangles cast none: the shadow map is `rasterize_shaded`'s
-   1/z, which is the surface behind the glass. The baked sky visibility is not rebuilt:
-   it still treats glass as opaque.
-4. **Terms.** `glass` (default on): left out, transparent triangles are not drawn. `R`
-   needs `background`; `S` needs `specular`. `parts` gains the glass layer's own planes
+3. **Shadows.** Transparent triangles cast no shadow: the shadow map is
+   `rasterize_shaded`'s 1/z, which is the surface behind the glass. With the term
+   `glass_light` they take the sun's light by their materials' `shadow`: a glass map
+   from the shadow map's camera (`sun_glass_map`: the 1/z of the glass nearest the sun
+   and its material's `shadow`, the transparent triangles alone) multiplies the sun's
+   irradiance by `shadow` at a point behind that glass (the four nearest texels,
+   bilinear, the shadow's bias; one glass along the sun's way; the glass's own pixels
+   are not attenuated). `shadow` is the materials file's, 1 for a file without it (the
+   sun passes, as without the term): 0 for a refractive glTF surface, which then casts
+   a full shadow, as Cycles reading the same file shows it (measured per glass object:
+   the direct light behind refractive glass is 5 to 11 % of what it would be without
+   it, the rest noise and indirect; under BLEND alpha 0.35 two panes pass 0.38 against
+   0.65^2 = 0.42). The lamps have no visibility, so glass changes nothing of theirs: a
+   lamp behind refractive glass lights through it, which Cycles does not, so a surface
+   lit through glass by lamps or by the field (the sliding door's panel) stays brighter
+   than Cycles' until lamps have visibility. The baked sky visibility is not rebuilt: it
+   still treats glass as opaque.
+4. **Terms.** `glass` (default on): left out, transparent triangles are not drawn. `R`'s
+   environment form needs `background`; `S` needs `specular` (without it the term
+   `glass_light`'s `F0` is 0). `parts` gains the glass layer's own planes
    where it is in front: `glass_depth` (1/z, 0 elsewhere), `glass_tri` and
    `glass_material` (-1 elsewhere), `glass_normal` (`n`). The other parts, `depth` and
    `tri` stay those of the surface behind. `rasterize_shaded` also returns the glass
