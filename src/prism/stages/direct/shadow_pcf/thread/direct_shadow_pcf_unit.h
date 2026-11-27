@@ -9,30 +9,98 @@
 /* The sun region: LIGHT's table first, then from byte SHADOW_PCF_SUN_AT (a define: the
  * table's bytes) the sun's words below, then a camera a quadrant from
  * SHADOW_PCF_CAMERAS (DR_N_CAMERA_WORDS each) */
-#define SHADOW_PCF_QUADRANTS 0u    /* the map's quadrants: a DEPTH view each */
-#define SHADOW_PCF_ACROSS 1u       /* the quadrants a row of the map */
-#define SHADOW_PCF_GRID 2u         /* a quadrant's grid word */
-#define SHADOW_PCF_TILES 3u        /* its tiles */
-#define SHADOW_PCF_TILES_ACROSS 4u /* its tiles a row */
-#define SHADOW_PCF_TILES_DOWN 5u   /* its rows of tiles */
-#define SHADOW_PCF_TARGET 6u       /* the map's tensor */
-#define SHADOW_PCF_TARGET_FIRST 7u /* the map's first page in it */
-#define SHADOW_PCF_TARGET_PAGES 8u /* the tensor's pages */
-#define SHADOW_PCF_CAMERAS 16u     /* the first quadrant's camera, on a line */
+#define SHADOW_PCF_QUADRANTS 0u     /* the map's quadrants: a DEPTH view each */
+#define SHADOW_PCF_ACROSS 1u        /* the quadrants a row of the map */
+#define SHADOW_PCF_GRID 2u          /* a quadrant's grid word */
+#define SHADOW_PCF_TILES 3u         /* its tiles */
+#define SHADOW_PCF_TILES_ACROSS 4u  /* its tiles a row */
+#define SHADOW_PCF_TILES_DOWN 5u    /* its rows of tiles */
+#define SHADOW_PCF_TARGET 6u        /* the map's tensor */
+#define SHADOW_PCF_TARGET_FIRST 7u  /* the map's first page in it */
+#define SHADOW_PCF_TARGET_PAGES 8u  /* the tensor's pages */
+#define SHADOW_PCF_MAPS_AT 9u       /* the page of maps' first byte in the region */
+#define SHADOW_PCF_LEVELS_AT 10u    /* the levels' work bytes' first byte */
+#define SHADOW_PCF_LEVELS_BYTES 11u /* their bytes */
+#define SHADOW_PCF_CAMERAS 16u      /* the first quadrant's camera, on a line */
 
-/* The times region: a row a SUN command (the last SHADOW_PCF_TIMES_ROWS), its words
- * the number, the code, the pass's ticks, then each quadrant's */
+/* The times region: a row a SUN or FIT command (the last SHADOW_PCF_TIMES_ROWS), its
+ * words the number, the code, the pass's ticks, the map (0 SUN's, 1 + the record's
+ * for FIT), the levels' ticks, their fetches' and store's, then each view's */
 #define SHADOW_PCF_TIMES_ROWS 64u
 #define SHADOW_PCF_T_NUMBER 0u
 #define SHADOW_PCF_T_CODE 1u
 #define SHADOW_PCF_T_PASS 2u
-#define SHADOW_PCF_T_QUADRANT 3u
+#define SHADOW_PCF_T_MAP 3u
+#define SHADOW_PCF_T_LEVELS 4u
+#define SHADOW_PCF_T_COPIES 5u
+#define SHADOW_PCF_T_QUADRANT 6u
+
+/* The page of maps (in the sun region from SHADOW_PCF_MAPS_AT; the levels' work bytes
+ * after it): the words below, then from SHADOW_PCF_M_RECORDS
+ * two halves of SHADOW_PCF_M_MAPS records each (SHADOW_PCF_RECORD_WORDS a record, half
+ * h's record k at SHADOW_PCF_M_RECORDS + (h * maps + k) * SHADOW_PCF_RECORD_WORDS) */
+#define SHADOW_PCF_M_MAPS 0u      /* the records a half: the whole map's, then fits' */
+#define SHADOW_PCF_M_GRID 1u      /* a fitted view's grid word */
+#define SHADOW_PCF_M_TILES 2u     /* its tiles */
+#define SHADOW_PCF_M_FIT_PAGES 3u /* the fitted maps' tensor's pages */
+#define SHADOW_PCF_M_RECORDS 16u  /* the first record, on a line */
+
+/* A record: a map's camera (DR_N_CAMERA_WORDS words, the block first), then */
+#define SHADOW_PCF_R_TENSOR 16u        /* the tensor of its pages */
+#define SHADOW_PCF_R_FIRST 17u         /* its first page there */
+#define SHADOW_PCF_R_ACROSS 18u        /* its pages a row */
+#define SHADOW_PCF_R_SIDE 19u          /* its side in texels (0: no map) */
+#define SHADOW_PCF_R_TEXEL 20u         /* a texel's world size at the scene's centre */
+#define SHADOW_PCF_R_BIAS 21u          /* its depth bias (float32) */
+#define SHADOW_PCF_R_FILTER 22u        /* its filter (the lookup's) */
+#define SHADOW_PCF_R_MARGIN 23u        /* the texels in from its edge a point needs */
+#define SHADOW_PCF_R_LEVELS 24u        /* its levels below the map (0: none) */
+#define SHADOW_PCF_R_LEVELS_TENSOR 25u /* the tensor of the levels' pages */
+#define SHADOW_PCF_R_LEVELS_FIRST 26u  /* the first level's first page there */
+#define SHADOW_PCF_R_KIND 27u          /* SHADOW_PCF_KIND_* */
+#define SHADOW_PCF_R_WHICH 28u         /* the cascade's index, the lamp's face */
+#define SHADOW_PCF_R_VIEW 29u          /* the view that draws it */
+#define SHADOW_PCF_RECORD_WORDS 32u
+
+#define SHADOW_PCF_KIND_WHOLE 0u /* the sun's map over the scene's box */
+#define SHADOW_PCF_KIND_FIT 1u   /* a sun map fitted to a slice of the eye's view */
+
+/* A map's levels: level l + 1's texel the largest 1/z of level l's 2 x 2, down to 1 x
+ * 1, each in pages of 32 x 32 (a level under 32 texels a side in one page's corner),
+ * the levels one after another; a map is reduced in pieces of SHADOW_PCF_PIECE_PAGES
+ * pages a side */
+#define SHADOW_PCF_PAGE 32u
+#define SHADOW_PCF_PIECE_PAGES 32u
 
 /* The unit's code: quadrants past the frame's views or its times row, or no tiles */
 #define SHADOW_PCF_BAD_SUN (DR_UNIT_CODES + 1u)
+/* FIT's: a map or a half out of the page of maps, a record with no map, a view out of
+ * the frame's views, levels past the work region */
+#define SHADOW_PCF_BAD_FIT (DR_UNIT_CODES + 2u)
+/* a level's fetch or store did not finish */
+#define SHADOW_PCF_COPY (DR_UNIT_CODES + 3u)
+
+/* SUN's words: a0 1 + the half of the page of maps the frames read after it (0: the
+ * same) */
+#define SHADOW_PCF_SUN_HALF 0u
+
+/* FIT's words: a0 the map (its record's index), a1 the half its record is in, a2 1
+ * when the frames read that half after it */
+#define SHADOW_PCF_FIT_MAP 0u
+#define SHADOW_PCF_FIT_HALF 1u
+#define SHADOW_PCF_FIT_LAST 2u
 
 /* SUN: each quadrant's DEPTH view (its camera, the quadrant's grid, its pages of the
- * map as the target) by dr_view, in order; a times row of the director's (the units'
- * parts, the code, the view and layer that gave it) and one of its own. 0, or the
- * first code. */
+ * map as the target) by dr_view, in order; the whole map's levels when its record has
+ * them; a times row of the director's (the units' parts, the code, the view and layer
+ * that gave it) and one of its own; then the half its a0 names read. 0, or the first
+ * code. */
 uint32_t direct_shadow_pcf_unit_sun(dr_frame_t* frame, const km_command_t* command);
+
+/* FIT: the record's map drawn by its DEPTH view into its pages, its levels when it has
+ * them, a times row of its own (the quadrant word its view's); with a2 its half read by
+ * the frames from then on. 0, or the first code. */
+uint32_t direct_shadow_pcf_unit_fit(dr_frame_t* frame, const km_command_t* command);
+
+/* The slot light.shadow_maps: 1 + the half of the page of maps the frames read. */
+uint32_t direct_shadow_pcf_unit_shadow_maps(dr_frame_t* frame);
