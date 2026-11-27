@@ -3,6 +3,12 @@
 Recorded measurements: the card, the date and the command with every number. The pages
 under `docs/performance/` quote from here.
 
+A folder's README opens with its conditions; its card line, from the records'
+`aiclk_mhz` and `pcie_link`:
+
+    - Card: one Blackhole P150A, card <n>, <cores> cores, AICLK <MHz> MHz and its PCIe
+      link at <current> of <max> GT/s, before and after every run as the runs report it.
+
 | folder | what it records |
 | --- | --- |
 | [raster_show](raster_show/README.md) | the preset `raster` with its display: nine cases on a moving camera, the card's parts and the host's frame |
