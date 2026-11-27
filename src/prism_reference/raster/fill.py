@@ -74,6 +74,8 @@ def fill_tile(records, members, tx, ty):
         w = (wp[:, 0, None, None] * px + wp[:, 1, None, None] * py) + wp[
             :, 2, None, None
         ]
+        held = records["w_range"][m]
+        w = np.minimum(np.maximum(w, held[:, 0, None, None]), held[:, 1, None, None])
         w = np.where(inside, w, F(-np.inf))
         first = w.argmax(axis=0)
         best = np.take_along_axis(w, first[None], axis=0)[0]

@@ -85,8 +85,7 @@ def shade_word(area_bits, shade):
 
 
 def placed(packed):
-    """`packed` as the set-up pass leaves a record: no record number (kRecIndex 0)."""
-    packed[:, K["kRecIndex"]] = 0
+    """`packed` as the set-up pass leaves a record."""
     return packed
 
 

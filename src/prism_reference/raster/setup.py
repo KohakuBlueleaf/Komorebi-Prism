@@ -9,6 +9,8 @@ import numpy as np
 from prism_reference.scene.frame import TILE, frame_grid, frame_size
 
 F = np.float32
+HELD_LEAST = F(1 - 2**-16)  # a drawn 1/z is held within these of its corners' range
+HELD_MOST = F(1 + 2**-16)
 
 
 def grid(scene):
@@ -177,7 +179,9 @@ def depth_origin(scene):
 
 
 def setup(scene, extra=None):
-    """Per-triangle records of the triangles that can cover a pixel (dict of arrays);
+    """Per-triangle records of the triangles that can cover a pixel (dict of arrays;
+    "w_range": the least and most 1/z of its corners times HELD_LEAST and HELD_MOST,
+    which its drawn 1/z is held between);
     with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2".
     The 1/z planes are set up from 1/z less `depth_origin`, added back to their
     constant."""
@@ -225,6 +229,9 @@ def setup(scene, extra=None):
         "c": c_coef,
         "top_left": top_left,
         "w_planes": wp,
+        "w_range": np.stack(
+            [ww.min(axis=1) * HELD_LEAST, ww.max(axis=1) * HELD_MOST], axis=1
+        ).astype(F),
         "c_planes": cp,
         "box": np.stack([ix0, ix1, iy0, iy1], axis=1).astype(np.int32),
     }
