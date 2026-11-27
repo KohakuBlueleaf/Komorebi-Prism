@@ -28,7 +28,7 @@ masked layer merged into the opaque frame and surface; the glass layer's own sur
 | `kernels/mover_a/` | the directory pages (lit: the surface's frame words), the table (lit: the camera after it), an item's list pages and planes (lit merging: the opaque surface's two parts after them), the texel pages asked (`reader.hpp`, the polled step loop) |
 | `kernels/mover_b/writer.hpp` | the out items to the frame's planes (lit: three parts, the frame's and the surface's two frames), the profile to the core's page |
 | `kernels/pack/` | the pack thread: planes into Dst, u, v and light divided by 1/z, the records' keys (each slot's uv through its map, `keys.hpp` `slot_map`), the page passes and texels, colour, merge or blend, the profile; `list.hpp` the list pages read in order |
-| `kernels/pack/lit/` | the lit form on the pack thread: a pixel's winner and its slot, its tangents times the normal scale (`winners.hpp`, `slot.hpp`), the records' three keys (`records.hpp`), the page passes (`texels.hpp`), the surface planes (`surface.hpp`), the merge (`merge.hpp`), the command (`lit.hpp`) |
+| `kernels/pack/lit/` | the lit form on the pack thread: a pixel's winner and its slot, its tangents times the normal scale (`winners.hpp`, `slot.hpp`), the records' three keys (`records.hpp`), the page passes (`texels.hpp`), the surface planes with the normal filter: the albedo times the normal's length, the exponent and lobe widened (`surface.hpp`; [the normal filter](../../../../../docs/internals/material/normal_filter.md)), the merge (`merge.hpp`), the command (`lit.hpp`) |
 
 Shared with other stages, in `src/prism/core/include/`: `surface.h` (the texture page,
 the material word, the surface planes), `texel_pages/` (the ask and done pages, the page

@@ -26,6 +26,10 @@ reads). SHADE itself, the stage that colours a pixel from its material, is in
   `normal_scale` before the tangent frame turns it (`texture.normal_scales`), as glTF's
   `normalTexture.scale`.
 
+- **Normal filter.** A normal texel's length r, before the scale, dims the albedo and
+  widens the specular lobe (`texture.normal_length`, `texture.filtered_exponent`,
+  applied in `direct.frame`): [the normal filter](../material/normal_filter.md).
+
 No bilinear filtering and no level per pixel: one level a triangle, nearest texel.
 
 ## Texture accesses

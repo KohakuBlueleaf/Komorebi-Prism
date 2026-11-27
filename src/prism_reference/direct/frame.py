@@ -30,7 +30,9 @@ from prism_reference.material.texture import (
     TEXEL_SIGNED,
     TEXEL_UNIT,
     fetch,
+    filtered_exponent,
     mapped_uv,
+    normal_length,
     normal_scales,
     uv_maps,
 )
@@ -114,14 +116,18 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
         smooth = np.where((dot3(smooth, to_eye) < 0)[:, None], -smooth, smooth)
         frame = np.stack([frame[:, 0], frame[:, 1], smooth], axis=1)
     mapped = (texture[:, NORMAL] >= 0) & prepared["frame_ok"][t]
-    n_texel = TEXEL_SIGNED[texel(NORMAL)[:, :3]] * normal_scales(materials)[m]
+    stored = TEXEL_SIGNED[texel(NORMAL)[:, :3]]
+    n_texel = stored * normal_scales(materials)[m]
     bent = normalized(
         (frame[:, 0] * n_texel[:, 0:1] + frame[:, 1] * n_texel[:, 1:2])
         + frame[:, 2] * n_texel[:, 2:3]
     )
     normal = np.where(mapped[:, None], bent, frame[:, 2])
     glass = kind == TRANSPARENT
+    emissive = kind == EMISSIVE
     normal = np.where(glass[:, None], prepared["frame"][t][:, 2], normal)
+    length = np.where(mapped & ~glass, normal_length(stored), F(1))
+    albedo = np.where(emissive[:, None], albedo, albedo * length[:, None])
     has_specular = ((kind == LIT) | glass) & (materials["specular"][m].max(axis=1) > 0)
     specular = np.where(
         (texture[:, SPECULAR] >= 0)[:, None],
@@ -131,7 +137,8 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
     specular = np.where(has_specular[:, None], specular, F(0))
     if "specular" not in terms:
         specular = np.zeros_like(specular)
-    exponent = materials["exponent"][m]
+    exponent, lobe = filtered_exponent(materials["exponent"][m], length)
+    specular = specular * lobe[:, None]
     inv_pi = F(1 / np.pi)
 
     def gloss(to_light):
@@ -175,7 +182,6 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
         own = F(1) - materials["transmission"][m].max(axis=1)
         out = out * np.where(glass, own, F(1))[:, None]
     out = out + shine
-    emissive = kind == EMISSIVE
     out = np.where(emissive[:, None], albedo * F(lights["emissive_scale"]), out)
     lit_parts = {
         "sky": albedo * inv_pi * sky,

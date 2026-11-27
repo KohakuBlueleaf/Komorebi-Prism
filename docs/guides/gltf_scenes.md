@@ -169,7 +169,8 @@ description's coverage alone (`scene.description.report.text`).
 - `<data>/public/<name>_materials.npz`: every key of `MATERIAL_KEYS` with the shapes and
   types `convert_materials` writes. Material 0 is `(flat)` (triangles without a
   material). The textures are decoded by `decode_image`, made into mip chains by
-  `texture_levels` in their role, numbered once per (image, role) on first use and packed
+  `texture_levels` in their role (a normal map's level 0 made unit and its levels plain
+  averages: [the normal filter](../internals/material/normal_filter.md)), numbered once per (image, role) on first use and packed
   into `texels`, `mip`, `levels`. Each mip chain is kept under the cache root
   (`$PRISM_CACHE`, else `<data>/cache`) in `levels/`, keyed by the BLAKE2b digest of the
   image's bytes, its role, Pillow's version and `materials.LEVELS_VERSION`, so the same

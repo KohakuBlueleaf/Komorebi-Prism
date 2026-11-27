@@ -1,5 +1,5 @@
 """Texture sampling: a texel's byte as a value, the mip level of a triangle, the nearest
-texel of a level, a slot's uv map and a normal map's scale."""
+texel of a level, a slot's uv map, a normal map's scale and its filtered length."""
 
 import numpy as np
 
@@ -8,6 +8,8 @@ F = np.float32
 TEXEL_LINEAR = ((np.arange(256) / 255.0) ** 2.2).astype(np.float32)
 TEXEL_UNIT = (np.arange(256) / 255.0).astype(np.float32)
 TEXEL_SIGNED = (np.arange(256) * 2.0 / 255.0 - 1.0).astype(np.float32)
+NORMAL_ROUNDING = 1.0 / 128  # a unit vector in bytes: its length at least 1 - this
+LEAST_LENGTH = 1e-4  # the shortest normal length read
 
 
 def mip_level(texels, area2, levels):
@@ -73,3 +75,20 @@ def map_area(maps):
     """|det| (n,) of slot maps' linear part (n, 2, 3): a texel area's scale, float32."""
     det = maps[:, 0, 0] * maps[:, 1, 1] - maps[:, 0, 1] * maps[:, 1, 0]
     return np.abs(det).astype(F)
+
+
+def normal_length(vector):
+    """The length r (n,) of looked-up normal map vectors (n, 3), within 0 .. 1: a mean
+    of unit vectors, a byte's rounding (1 - NORMAL_ROUNDING) taken as 1."""
+    squared = np.sum(np.asarray(vector, F) ** 2, axis=1)
+    return np.minimum(np.sqrt(squared) / F(1.0 - NORMAL_ROUNDING), F(1))
+
+
+def filtered_exponent(exponent, length):
+    """Toksvig's Blinn-Phong exponent s' = r s / (r + s (1 - r)) (rounded, at least 1;
+    0 stays 0) and the lobe's factor (1 + s') / (1 + s), by the normal's length r."""
+    s = np.asarray(exponent, F)
+    r = np.maximum(np.asarray(length, F), F(LEAST_LENGTH))
+    wide = np.maximum(np.rint(r * s / (r + s * (F(1) - r))), F(1))
+    wide = np.where(s > 0, wide, F(0))
+    return wide.astype(np.int64), (F(1) + wide) / (F(1) + s)

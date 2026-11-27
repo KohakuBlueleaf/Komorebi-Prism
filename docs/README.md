@@ -43,6 +43,7 @@ docstring names the code and the records the figure is taken from.
 | [internals/program/director.md](internals/program/director.md) | the stage-wise form's frame thread |
 | [internals/raster/model.md](internals/raster/model.md) | the raster stage's data on the host: records, lists, costs, heavy tiles, capacity |
 | [internals/material/texture_model.md](internals/material/texture_model.md) | the texture stage's data: shade blocks, texture pages, SHADE's table, layers |
+| [internals/material/normal_filter.md](internals/material/normal_filter.md) | the normal filter: what a normal map's mip chain keeps, the length read as a wider and dimmer response (Toksvig), on the card: the reciprocal's Newton steps, the window vectors |
 | [internals/direct/light_model.md](internals/direct/light_model.md) | the direct light's data: surface planes, terms, light pages, LIGHT's table, the sun, the field as LIGHT reads it |
 | [internals/post/show.md](internals/post/show.md) | the display's conversion on the card |
 | [internals/reference/raster.md](internals/reference/raster.md) | the reference's raster: setup, fill and SHADE |
