@@ -105,7 +105,8 @@ The record (one JSON line, and the harness's file under `--out`):
 
 ```
 python -m prism_cli open FILE [--pipeline P] [--size W H] [--camera NODE] [--frames N] \
-    [--card C] [--out DIR] [--bake wait|background|none] [--most-triangles N]
+    [--card C] [--out DIR] [--bake wait|background|none] [--most-triangles N] \
+    [--wait-far-field]
 ```
 
 A glTF file drawn by a preset in one command, through the parts `run` uses
@@ -115,7 +116,9 @@ textures decoded on the CPUs the command may run on, at most 32), or found there
 takes the lights and the scene has no lighting file, the lights made with every vertex's
 sky visibility 1 and the bake by `--bake` (`background`, the default: a detached
 `public_scenes.py lighting NAME --visibility bake --shadow card`, its log
-`<data>/public/NAME_bake.log`; `wait`: baked first; `none`: not baked), both with the
+`<data>/public/NAME_bake.log`, or, when the open starts the far field's build, that
+build's own bake under its lock and no other ([built at open](gltf_scenes.md#built-at-open));
+`wait`: baked first; `none`: not baked), both with the
 lights' `shadow` `card`: the sun's shadow map is not rendered on the host, and the
 preset's sun command renders it on the card before the first frame is lit
 ([the lights' shadow](../concepts/scenes.md#lighting)); then `--frames` frames (16) on
@@ -125,16 +128,20 @@ the scene's view, the first and the last with their pictures, the last written t
 a file just opened has no far field, so `gi_threads` draws it without the indirect light), `--size` the
 view's own if none, `--out` the current folder; `--most-triangles` refuses a file drawing
 more triangles, and without it no count is refused (what refuses is the card's capacity or
-the host's memory). Exit 0; 1 on a frame code that is not 0; 2 when the card refused the
+the host's memory). A scene opened by a preset with the far field and without its files
+has the far field built beside the frames; `--wait-far-field` waits for that build, opens
+the preset again on a new session and draws `--frames` frames with the far field, the
+last picture `DIR/<name>_camera_far_field_<pipeline>.png`. Exit 0; 1 on a frame code that is not 0; 2 when the card refused the
 load. The record, one JSON line:
 
 | key | holds |
 | --- | --- |
 | `name`, `file`, `pipeline`, `key`, `converted` | the scene's name, the file's name, the preset, the scene's key, whether this open converted it (else it was found) |
 | `triangles`, `vertices` | what the conversion wrote (only when this open converted) |
-| `lights`, `lights_made` | the lights' state after the open (`none`, `open`, `baked`); what this open made, the bake's PID and log |
+| `lights`, `lights_made` | the lights' state after the open (`none`, `open`, `baked`); what this open made, the bake's PID and log (none when the far field's build bakes) |
 | `size`, `frames`, `codes`, `picture`, `refused` | the size, the frames run and their codes, the picture's file, the refusal's text |
 | `far_field` | as `run`'s: null, `present`, or `absent: ` and what the scene lacks |
+| `far_field_build`, `far_field_wait` | the far field's build at open (`started` with its PID and log, `building`, or null); with `--wait-far-field`, the build's record, the seconds waited, the reload's frames, codes, picture and seconds |
 | `first_picture_seconds` | from the command's start (`_from_process`: the process's) to the first frame's picture; `seconds` the command's |
 | `account.seconds` | each part of the load, exclusive of the tensor writes inside it: `digest`; `convert.<step>` (`import`, `flatten`, `materials`, `textures`, `shared_vertices`, `uv`, `writing`, `entry`); `lights.open` and `lights.open.shadow_map` (the map's camera alone, the map being the card's; or `lights.bake`); `module` (Komorebi's host module); `read.mesh`, `read.materials`, `read.lights`; `session.start`; `model.<implementation>` (its host's prepare and connect); `program.made` (the assembly less its hosts), `program.build`, `program.launch` (the load less the builds and the binds); `bind.<implementation>`; `frame.first`; `frames` (all of them); `other` (the rest) |
 | `account.tensors` | the tensors written to the card while the pipeline is opened, by implementation (`load`: outside every host): bytes, seconds, calls |

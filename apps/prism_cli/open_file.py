@@ -2,6 +2,7 @@
 vertex for the sky's visibility first, the bake after), a preset's frames on its view,
 the last picture as a PNG and one JSON record with the account of the load."""
 
+import argparse
 import json
 import os
 import subprocess
@@ -16,7 +17,7 @@ from komorebi.device import native
 from prism_cli import far_field
 from prism_cli import preset as preset_module
 from prism_cli.account import Account
-from prism_cli.preset import ROOT, globals_of, opened
+from prism_cli.preset import ROOT, far_field_lacking, globals_of, opened
 from prism_common.paths import data_root
 from prism_reference.direct.prepare import prepare
 from prism_reference.io.png import write_png
@@ -147,8 +148,13 @@ def open_command(args):
     report = scene.pop("report", None)
     for step, seconds in (report or {}).get("steps", {}).items():
         account.add(f"convert.{step}", seconds)
-    wanted = globals_of(args.pipeline).get("SCENE_INPUTS", ())
-    made = lights(args, name, data, account) if "lights" in wanted else {"made": None}
+    globals_ = globals_of(args.pipeline)
+    wanted = globals_.get("SCENE_INPUTS", ())
+    builds = bool(far_field_lacking(globals_, name, VIEW))
+    asked = vars(args) | ({"bake": "none"} if builds else {})
+    made = {"made": None}
+    if "lights" in wanted:
+        made = lights(argparse.Namespace(**asked), name, data, account)
     with account.part("module"):
         native.load_module()
     read_back(account)
