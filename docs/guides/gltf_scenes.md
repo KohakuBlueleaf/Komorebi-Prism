@@ -27,6 +27,17 @@ table when they are there, of the converter's version (`opened.CONVERTER`) and o
 `<data>/opened_scenes.json`, which the table reads whenever it exists. An open whose key
 is already in that file with its mesh and materials present converts nothing.
 
+The entry also keeps, for each of those files, its resolved path, size, modification and
+change times (in nanoseconds), device and inode, with `--camera` (`opened.file_stats`).
+A later open first reads these from the files and, when an entry of this converter holds
+the same values and its mesh and materials are present, takes that entry's key and name
+without reading the files' bytes. What this trusts: a file whose bytes change gets a new
+change time (`st_ctime`), which the file system sets on every write, rename or copy into
+place and which no user call can set back; a file moved, copied, touched or replaced
+fails the comparison. When no entry matches (the first open, a changed file, a file
+reached by another path, a data root copied to another disk), the open digests the files
+as above and, when that key is kept, writes the files' new values into its entry.
+
 When the preset takes the lights (the lit and `gi` presets) and the scene has none, the
 lighting file is first written with every vertex's sky visibility 1 and the sun's shadow
 map left to the card, so the first lit picture comes before the bake; the bake
@@ -124,7 +135,10 @@ description's coverage alone (`scene.description.report.text`).
   types `convert_materials` writes. Material 0 is `(flat)` (triangles without a
   material). The textures are decoded by `decode_image`, made into mip chains by
   `texture_levels` in their role, numbered once per (image, role) on first use and packed
-  into `texels`, `mip`, `levels`. A scene without textures holds one white texel (a
+  into `texels`, `mip`, `levels`. Each mip chain is kept under the cache root
+  (`$PRISM_CACHE`, else `<data>/cache`) in `levels/`, keyed by the BLAKE2b digest of the
+  image's bytes, its role, Pillow's version and `materials.LEVELS_VERSION`, so the same
+  image in another file or another export is decoded once. A scene without textures holds one white texel (a
   1 x 1 RGBA texture of one level, number 0, in no material's slot), so no table is
   empty.
 - The per-triangle `uv`: `uv0` through the base-colour texture's transform (glTF's
