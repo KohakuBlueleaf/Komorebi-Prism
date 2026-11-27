@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="830" height="792" viewBox="0 0 830 792" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" width="830" height="808" viewBox="0 0 830 808" role="img">
 <title>The indirect field and its update beside the frames</title>
 <defs><marker id="ha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0883e"/></marker><marker id="hb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#39c5cf"/></marker><marker id="hm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a371f7"/></marker><marker id="hw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4493f8"/></marker><marker id="hr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3fb950"/></marker><marker id="hp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#db61a2"/></marker><marker id="hy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d29922"/></marker><marker id="hg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6e7681"/></marker></defs>
-<rect width="830" height="792" fill="#0d1117"/>
+<rect width="830" height="808" fill="#0d1117"/>
 <rect x="16.0" y="12.0" width="798.0" height="352.0" rx="4" fill="#161b22" stroke="#3d444d" stroke-width="1"/>
 <line x1="56.0" y1="68.0" x2="56.0" y2="264.0" stroke="#6e7681" stroke-width="0.6" stroke-dasharray="2 3"/>
 <line x1="98.0" y1="68.0" x2="98.0" y2="264.0" stroke="#6e7681" stroke-width="0.6" stroke-dasharray="2 3"/>
@@ -19,13 +19,16 @@
 <line x1="56.0" y1="236.0" x2="392.0" y2="236.0" stroke="#6e7681" stroke-width="0.6" stroke-dasharray="2 3"/>
 <rect x="98.0" y="194.0" width="42.0" height="42.0" rx="0" fill="#0b2f33" stroke="#39c5cf" stroke-width="1.6"/>
 <circle cx="119.0" cy="215.0" r="84.0" fill="none" stroke="#39c5cf" stroke-width="1.2" stroke-dasharray="5 3"/>
-<rect x="16.0" y="376.0" width="798.0" height="404.0" rx="4" fill="#161b22" stroke="#3d444d" stroke-width="1"/>
+<rect x="16.0" y="376.0" width="798.0" height="420.0" rx="4" fill="#161b22" stroke="#3d444d" stroke-width="1"/>
 <line x1="190.0" y1="436.0" x2="800.0" y2="436.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
 <line x1="190.0" y1="472.0" x2="800.0" y2="472.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
 <line x1="190.0" y1="508.0" x2="800.0" y2="508.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
-<line x1="190.0" y1="544.0" x2="800.0" y2="544.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
-<line x1="190.0" y1="580.0" x2="800.0" y2="580.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
+<line x1="190.0" y1="562.0" x2="800.0" y2="562.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
 <line x1="190.0" y1="618.0" x2="800.0" y2="618.0" stroke="#6e7681" stroke-width="0.5" stroke-dasharray="2 4"/>
+<line x1="292.0" y1="656.0" x2="292.0" y2="664.0" stroke="#6e7681" stroke-width="1.0"/>
+<line x1="461.3" y1="656.0" x2="461.3" y2="664.0" stroke="#6e7681" stroke-width="1.0"/>
+<line x1="630.7" y1="656.0" x2="630.7" y2="664.0" stroke="#6e7681" stroke-width="1.0"/>
+<line x1="800.0" y1="656.0" x2="800.0" y2="664.0" stroke="#6e7681" stroke-width="1.0"/>
 <text x="30.0" y="34.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#39c5cf" text-anchor="start" xml:space="preserve">The field: voxels a pixel reads</text>
 <text x="800.0" y="34.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" fill="#9198a1" text-anchor="end" xml:space="preserve">Sponza: 72,367 voxels, h = 50.3</text>
 <rect x="50.0" y="264.0" width="342.0" height="7.0" rx="0" fill="#2d3540" stroke="#6e7681" stroke-width="0.6"/>
@@ -91,66 +94,62 @@
 <text x="30.0" y="436.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">host</text>
 <text x="30.0" y="472.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">frame's thread</text>
 <text x="30.0" y="486.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">X280 cluster 1</text>
-<text x="30.0" y="508.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">the ranks above</text>
-<text x="30.0" y="522.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">the frames' threads</text>
-<text x="30.0" y="544.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">the lowest ranks</text>
-<text x="30.0" y="558.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">30 or more: the applies</text>
-<text x="30.0" y="580.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">job thread</text>
-<text x="30.0" y="594.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">X280 clusters 2, 3</text>
+<text x="30.0" y="508.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">every rank</text>
+<text x="30.0" y="522.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">0 to 119: frames, applies</text>
+<text x="30.0" y="562.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">job thread</text>
+<text x="30.0" y="576.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">X280 clusters 2, 3</text>
 <text x="30.0" y="618.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">light pages</text>
 <text x="30.0" y="632.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">the field, twice</text>
-<text x="228.0" y="432.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#d29922" text-anchor="start" xml:space="preserve">sun set</text>
-<rect x="190.0" y="462.0" width="26.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
-<rect x="226.0" y="462.0" width="66.0" height="20.0" rx="3" fill="#3a2d0a" stroke="#d29922" stroke-width="1"/>
-<text x="259.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">sun's pass</text>
-<rect x="296.0" y="462.0" width="120.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
-<text x="356.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old field</text>
-<rect x="420.0" y="462.0" width="120.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
-<text x="480.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old field</text>
-<rect x="544.0" y="462.0" width="120.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
-<text x="604.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old field</text>
-<rect x="668.0" y="462.0" width="60.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
-<text x="698.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">new field</text>
-<rect x="732.0" y="462.0" width="68.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
-<rect x="192.0" y="498.0" width="22.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="228.0" y="498.0" width="62.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="300.0" y="498.0" width="112.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="424.0" y="498.0" width="112.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="548.0" y="498.0" width="112.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="672.0" y="498.0" width="52.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="736.0" y="498.0" width="60.0" height="16.0" rx="3" fill="#161b22" stroke="#6e7681" stroke-width="1"/>
-<rect x="296.0" y="570.0" width="64.0" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
-<text x="328.0" y="584.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">sources</text>
-<rect x="363.0" y="534.0" width="40.0" height="20.0" rx="3" fill="#2d1a0c" stroke="#f0883e" stroke-width="1"/>
-<text x="383.0" y="548.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">apply</text>
-<rect x="406.0" y="570.0" width="56.0" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
-<text x="434.0" y="584.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">pass</text>
-<rect x="465.0" y="534.0" width="40.0" height="20.0" rx="3" fill="#2d1a0c" stroke="#f0883e" stroke-width="1"/>
-<text x="485.0" y="548.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">apply</text>
-<rect x="508.0" y="570.0" width="56.0" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
-<text x="536.0" y="584.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">pass</text>
-<rect x="567.0" y="570.0" width="46.0" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
-<text x="590.0" y="584.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">finish</text>
-<rect x="616.0" y="570.0" width="40.0" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
-<text x="636.0" y="584.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">scale</text>
-<text x="302.0" y="603.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#db61a2" text-anchor="start" xml:space="preserve">job_wants: the cores</text>
-<text x="658.0" y="603.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#db61a2" text-anchor="end" xml:space="preserve">job_wants: half B, scale</text>
-<rect x="190.0" y="608.0" width="476.0" height="20.0" rx="3" fill="#0b2f33" stroke="#39c5cf" stroke-width="1"/>
-<text x="428.0" y="622.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">half A: read by LIGHT</text>
-<rect x="296.0" y="632.0" width="360.0" height="18.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
-<text x="476.0" y="645.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">half B: written by the update</text>
-<rect x="668.0" y="608.0" width="132.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
-<text x="734.0" y="622.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">half B: read</text>
-<text x="800.0" y="674.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="end" xml:space="preserve">time (schematic)</text>
-<text x="30.0" y="698.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">gi</text>
-<text x="30.0" y="712.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">stage-wise</text>
-<rect x="190.0" y="688.0" width="26.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
-<rect x="226.0" y="688.0" width="510.0" height="20.0" rx="3" fill="#3a2d0a" stroke="#d29922" stroke-width="1"/>
-<text x="481.0" y="702.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">sun's pass, then the update on every core: no frame</text>
-<rect x="740.0" y="688.0" width="60.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
-<text x="30.0" y="736.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">Sponza: gi_threads draws 3 frames during its update, 23.6 to 23.7 ms each against 18.60 steady; its first</text>
-<text x="30.0" y="752.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">frame with the new field ends 138.5 ms after the sun was set. gi stops 174.5 ms. Ten scenes: 2 to 7 frames,</text>
-<text x="30.0" y="768.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">each 1.25 to 1.36 times the steady frame (measurements/gi_threads).</text>
+<text x="202.0" y="432.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#d29922" text-anchor="start" xml:space="preserve">sun set</text>
+<rect x="198.0" y="462.0" width="60.0" height="20.0" rx="3" fill="#3a2d0a" stroke="#d29922" stroke-width="1"/>
+<text x="228.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">sun's pass</text>
+<text x="276.0" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="middle" xml:space="preserve">...</text>
+<rect x="292.0" y="462.0" width="63.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<text x="323.5" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old</text>
+<rect x="293.0" y="498.0" width="61.0" height="16.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<rect x="359.4" y="462.0" width="66.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<text x="392.4" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old</text>
+<rect x="360.4" y="498.0" width="64.0" height="16.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<rect x="434.6" y="462.0" width="63.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<text x="466.1" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old</text>
+<rect x="435.6" y="498.0" width="61.0" height="16.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<rect x="507.1" y="462.0" width="63.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<text x="538.5" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old</text>
+<rect x="508.1" y="498.0" width="61.0" height="16.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<rect x="574.8" y="462.0" width="63.0" height="20.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<text x="606.3" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">old</text>
+<rect x="575.8" y="498.0" width="61.0" height="16.0" rx="3" fill="#0f2d1a" stroke="#3fb950" stroke-width="1"/>
+<rect x="717.0" y="462.0" width="63.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
+<text x="748.5" y="476.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">new</text>
+<rect x="718.0" y="498.0" width="61.0" height="16.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
+<rect x="425.8" y="498.0" width="8.8" height="16.0" rx="3" fill="#2d1a0c" stroke="#f0883e" stroke-width="1"/>
+<rect x="497.9" y="498.0" width="8.8" height="16.0" rx="3" fill="#2d1a0c" stroke="#f0883e" stroke-width="1"/>
+<text x="425.8" y="532.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#f0883e" text-anchor="middle" xml:space="preserve">each apply: a core step on every rank, between two frames</text>
+<rect x="288.3" y="552.0" width="76.2" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
+<text x="326.4" y="566.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">sources</text>
+<rect x="434.9" y="552.0" width="63.0" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
+<text x="466.4" y="566.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">pass</text>
+<rect x="507.1" y="552.0" width="142.9" height="20.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
+<text x="578.5" y="566.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">finish, scale</text>
+<text x="646.0" y="588.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#db61a2" text-anchor="end" xml:space="preserve">job_wants: half B, scale</text>
+<rect x="190.0" y="608.0" width="525.0" height="20.0" rx="3" fill="#0b2f33" stroke="#39c5cf" stroke-width="1"/>
+<text x="452.5" y="622.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">half A: read by LIGHT</text>
+<rect x="288.3" y="632.0" width="361.7" height="18.0" rx="3" fill="#2a1a4d" stroke="#a371f7" stroke-width="1"/>
+<text x="469.1" y="645.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">half B: written</text>
+<rect x="717.0" y="608.0" width="83.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
+<text x="758.5" y="622.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">half B: read</text>
+<text x="292.0" y="676.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="middle" xml:space="preserve">0</text>
+<text x="461.3" y="676.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="middle" xml:space="preserve">50</text>
+<text x="630.7" y="676.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="middle" xml:space="preserve">100</text>
+<text x="800.0" y="676.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="middle" xml:space="preserve">150</text>
+<text x="800.0" y="692.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="end" xml:space="preserve">card ms after the sun's pass (host gap cut)</text>
+<text x="30.0" y="726.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#e6edf3" text-anchor="start" xml:space="preserve">gi</text>
+<text x="30.0" y="740.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#9198a1" text-anchor="start" xml:space="preserve">stage-wise</text>
+<rect x="198.0" y="716.0" width="538.0" height="20.0" rx="3" fill="#3a2d0a" stroke="#d29922" stroke-width="1"/>
+<text x="467.0" y="730.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#e6edf3" text-anchor="middle" xml:space="preserve">sun's pass, then the update on every core: no frame</text>
+<rect x="740.0" y="716.0" width="60.0" height="20.0" rx="3" fill="#0c2d6b" stroke="#4493f8" stroke-width="1"/>
+<text x="30.0" y="768.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">Sponza: 5 frames during the update at 18.63 to 19.55 ms against 18.70 steady, every rank in each; two applies of</text>
+<text x="30.0" y="784.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">2.60 ms between frames; the new field's first frame ends 145.3 ms after the job's first command (measurements/gi_threads).</text>
 <line x1="56.0" y1="86.0" x2="67.0" y2="86.0" stroke="#9198a1" stroke-width="1.0"/>
 <line x1="56.0" y1="118.0" x2="67.0" y2="118.0" stroke="#9198a1" stroke-width="1.0"/>
 <line x1="56.0" y1="150.0" x2="67.0" y2="150.0" stroke="#9198a1" stroke-width="1.0"/>
@@ -186,11 +185,8 @@
 <line x1="318.5" y1="243.0" x2="329.0" y2="215.0" stroke="#4493f8" stroke-width="1.0"/>
 <line x1="318.5" y1="243.0" x2="329.0" y2="257.0" stroke="#4493f8" stroke-width="1.0"/>
 <line x1="318.5" y1="264.0" x2="318.5" y2="230.0" stroke="#3fb950" stroke-width="1.6" marker-end="url(#hr)"/>
-<line x1="222.0" y1="428.0" x2="222.0" y2="460.0" stroke="#d29922" stroke-width="1.6" marker-end="url(#hy)"/>
-<line x1="366.0" y1="574.0" x2="366.0" y2="556.0" stroke="#f0883e" stroke-width="1.0" marker-end="url(#ha)"/>
-<line x1="468.0" y1="574.0" x2="468.0" y2="556.0" stroke="#f0883e" stroke-width="1.0" marker-end="url(#ha)"/>
-<line x1="298.0" y1="568.0" x2="298.0" y2="484.0" stroke="#db61a2" stroke-width="1.2" marker-end="url(#hp)"/>
-<line x1="654.0" y1="568.0" x2="654.0" y2="484.0" stroke="#db61a2" stroke-width="1.2" marker-end="url(#hp)"/>
-<line x1="667.0" y1="484.0" x2="667.0" y2="606.0" stroke="#4493f8" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#hw)"/>
+<line x1="196.0" y1="428.0" x2="196.0" y2="460.0" stroke="#d29922" stroke-width="1.6" marker-end="url(#hy)"/>
+<line x1="648.0" y1="550.0" x2="648.0" y2="484.0" stroke="#db61a2" stroke-width="1.2" marker-end="url(#hp)"/>
+<line x1="716.0" y1="484.0" x2="716.0" y2="606.0" stroke="#4493f8" stroke-width="1.2" stroke-dasharray="3 2" marker-end="url(#hw)"/>
 <line x1="190.0" y1="660.0" x2="800.0" y2="660.0" stroke="#6e7681" stroke-width="1.0" marker-end="url(#hg)"/>
 </svg>

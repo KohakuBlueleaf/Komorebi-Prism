@@ -74,7 +74,7 @@ command space the other stages share
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/field-dark.svg">
-  <img src="../images/field-light.svg" width="880" alt="A section with the field's voxels, one voxel gathering the elements it sees within 2h, its 32-bit texel, a pixel's lookup of 8 voxel centres; then the update in time: the job thread's commands and the applies on the lowest ranks while the frames go on with the old field, half B of the field's pages handed over by job_wants.">
+  <img src="../images/field-light.svg" width="880" alt="A section with the field's voxels, one voxel gathering the elements it sees within 2h, its 32-bit texel, a pixel's lookup of 8 voxel centres; then the update in time: the job thread's commands and the applies on every rank between two frames while the frames go on with the old field, half B of the field's pages handed over by job_wants.">
 </picture>
 
 *The field and its update in `gi_threads`, Sponza; the time axis is schematic, the numbers from [gi_threads](../performance/gi_threads.md).*
@@ -89,22 +89,26 @@ every core of both job clusters). Where it runs differs:
 |---|---|---|---|---|
 | `gi` | the frame's thread, the thread command `update` | every core | wait: the loop sends `sun`, then `update`, before the next FRAME | the host sends `field_scale` and writes LIGHT's table |
 | `gi_tile` | work cluster 2, a thread of its own (`update_beside`) | every core, each apply a core step the director runs between two of its commands | go on with the old field | between two frames, one write of LIGHT's table: the new half of the field's pages, its scale |
-| `gi_threads` | the job thread on work clusters 2 and 3 (the lowest answers job commands) | the lowest ranks: at least `update_cores` (30), as many as the apply's windows need to fit the command space | go on with the old field on the ranks above the update's | `job_wants` to the frame's thread: the half and the scale, given to the light step's words of the next frame |
+| `gi_threads` | the job thread on work clusters 2 and 3 (the lowest answers job commands) | every core, each apply a core step the frame's thread runs between two of its commands | go on with the old field on every core | `job_wants` to the frame's thread: the half and the scale, given to the light step's words of the next frame |
 
 In `gi_threads` the update is a graph kept on the card
 (`src/prism/stages/indirect/field_update/graph.py`), started by the host when the loop's
 sun or bounces differ from the field's and none runs:
 
-1. `job_wants` to the frame's thread with the cores the update wants: the frame's views
-   start above them from then on.
-2. `field_sources` on the job thread.
-3. For each bounce: the transport's `apply` queued on the wanted cores, then
-   `field_pass` on the job thread.
-4. `field_finish`, then `field_scale` on the job thread.
-5. `job_wants` to the frame's thread with no cores, the field's half and its scale. The
-   frame's thread gives them as slots `light.field` and `light.field_scale`; the light
-   step's frame words (`field_first`, a unit a channel, `field_scale`) take them, so the
-   next frame reads the new half.
+1. `field_sources` on the job thread.
+2. For each bounce: the transport's `apply` as the frame's thread's `core_step` (its
+   header, its group of every core, its words), then `field_pass` on the job thread.
+   The frame's thread takes a thread command only between two of its own, so the apply
+   runs between two frames, on the cores and the command space no frame then holds.
+3. `field_finish`, then `field_scale` on the job thread.
+4. `job_wants` to the frame's thread with the field's half and its scale. The frame's
+   thread gives them as slots `light.field` and `light.field_scale`; the light step's
+   frame words (`field_first`, a unit a channel, `field_scale`) take them, so the next
+   frame reads the new half.
+
+The program's depth is 1: one command on the cores at a time, whatever its source. The
+job thread's copies (`kmx_fetch`, `kmx_store`, on every core) touch no field of the
+program and go between two of the frame's commands, within a frame as well.
 
 The light pages hold the field twice: the half LIGHT reads and the half the update
 writes. Each update writes the half not read and then swaps them.
@@ -145,7 +149,11 @@ After one sun move at 1,920 x 1,080 on ten scenes, the stage-wise form stops: `g
 161.6 to 471.6 ms (Sponza 174.5) from the control set to the end of its first frame at the
 new sun, the update 104.5 to 181.4 ms of it on the card. The threads' form draws frames
 during its update: `gi_threads` draws 2 to 7 frames with the old field, each 1.25 to 1.36
-times the steady frame (the applies hold the lowest ranks), and its first frame with the
+times the steady frame (measured while the applies held the lowest ranks), and its first frame with the
 new field ends 130.7 to 780.6 ms after the control was set (Sponza 138.5); the longest gap
 is the first frame at the new sun, which holds the sun's pass
+([gi_threads](../performance/gi_threads.md)). With each apply a core step on every core,
+the frames during the update take the steady frame's time and each apply is a stall of
+2.6 to 3.9 ms between two frames; the update's span on the card grows (Sponza 125.2 to
+145.3 ms), as an apply waits for the frame in progress
 ([gi_threads](../performance/gi_threads.md)).
