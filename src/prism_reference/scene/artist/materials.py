@@ -85,6 +85,27 @@ def transmission_factor(material):
     return None if found is None else float(found.get("transmissionFactor", 0.0))
 
 
+def coverage_of(material):
+    """The share of a material's surface that is there: base alpha under BLEND, else 1."""
+    return float(material.base_color[3]) if material.alpha_mode == "BLEND" else 1.0
+
+
+def transparent_numbers(material):
+    """(base, specular, tau) (3,) each of a transparent kind: coverage a (alpha under
+    BLEND, else 1), transmission t, metallic m; tau = 1 - a + a t (1 - m) base, the
+    surface's own diffuse a (1 - t)(1 - m) base stored over (1 - max tau), specular a F0.
+    """
+    base_rgb = np.asarray(material.base_color[:3], dtype=np.float64)
+    a = coverage_of(material)
+    t = transmission_factor(material) or 0.0
+    m = float(material.metallic)
+    tau = (1.0 - a) + a * t * (1.0 - m) * base_rgb
+    diffuse = a * (1.0 - t) * (1.0 - m) * base_rgb
+    own = 1.0 - tau.max()
+    base = diffuse / own if own > 0 else np.zeros(3)
+    return base, a * specular_of(material), tau
+
+
 def is_identity(use):
     """True when a TextureUse's transform is offset 0, rotation 0, scale 1."""
     return not np.any(use.offset) and use.rotation == 0.0 and np.all(use.scale == 1.0)
@@ -120,27 +141,30 @@ def dropped_of(material, kind, scene):
 
 
 def map_material(material, scene, texture_number, has_uv=True):
-    """(kind code, base (3,), slots [4], exponent, specular (3,), transmission (3,)) and
-    the dropped names of one material; texture_number(image, role) numbers textures."""
+    """(kind code, base (3,), slots [4], exponent, specular (3,), transmission (3,),
+    shadow (3,)) and the dropped names of one material; texture_number(image, role)
+    numbers textures."""
     base_rgb = np.asarray(material.base_color[:3], dtype=np.float64)
     albedo = image_of(scene, material.base_color_texture)
     glowing = image_of(scene, material.emissive_texture)
     normal = image_of(scene, material.normal_texture)
     glow = np.asarray(material.emissive, np.float64) * material.emissive_strength
     factor = transmission_factor(material)
-    slots, base, tau = [-1, -1, -1, -1], base_rgb.copy(), np.zeros(3)
+    slots, base, tau, shadow = (
+        [-1, -1, -1, -1],
+        base_rgb.copy(),
+        np.zeros(3),
+        np.zeros(3),
+    )
     if glowing is not None or glow.max() >= EMISSIVE_MIN:
         kind = "emissive"
+        base = np.clip(glow, 0.0, 1.0)
         if glowing is not None:
-            slots[0], base = texture_number(glowing, "colour"), np.ones(3)
-        else:
-            base = np.clip(glow, 0.0, 1.0)
+            slots[0] = texture_number(glowing, "colour")
     elif material.alpha_mode == "BLEND" or (factor is not None and factor > 0):
         kind = "transparent"
-        if factor is not None:
-            tau = factor * base_rgb
-        else:
-            tau = np.full(3, 1.0 - float(material.base_color[3]))
+        base, specular, tau = transparent_numbers(material)
+        shadow = np.full(3, 1.0 - coverage_of(material))
         if albedo is not None:
             slots[0] = texture_number(albedo, "colour")
     elif albedo is None or not has_uv:
@@ -159,8 +183,9 @@ def map_material(material, scene, texture_number, has_uv=True):
         base,
         slots,
         exponent_of(material.roughness),
-        specular_of(material),
+        specular if kind == "transparent" else specular_of(material),
         tau,
+        shadow,
     )
     return record, dropped_of(material, kind, scene)
 

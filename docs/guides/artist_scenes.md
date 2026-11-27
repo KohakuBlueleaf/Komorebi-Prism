@@ -181,8 +181,10 @@ Blender resolves `AUTO` at each size it renders, to `HORIZONTAL` when the width 
 least the height, else `VERTICAL`, and keeps the field of view of the side it names. The
 file's `yfov` holds at its `aspectRatio` (the artist's size), so the fitted side's field
 is recovered there and kept at the drawn size. The importer gives the render camera `shift_x`,
-`shift_y` and `sensor_fit`; the reference's surface draws with them; the card's view has
-no shift yet (a `dropped` note "camera shift"). The world is read when a
+`shift_y` and `sensor_fit`; the reference's surface draws with them, and the scene's view
+carries the shift as `shift` (x, y) in units of the longer side, the side of its `fov`
+(the fit's side at the file's aspect converted), so the reference's raster and the card
+draw with the principal point moved. The world is read when a
 Background node feeds the output: its colour and strength. An Environment Texture on its
 colour is copied beside the stem as `<stem>.world.<extension>`, with the rotation of a
 Mapping node feeding it. Any other world gives its viewport colour, strength 1, and

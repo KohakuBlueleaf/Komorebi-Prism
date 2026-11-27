@@ -205,22 +205,15 @@ def write(path, display, view, look):
 
 
 def for_sidecar(path):
-    """The view's file of a sidecar written beside it and named in its `render`."""
+    """The view's file of a sidecar's `render`, written beside it as
+    `<stem>.view.npz` (the sidecar left as it is)."""
     with open(path) as f:
-        record = json.load(f)
-    render = record["render"]
+        render = json.load(f)["render"]
     stem = path[: -len(".prism.json")]
     display = render.get("display") or bpy.context.scene.display_settings.display_device
     name, notes = write(
         stem + VIEW_SUFFIX, display, render["view_transform"], render["look"]
     )
-    render["display"], render["view_tables"], render["view_notes"] = (
-        display,
-        name,
-        notes,
-    )
-    with open(path, "w") as f:
-        json.dump(record, f, indent=1)
     return {"view_tables": name, "notes": notes}
 
 

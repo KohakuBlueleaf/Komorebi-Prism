@@ -134,9 +134,10 @@ CARDS = [
 # its push.
 PHASES = [("count", 1.039), ("sums", 0.321), ("place", 1.812), ("tile", 15.429)]
 FRAME_MS, GI_LESS_PUSH_MS = 18.610, 22.447
-# After one sun move on Sponza, ms: sun set to the swap frame's end and the frames
-# drawn during the update (gi_threads); gi's stop.
-SWAP_MS, FRAMES_DURING, FRAME_DURING_MS, GI_STOP_MS = 138.5, 3, 23.6, 174.5
+# After one sun move on Sponza, host ms: sun set to the swap frame's end and the frames
+# drawn during the update (gi_threads, each apply on every core between two frames);
+# gi's stop.
+SWAP_MS, FRAMES_DURING, FRAME_DURING_MS, GI_STOP_MS = 172.5, 6, 19.6, 175.1
 
 # Each scene's gi_threads frame over gi's less push, 1,920 x 1,080 (the name shown,
 # the ratio).
@@ -165,7 +166,13 @@ PICTURES = [
 ROWS = [
     ("pictures", "1,920 frames", "0 pixels differ", "from gi's, byte for byte", "r"),
     ("frame", "29.8 M tris", "102.09 ms", "gi less push 94.16", "p"),
-    ("sun moved", "Sponza", "3 frames drawn", "gi stops 174.5 ms", "r"),
+    (
+        "sun moved",
+        "Sponza",
+        f"{FRAMES_DURING} frames drawn",
+        f"gi stops {GI_STOP_MS} ms",
+        "r",
+    ),
     ("lists too small", "Sponza", "grown in 5.3 ms", "reload 6.5 to 7.3 s", "r"),
     ("transport build", "8.8 M tris", "205 s by blocks", "dense + SVD 986 s", "r"),
     ("DRAM written", "lit, Sponza", "8.36 MB a frame", "stage-wise 207.52 MB", "r"),

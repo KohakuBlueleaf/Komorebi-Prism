@@ -23,7 +23,10 @@ scene has none, and draws `--frames` frames (16) as threads, the last written as
 folder's when the file is called `scene`; the digits begin the file's key, the BLAKE2b
 digest of the name, size and bytes of the file, of its sidecar and the sidecar's instance
 table when they are there, of the converter's version (`opened.CONVERTER`) and of
-`--camera`. The mesh and materials files are written as below; the entry goes into
+`--camera`. What only the display reads is not in it: the view's tables
+(`<stem>.view.npz` beside the sidecar) and the sidecar's exposure are read whenever a
+preset loads the scene's lights, so adding the tables later keeps the key (editing the
+sidecar's bytes does change it). The mesh and materials files are written as below; the entry goes into
 `<data>/opened_scenes.json`, which the table reads whenever it exists. An open whose key
 is already in that file with its mesh and materials present converts nothing.
 
@@ -194,8 +197,8 @@ mapped onto it by the first row that fits:
 
 | the glTF material | kind | numbers |
 |---|---|---|
-| `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | slot 0 the emissive texture when there is one (base 1, 1, 1), else base = clip(emissive x strength, 0, 1) |
-| `alpha_mode` BLEND, or `KHR_materials_transmission` with a `transmissionFactor` above 0 | transparent | transmission = `transmissionFactor x base rgb` with the extension, else `1 - base alpha` in each channel; slot 0 the base-colour texture when there is one |
+| `emissive x emissive_strength` reaches `EMISSIVE_MIN` (0.5) in a channel, or it has an emissive texture | emissive | base = clip(emissive x strength, 0, 1) (glTF's emission: the texture times the factor times the strength); slot 0 the emissive texture when there is one |
+| `alpha_mode` BLEND, or `KHR_materials_transmission` with a `transmissionFactor` above 0 | transparent | with coverage `c` (base alpha under BLEND, else 1), `t` the `transmissionFactor` (0 without the extension) and `m` metallic: transmission = `1 - c + c t (1 - m) base rgb`; the own diffuse `c (1 - t)(1 - m) base rgb`, stored as base = that over `1 - max transmission` (0 when nothing is left); specular = `c` x the specular below; shadow = `1 - c` (a refractive surface lets no direct light through, as Cycles; under BLEND the share alpha does not cover); slot 0 the base-colour texture when there is one |
 | no base-colour texture, or the primitive has no `uv0` | flat | base = `base_color` rgb |
 | `alpha_mode` MASK | masked | slot 0 the base-colour texture; slot 1 stays -1 (the mask is that texture's alpha) |
 | it has a normal texture | lit | slot 0 the base-colour texture, slot 2 the normal texture (role "normal") |
@@ -203,7 +206,7 @@ mapped onto it by the first row that fits:
 
 For every kind: `exponent` = round(2 / a^2 - 2) with a = roughness^2, clipped to
 `EXPONENT_RANGE` (roughness 0.5 gives 30); `specular` = 0.04 (1 - metallic) + base rgb x
-metallic; `transmission` 0 unless transparent. A material drawn both with and without
+metallic (times the coverage for transparent); `transmission` 0 unless transparent. A material drawn both with and without
 `uv0`, whose kind needs a texture, gets a second, flat row named `<name> (no uv0)`.
 
 ## What is dropped
@@ -213,7 +216,7 @@ the occlusion texture, an emissive material's base-colour texture, a normal text
 kind that draws none, the normal scale, a second UV set (texture uses naming it, and
 drawn primitives carrying `uv1`), a texture transform on any texture but the base
 colour, `double_sided`, `unlit`, every carried material extension but transmission, the
-camera's roll, the camera's lens shift (`camera shift`), a spot light's cone (drawn as a
+camera's roll, a spot light's cone (drawn as a
 point light) and area lights.
 
 That is what the conversion drops of a glTF file. What a file exported from Blender
@@ -244,7 +247,7 @@ With d the diagonal of the mesh's bounding box and c its centre, `light` is
 | --- | --- |
 | `environment`, `turn`, `sun_to_sky` | `kloppenheim_05`, 0, 5 |
 | `ambient` | 0.35, 0.33, 0.3 |
-| `lamp_scale`, `emissive_scale`, `exposure`, `shadow_bias` | 1, 1, 1, 3 |
+| `lamp_scale`, `emissive_scale`, `exposure`, `shadow_bias` | 1, 1, 1 (the sidecar's `render.exposure` replaces it when the lights are loaded), 3 |
 | `merge_distance`, `radius`, `size` | 0.01 d, 0.2 d, 0.002 d |
 | `sun` | from the first directional light: `direction` its node's world -Z axis (the way the light travels), `colour` its colour |
 | `lights` | the point and spot lights (a spot as a point) at their nodes' world positions, with their colours |

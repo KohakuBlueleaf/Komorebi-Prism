@@ -27,6 +27,7 @@ NO_MATERIAL = (
     1,
     np.zeros(3),
     np.zeros(3),
+    np.zeros(3),
 )
 
 
@@ -78,12 +79,13 @@ def material_table(scene, material, has_uv, textures):
             lookup[m, 0] = row_of[(m, True)]
     per_triangle = np.where(material >= 0, lookup[material, has_uv.astype(int)], 0)
     for item, row in zip(mapping, rows[1:], strict=True):
-        kind, _, slots, exponent, specular, tau = row
+        kind, _, slots, exponent, specular, tau, shadow = row
         item |= {
             "kind": KINDS[kind],
             "exponent": int(exponent),
             "specular": [round(float(x), 6) for x in specular],
             "transmission": [round(float(x), 6) for x in tau],
+            "shadow": [round(float(x), 6) for x in shadow],
             "slots": [int(s) for s in slots],
         }
     return rows, names, per_triangle.astype(np.int32), mapping
@@ -188,7 +190,7 @@ def convert(
         indices=idx.astype(np.int32),
         counts=json.dumps(counts),
     )
-    kinds, base, slots, exponent, specular, tau = zip(*rows, strict=True)
+    kinds, base, slots, exponent, specular, tau, shadow = zip(*rows, strict=True)
     kinds = np.array(kinds, dtype=np.int32)
     steps.mark("writing")
     texels, mip, levels = textures.pack()
@@ -214,6 +216,7 @@ def convert(
         exponent=np.array(exponent, dtype=np.int32),
         specular=np.array(specular, dtype=np.float32),
         transmission=np.array(tau, dtype=np.float32),
+        shadow=np.array(shadow, dtype=np.float32),
         texels=texels,
         mip=mip,
         levels=levels,

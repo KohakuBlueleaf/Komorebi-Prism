@@ -25,6 +25,7 @@
 #define DR_STEP_CODE_BITS 8u
 #define DR_STEP_CODE_MASK 0xFFu
 #define DR_STEP_TICKS_MOST 0xFFFFFFu
+#define DR_STEP_ARGS 8u  /* the core command's words a core step carries: a0 to a7 */
 #define DR_STEPS_HELD 8u /* core steps in flight at once on a cluster */
 /* core commands in flight at once that are submitted again after a busy rejection */
 #define DR_LINES_HELD 8u

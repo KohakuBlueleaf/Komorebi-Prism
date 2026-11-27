@@ -9,6 +9,7 @@ from itertools import pairwise
 
 import numpy as np
 
+from checks.near_field import one_tile
 from checks.near_field import scene as written
 from prism_reference.indirect.near.fuse import (
     FLOOR_K,
@@ -100,9 +101,13 @@ def main():
             "darker_than_field": darker,
             "ok": rising and darker and far < 1e-9,
         },
+        "one_tile": one_tile.cases(view, frame, op),
         "seconds": round(time.perf_counter() - started, 2),
     }
-    out["ok"] = out["furnace"]["ok"] and out["contact"]["ok"] and fallback < 1e-12
+    tiled = all(case["ok"] for case in out["one_tile"].values())
+    out["ok"] = (
+        out["furnace"]["ok"] and out["contact"]["ok"] and fallback < 1e-12 and tiled
+    )
     print(json.dumps(out))
     return 0 if out["ok"] else 1
 

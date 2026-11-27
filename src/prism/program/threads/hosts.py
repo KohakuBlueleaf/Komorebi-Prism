@@ -1,10 +1,11 @@
 """The stage-wise hosts as the threads' form holds them: the light's numbers of its
-threads' unit, the display always given as a slot, the transport's apply as a queued
-command's words, the field's update as the job thread's job run by a kept graph."""
+threads' unit, the display always given as a slot, the transport's apply as a core
+step's words, the field's update as the job thread's job run by a kept graph."""
 
 import numpy as np
 
 from prism.core import fields
+from prism.core.resources import CORE_STEP_COMMAND
 from prism.program.jobs.frame import COMMAND as WANTS
 from prism.program.jobs.host import JobThread
 from prism.stages.direct.light.host import LightHost
@@ -17,10 +18,8 @@ from prism.stages.indirect.transport.host import TransportHost
 from prism.stages.indirect.transport.plan.deal import deal
 from prism.stages.post.show.host import ShowHost
 
-APPLY = "apply"  # the transport's handler the graph queues
+APPLY = "apply"  # the transport's handler the graph steps
 IRRADIANCE = "elements.irradiance"  # the slot the transport's implementation writes
-UPDATE_CORES = "update_cores"  # the option: the least cores an update's applies take
-UPDATE_SHARE = 4  # without it: a quarter of the ranks, at least 1
 
 
 class LightThreadsHost(LightHost):
@@ -56,20 +55,6 @@ class ShowThreadsHost(ShowHost):
         return {"display.picture": self.tensors["display"]}
 
 
-def update_cores(session, options):
-    """The least cores an update's applies take: the option UPDATE_CORES, else a
-    quarter of the ranks (at least 1); ValueError when it leaves the frame's cores
-    none."""
-    frame = options.get("cores") or session.ranks
-    cores = int(options.get(UPDATE_CORES) or max(1, session.ranks // UPDATE_SHARE))
-    if not 0 < cores < frame:
-        raise ValueError(
-            f"an update wants {cores} cores of the frame's {frame}: the frame's pulls "
-            f"need at least one above them ({UPDATE_CORES})"
-        )
-    return cores
-
-
 def windows_at(s, own, block):
     """The apply's windows' bytes for the set `s` with `own` receiver tiles a core."""
     held = {
@@ -80,44 +65,30 @@ def windows_at(s, own, block):
     return windows_bytes(window_defines(held, block))
 
 
-def fitting(s, block, space, least, frame):
-    """(cores, windows' bytes, the deal's ranges): the least count from `least` up
-    whose apply's windows fit `space` bytes, a count whose even share of the tiles
-    does not fit passed undealt; ValueError when not even the frame's cores but one."""
-    need = None
-    for cores in range(least, frame):
-        need = windows_at(s, -(-s.tiles // cores), block)
-        if need > space:
-            continue
-        first = deal(s, cores)
-        need = windows_at(s, int(np.diff(first).max()), block)
-        if need <= space:
-            return cores, need, first
-    raise ValueError(
-        f"an update on {frame - 1} cores (all of the frame's {frame} but one): the "
-        f"apply's windows take {need} B, over the command space's {space} B"
-    )
-
-
-def least_cores(host, least, frame):
-    """fitting for a transport host's set (read) at its frame's command space: every
-    count from `least` fits a host without a frame capacity."""
+def fitted(host):
+    """(windows' bytes, the deal's ranges) of a transport host's set (read) dealt to
+    its cores, the windows within its frame's command space; (None, None) for a host
+    without a frame capacity; ValueError with the bytes when they do not fit."""
     if host.held is None:
-        return least, None, None
+        return None, None
     space = fields.space_bytes(host.held)
-    return fitting(host.set, host.block, space, least, frame)
+    first = deal(host.set, host.cores)
+    need = windows_at(host.set, int(np.diff(first).max()), host.block)
+    if need > space:
+        raise ValueError(
+            f"the apply on {host.cores} cores: its windows take {need} B, over the "
+            f"command space's {space} B"
+        )
+    return need, first
 
 
 class TransportThreadsHost(TransportHost):
-    """The transport's host with no thread unit: its apply is queued by the field
-    update's graph on the least cores from `update_cores` up whose windows fit the
-    assembly's command space (`cores`), its weights dealt to them at the composition."""
+    """The transport's host with no thread unit: its apply is a core step of the frame's
+    thread on every core (`cores`), sent by the field update's graph, its weights dealt
+    to them at the composition, its windows within the assembly's command space."""
 
     def __init__(self, session, scene, options):
         super().__init__(session, scene, options)
-        self.least = update_cores(session, options)
-        self.frame = int(options.get("cores") or session.ranks)
-        self.cores = self.least
         self.windows = None
 
     def prepare(self):
@@ -126,9 +97,9 @@ class TransportThreadsHost(TransportHost):
         self.tensors = self.slot_tensors()
 
     def composed(self, assembled):
-        """The cores fitted to the command space with the frame's part (least_cores),
-        the set dealt to them, its tensors."""
-        self.cores, self.windows, first = least_cores(self, self.least, self.frame)
+        """The windows checked against the command space with the frame's part
+        (fitted), the set dealt to the cores, its tensors."""
+        self.windows, first = fitted(self)
         self.dealt(first)
         self.tensors |= self.dealt_tensors()
 
@@ -159,7 +130,7 @@ class FieldJobHost(FieldUpdateHost):
 
     def bind(self, loaded):
         """The job thread of the run, the graph of the update (the frame thread's
-        job_wants, the transport's apply on its cores), its numbers, its upload."""
+        job_wants, the transport's apply as its core step), its numbers, its upload."""
         self.loaded = loaded
         assembled = loaded.assembled
         name, transport = transport_of(assembled)
@@ -169,6 +140,7 @@ class FieldJobHost(FieldUpdateHost):
             JobThread(loaded.run, assembled.jobs),
             loaded.run,
             assembled.layout.handlers()[WANTS],
+            assembled.layout.handlers()[CORE_STEP_COMMAND],
             apply,
             transport.apply_args(apply),
             transport.cores,

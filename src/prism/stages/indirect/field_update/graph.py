@@ -1,7 +1,7 @@
 """The field update as the job thread's job and a graph the dispatcher keeps: the job
-(its C, commands, shared regions, defines), the graph (the cores wanted, the sources,
-each bounce's apply queued on that many cores and its pass, the finish, the field given
-to the frame's thread) and its host side (written, started, served)."""
+(its C, commands, shared regions, defines), the graph (the sources, each bounce's apply
+a core step of the frame's thread on every core and its pass, the finish, the field
+given to the frame's thread) and its host side (written, started, served)."""
 
 from pathlib import Path
 
@@ -10,6 +10,7 @@ import numpy as np
 from komorebi.engines.graph import Graph
 
 from prism.core.headers import defined
+from prism.program.director.thread import STEP_ARGS, STEP_CODE_MASK
 from prism.program.jobs.frame import wants_args
 from prism.program.jobs.job import Job, Shared
 from prism.stages.indirect.field_update.model.header import sun_words
@@ -74,33 +75,29 @@ JOB = Job(
 )
 
 
-def update_graph(jobs, frame, apply, apply_args, lead, runs):
+def update_graph(jobs, frame, step, step_args, lead, runs):
     """The kept graph of an update: `jobs` {command: number} of the job thread on
-    cluster `lead`, `frame` the frame's thread's job_wants number, `apply` and its
-    words, at most `runs` rounds (a bounce a round). Registers 0 and 1: the code, the
-    scale's word."""
+    cluster `lead`, `frame` and `step` the frame's thread's job_wants and core_step
+    numbers, `step_args` the apply's core_step words, at most `runs` rounds (a bounce a round).
+    Registers 0 and 1: the code, the scale's word."""
     graph = Graph(deadline_microseconds=DEADLINE_US, max_runs=runs, req=REQ, keep=True)
     code, scale = graph.registers(2)
-    cores, left, half, first = graph.bindings("cores", "left", "half", "first")
-    zero, one = graph.const(0), graph.const(1)
-    last, release, go = graph.registers(3)
+    left, half, first = graph.bindings("left", "half", "first")
+    zero, one, mask = graph.const(0), graph.const(1), graph.const(STEP_CODE_MASK)
+    last, release, go, stepped = graph.registers(4)
     again = graph.again
-    wants = graph.command(frame, cluster=1, args=wants_args(cores), skip_if_zero=first)
     sources = graph.command(
-        jobs["field_sources"],
-        cluster=lead,
-        after=[wants],
-        result=code,
-        skip_if_zero=first,
+        jobs["field_sources"], cluster=lead, result=code, skip_if_zero=first
     )
     ahead = graph.cpu(after=[sources])
     clean = ahead.forward()
     ahead.mov(go, left)
+    ahead.set(stepped, 0)
     ahead.jeq(code, zero, clean)
     ahead.set(go, 0)
     ahead.bind(clean)
     applied = graph.command(
-        apply, count=cores, args=apply_args, after=[ahead], skip_if_zero=go
+        step, cluster=1, args=step_args, after=[ahead], result=stepped, skip_if_zero=go
     )
     passed = graph.command(
         jobs["field_pass"], cluster=lead, after=[applied], result=code, skip_if_zero=go
@@ -108,6 +105,8 @@ def update_graph(jobs, frame, apply, apply_args, lead, runs):
     turn = graph.cpu(after=[passed])
     failed, kept = turn.forward(), turn.forward()
     turn.set(first, 0)
+    turn.and_(stepped, stepped, mask)
+    turn.jnz(stepped, failed)
     turn.jnz(code, failed)
     turn.jeq(go, zero, kept)
     turn.sub(left, left, one)
@@ -140,7 +139,7 @@ def update_graph(jobs, frame, apply, apply_args, lead, runs):
     graph.command(
         frame,
         cluster=1,
-        args=wants_args(0, last, half, scale),
+        args=wants_args(last, half, scale),
         after=[checked],
         skip_if_zero=release,
     )
@@ -149,15 +148,16 @@ def update_graph(jobs, frame, apply, apply_args, lead, runs):
 
 class FieldGraph:
     """The update of `update` (a prepared FieldUpdateHost, connected and bound) as the
-    job of `jobs` (a JobThread) driven by a kept graph on `run`: `frame` the frame's
-    thread's job_wants number, `apply` the transport's handler and `apply_args` its
-    words, `cores` the cores its apply's tables were dealt to (what it wants)."""
+    job of `jobs` (a JobThread) driven by a kept graph on `run`: `frame` and `step` the
+    frame's thread's job_wants and core_step numbers, `apply` the transport's handler
+    and `apply_args` its words, `cores` the cores its apply's tables were dealt to."""
 
-    def __init__(self, update, jobs, run, frame, apply, apply_args, cores):
+    def __init__(self, update, jobs, run, frame, step, apply, apply_args, cores):
         self.update = update
         self.jobs = jobs
         self.run = run
         self.frame = frame
+        self.step = step
         self.apply = apply
         self.apply_args = list(apply_args)
         self.cores = int(cores)
@@ -167,9 +167,17 @@ class FieldGraph:
         self.handle = None  # the graph's start that has not ended
         self.asked = None  # (sun, bounces, half) of the update running
 
-    def wanted(self):
-        """The cores an update waiting wants: its apply's, while one runs; else 0."""
-        return self.cores if self.handle is not None else 0
+    def step_args(self):
+        """The apply as core_step's words: its header, its group (every core the
+        tables were dealt to), its words; ValueError for words past STEP_ARGS."""
+        if len(self.apply_args) > STEP_ARGS:
+            raise ValueError(
+                f"the apply's {len(self.apply_args)} words: a core step carries "
+                f"{STEP_ARGS}"
+            )
+        header = int(self.apply) | self.run.program_field(self.apply.program) << 24
+        words = self.apply_args + [0] * (STEP_ARGS - len(self.apply_args))
+        return [header, self.cores << 16, *words]
 
     def write_numbers(self, half):
         """The numbers region: the cores that copy (those the update is given), the
@@ -199,7 +207,12 @@ class FieldGraph:
         handlers = {name: self.jobs.handler(name) for name in COMMANDS}
         self.runs, self.kept = bounces + 1, False
         graph = update_graph(
-            handlers, self.frame, self.apply, self.apply_args, self.jobs.lead, self.runs
+            handlers,
+            self.frame,
+            self.step,
+            self.step_args(),
+            self.jobs.lead,
+            self.runs,
         )
         self.upload = self.run.upload(graph)
         return True
@@ -215,7 +228,7 @@ class FieldGraph:
         half = host.written()
         self.jobs.write("field_header", sun_words(lights, bounces), 4 * SUN_FIRST)
         self.write_numbers(half)
-        bindings = {"cores": self.cores, "left": bounces, "half": half, "first": 1}
+        bindings = {"left": bounces, "half": half, "first": 1}
         self.graph_for(bounces)
         if self.kept:
             self.handle = self.run.restart(REQ, bindings)

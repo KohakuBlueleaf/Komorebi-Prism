@@ -102,9 +102,16 @@ code 0; the field's scale the reference's in both presets.
   On that scene the threads' count and place, not the tile steps, are the frame.
 - **The update no longer stops the frames.** `gi` waits 161.6 to 471.6 ms for the sun's
   pass and the update; `gi_threads` draws 2 to 7 frames during it, each 1.25 to 1.36
-  times the steady frame (the update's applies hold the lowest ranks). The longest gap
-  is the first frame at the new sun, which holds the sun's pass and the host's work of
-  the change.
+  times the steady frame while the update's applies held the lowest ranks. The longest
+  gap is the first frame at the new sun, which holds the sun's pass and the host's work
+  of the change.
+- **With no reserved cores** (each apply a core step on every core between two frames,
+  [measurements/gi_threads](../../measurements/gi_threads/README.md#the-update-with-no-reserved-cores)),
+  the frames during the update take the steady frame's time on Sponza, italian_flat and
+  the largest lynxsdesign scene; each apply is a stall of 2.6 to 3.9 ms between two
+  frames, and the update's span on the card grows from 125.2 to 145.3 ms on Sponza and
+  from 386.0 to 528.8 ms on the largest scene: an apply waits for the frame in progress,
+  the new field for the frame already sent.
 
 ## What is not measured
 
