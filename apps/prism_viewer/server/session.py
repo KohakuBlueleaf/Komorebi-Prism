@@ -14,7 +14,7 @@ from prism_cli.preset import opened
 from prism.loop.report import by_name, columns
 from prism_reference.scene.camera import sized_camera
 from prism_viewer.server import catalog, encode
-from prism_viewer.server.camera import camera_of, diagonal, pose_of
+from prism_viewer.server.camera import camera_of, diagonal, flown, pose_of
 from prism_viewer.server.encoders import Encoders
 
 KEEP_ALIVE_S = 1.0  # a frame a second when nothing is asked and no stream is read
@@ -68,7 +68,7 @@ class Render:
     def __init__(self, state, card):
         self.state, self.card = state, card
         self.stack = None  # the card's session, entered
-        self.loop = self.scene = self.opened = None
+        self.loop = self.scene = self.camera = self.opened = None
         self.done = (
             None  # the serials of the last frame: (selection, pose, size, control)
         )
@@ -147,6 +147,7 @@ class Render:
         session = self.stack.enter_context(km.Session(card=self.card))
         self.loop = preset.open(session)
         self.scene, self.opened = scene, choice
+        self.camera, ahead = flown(scene)
         seconds = time.perf_counter() - began
         with state.lock:
             state.loaded = catalog.described(name, preset.globals) | {
@@ -156,13 +157,15 @@ class Render:
             }
             state.size, state.capacity = tuple(self.loop.size), self.capacity()
             state.controls = self.loop.controls()
-            state.first_pose = pose_of(scene["camera"])
+            state.first_pose = pose_of(self.camera)
             state.pose = state.first_pose
             state.scene_serial += 1
             state.diagonal = diagonal(scene)
             text = f"loaded {name} on {scene_name}"
             if preset.lacking:
                 text += f" without the far field ({preset.missing})"
+            if ahead:
+                text += f"; standing on the camera's near plane, {ahead:.2f} m ahead"
             state.notice("reload", text, seconds)
         log(f"opened in {seconds:.1f} s")
 
@@ -233,7 +236,7 @@ class Render:
             pose, pose_serial = state.pose, state.pose_serial
             own = pose == state.first_pose
             serials = (state.size_serial, state.control_serial)
-        camera = self.scene["camera"] if own else camera_of(self.scene["camera"], pose)
+        camera = self.camera if own else camera_of(self.camera, pose)
         began, recovered = time.perf_counter(), len(loop.recoveries)
         frame = loop.frame(sized_camera(camera, loop.size))
         framed = time.perf_counter()

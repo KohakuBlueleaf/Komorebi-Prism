@@ -7,9 +7,10 @@ import math
 import numpy as np
 
 from prism_reference.scene.frame import WIDTH
+from prism_reference.scene.public.views import NEAR_SCALE
 
 EYE, RIGHT, UP, AHEAD = slice(0, 3), slice(3, 6), slice(6, 9), slice(9, 12)
-FOCAL = 12
+FOCAL, NEAR = 12, 15
 PITCH_LIMIT = math.radians(89.0)
 FOV_LEAST, FOV_MOST = 0.5, 179.0  # degrees: the ends tried on the card (viewer guide)
 
@@ -79,7 +80,29 @@ def parsed(body):
     return {"position": position, "yaw": yaw, "pitch": pitch, "fov": fov}
 
 
+def standing(camera, near):
+    """The camera a viewer flies from `camera`, and the distance it was moved: the eye
+    set ahead onto the camera's near plane and the near distance `near`, when the
+    camera's own is farther; else the camera itself and 0."""
+    own = float(camera[NEAR])
+    if own <= near * 1.001:
+        return camera, 0.0
+    flown = np.array(camera, dtype=np.float32)
+    ahead = np.asarray(camera[AHEAD], dtype=np.float64)
+    eye = np.asarray(camera[EYE], dtype=np.float64)
+    flown[EYE] = eye + own * ahead / np.linalg.norm(ahead)
+    flown[NEAR] = near
+    return flown, own
+
+
 def diagonal(scene):
     """The diagonal of the scene's box."""
     positions = np.asarray(scene["positions"], dtype=np.float64)
     return float(np.linalg.norm(positions.max(axis=0) - positions.min(axis=0)))
+
+
+def flown(scene):
+    """The camera a viewer flies in `scene` and the distance its eye was set ahead: the
+    scene's camera standing on its own near plane, the near distance the scene's box's.
+    """
+    return standing(scene["camera"], NEAR_SCALE * diagonal(scene))

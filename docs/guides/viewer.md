@@ -105,6 +105,15 @@ picture of an older size or setting is served after the change; the stop joins t
 encoders. The stream sends the newest JPEG whenever one is newer than the last it sent: a
 client that cannot keep up skips to the newest, and only its own connection waits for it.
 
+The view's own pose stands on the scene camera's near plane. A file's camera may clip
+far ahead of its eye (an artist's camera set behind a wall, its near distance several
+metres: the wall is cut away for the picture); flown with that distance, everything
+nearer than it is cut by a plane that follows the eye. The viewer's camera is the
+scene's with its eye set ahead by the near distance and the near distance the scene's
+default (the box's diagonal over 10,000), when the camera's own is farther
+(`server/camera.py`, `flown`); the load's notice says by how much. The command line's
+frames keep the file's camera as it is.
+
 Requests are applied between frames: a size (`Loop.resize`: a reload only past the
 capacity held; a refused load opens the loop again at the size before, with the reason in
 a notice; a reopen starts again at the view's own pose), a choice (a new session and

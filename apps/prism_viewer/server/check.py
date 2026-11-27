@@ -32,7 +32,7 @@ from prism_cli.preset import opened
 
 from prism_reference.scene.camera import sized_camera, with_size
 from prism_viewer.server import check_fov, encode
-from prism_viewer.server.camera import camera_of, pose_of
+from prism_viewer.server.camera import camera_of, flown, pose_of
 from prism_viewer.server.check_kinds import checked, moved
 
 OPEN_S = 900.0  # the first load builds the kernels
@@ -339,7 +339,8 @@ def own_pictures(args, pose, other, size, pictures):
     """
     preset = opened(args.pipeline, args.scene, args.view, size)
     scene = preset.scene
-    own_pose = json.loads(json.dumps(pose_of(scene["camera"])))
+    first, _ = flown(scene)
+    own_pose = json.loads(json.dumps(pose_of(first)))
     out, base = {}, None
     with km.Session(card=args.card) as session:
         loop = preset.open(session)
@@ -349,11 +350,7 @@ def own_pictures(args, pose, other, size, pictures):
                 for name, value in setting.items():
                     loop.set(name, value)
                 at = posed[0] if posed else pose
-                camera = (
-                    scene["camera"]
-                    if at == own_pose
-                    else camera_of(scene["camera"], at)
-                )
+                camera = first if at == own_pose else camera_of(first, at)
                 frame = loop.frame(sized_camera(camera, size), picture=True)
                 if frame.code:
                     raise RuntimeError(f"the loop's frame code {frame.code}")
@@ -378,9 +375,7 @@ def own_pictures(args, pose, other, size, pictures):
                     }
                 )
                 if label == pictures[0][0] and got is not None:
-                    away = loop.frame(
-                        sized_camera(camera_of(scene["camera"], other), size), True
-                    )
+                    away = loop.frame(sized_camera(camera_of(first, other), size), True)
                     if away.code:
                         raise RuntimeError(f"the loop's frame code {away.code}")
                     away = coded(encode.colour(away.picture, size))
