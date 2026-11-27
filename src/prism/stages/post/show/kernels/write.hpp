@@ -94,9 +94,9 @@ namespace show_k {
             return false;
         }
 
-        // Item `id` to page first + (tile / 32) across + tile mod 32
-        // of `target` (`pages` of it): colour converted, or (`raw`) plane 0 as it
-        // is. -1: go on; else the command's result.
+        // Item `id` to page first + (tile / tiles) across + tile mod tiles of
+        // `target` (`pages` of it), `tiles` the view's tiles a row: colour converted,
+        // or (`raw`) plane 0 as it is. -1: go on; else the command's result.
         template <typename Writer_>
         int item(
             const Writer_& writer,
@@ -104,13 +104,13 @@ namespace show_k {
             uint32_t id,
             uint32_t target,
             uint32_t first,
+            uint32_t tiles,
             uint32_t across,
             uint32_t pages,
             bool raw
         ) {
             const uint32_t tile = id & kItemSlot;
-            const uint32_t page = first + tile / kGridDefault * across +
-                tile % kGridDefault;
+            const uint32_t page = first + tile / tiles * across + tile % tiles;
             if ((tile * kPlanes) / tensor_pages >= kDirFrameMax || page >= pages) {
                 return bad(writer, command);
             }
