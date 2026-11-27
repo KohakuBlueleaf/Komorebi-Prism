@@ -166,7 +166,9 @@ implementation's (`check(loop)`), or the function `--check` names by its dotted 
 core if none); `--card` the card (0 by default); `--no-display` the preset without the
 implementations that fill `post`. The defaults are `--pipeline raster --scene tiny`. One
 JSON line, and the record written to `<out>/<scene>[_<view>]_<W>_<H>.json` (`--out`, by
-default `measurements/<pipeline>_frame/`).
+default `measurements/<pipeline>_frame/`). It exits 1 when the check's numbers hold
+`failed` true (a check that judges says so there: the lamp faces' check on a face apart,
+a frame's code or a face not drawn); a check that only reports leaves it out.
 
 The runner runs the stage-wise presets' checks, each against `prism_reference`. A threads'
 preset is checked against its stage-wise form, picture for picture, by

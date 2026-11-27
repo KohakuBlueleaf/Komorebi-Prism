@@ -1,7 +1,7 @@
 """The lamps' maps of a pipeline by a Loop: frames until every face is drawn (LAMPS
 commands before them), each lamp face's map on the card against the reference's at every
 texel, its levels against the reference's of the card's map (exact), the LAMPS commands'
-codes and each face's time."""
+codes and each face's time; `failed` on a face apart, a code or a face not drawn."""
 
 import time
 
@@ -106,4 +106,7 @@ def check(loop):
         "levels_ms": [round(row["levels"] / 1e3, 2) for row in lamps],
     }
     materials = loop.options["materials"]
-    return out | compared(scene, materials, host.lights, maps)
+    out |= compared(scene, materials, host.lights, maps)
+    apart = out["differ"] or out["one_empty"] or out["levels_apart"]
+    out["failed"] = bool(apart or any(codes) or out["left"])
+    return out
