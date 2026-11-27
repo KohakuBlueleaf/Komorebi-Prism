@@ -46,11 +46,13 @@ namespace visibility_step {
 #endif
 
         // Row `pixel_row` (masked to its field) against the triangle in the constant
-        // vectors: the inside lanes the record wins take its depth, number, colour.
+        // vectors: the inside lanes the record wins take its depth (held between its
+        // corners'), number, colour.
         inline void row(uint32_t pixel_row) {
             pixel_row &= 31;
             TT_SFPLOAD(PY, kInt32, kAddressMode, dst_address(kVecPy + pixel_row));
             edges(false);
+            held_depth();
             TT_SFPLOAD(L1, kInt32, kAddressMode, dst_address(pixel_row));
             FILL_DEPTH_TIED(pixel_row);
             TT_SFPSTORE(L0, kInt32, kAddressMode, dst_address(pixel_row));

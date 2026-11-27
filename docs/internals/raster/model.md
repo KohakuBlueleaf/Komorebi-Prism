@@ -20,8 +20,8 @@ model takes them from, so the host and the card cannot disagree on a word.
 Every triangle record of the reference's setup becomes one 128-byte slot of 32 words
 (`records.pack_records`): the three edge functions' `a`, `b`, `c` (words 0 to 8), the
 edge thresholds (9 to 11), the `1/z` plane (12 to 14), the three colour planes (15 to 23),
-the pixel box (24 to 27), the triangle number (28) and the record number (29); floats are
-their float32 bit patterns.
+the pixel box (24 to 27), the triangle number (28) and the bounds of its drawn `1/z` (29
+and 31); floats are their float32 bit patterns.
 
 - **Thresholds.** The fill tests a pixel inside an edge when `e > T`, comparing bit
   patterns in their total order (`-0 < +0`). An ordinary edge takes `T = +0` (0); a top
@@ -30,6 +30,20 @@ their float32 bit patterns.
 - **The box.** Its first column and its last column plus one are float16 bit patterns
   (exact for integers below 2,048), which the fill pushes as one-load immediates; the
   first and last rows are integers. A wide build holds the columns as float32.
+- **The drawn `1/z`'s bounds.** The fill evaluates the `1/z` plane at a pixel centre in
+  float32, `(a px + b py) + c`. For a triangle whose screen area is a tiny fraction of a
+  pixel, or one seen nearly edge on, or a large one whose plane is set up far from where
+  it is drawn, the plane's coefficients are large and that sum loses its low bits: the
+  drawn `1/z` can leave the range of the triangle's own corners (by 4 % on a glass sliver
+  of 8e-5 square pixels in one scene), which
+  decides the depth test wrongly and makes thin surfaces flicker against what lies behind
+  them. So SETUP keeps the least of the corners' `1/z` times `1 - 2^-16` (word 29,
+  `kRecWLeast`) and the most times `1 + 2^-16` (word 31, `kRecWMost`), and FILL holds each
+  pixel's `1/z` between them before the depth test (two `SFPSWAP`s a row of 32 pixels,
+  `fill/triangle.hpp` `held_depth`; the visibility step's tie-deciding row the same). The
+  `2^-16` leaves the plane's ordinary rounding alone; a clipped piece's bounds are its own
+  corners'. The reference holds its fill the same way (`setup.HELD_LEAST`,
+  `setup.HELD_MOST`, `fill.fill_tile`).
 - **The triangle number.** Triangle `n` is the word `kTriBase + n` (`raster.h`;
   `0x3F800000`, the bits of 1.0), as the fifth plane of the frame stores it: a positive
   normal float whose bit pattern counts the triangles one by one, exact for every

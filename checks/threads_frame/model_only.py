@@ -154,7 +154,7 @@ def comparisons_case(name, laid, held):
     swapped, changed = slots.copy(), slots.copy()
     number, _, _, _, slot, _ = spans[0]
     swapped[[slot, slot + 1]] = swapped[[slot + 1, slot]]
-    changed[slot, K["kRecIndex"]] += 1 << 20
+    changed[slot, K["kRecWLeast"]] += 1 << 20
     records = records_image(laid, held)
     wrong = records.copy()
     wrong[number, 3] += 1
