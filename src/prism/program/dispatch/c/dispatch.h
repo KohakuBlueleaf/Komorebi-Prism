@@ -46,8 +46,10 @@
 #define DP_NEED_WORDS 16u
 #define DP_NEED_BYTES 64u
 
-/* A view's phases, the bits of the number DP_N_PHASES (0: every phase). Without the
- * sums, a phase after them takes the slices' words the host left in their region. */
+/* A view's phases, the bits of the number DP_N_PHASES (0: every phase; with the
+ * number DP_N_KEEP the COLOUR view's tile alone while the lists hold the eye's view as
+ * a whole view drew it last). Without the sums, a phase after them takes the slices'
+ * words the host left in their region. */
 #define DP_PHASE_COUNT 1u
 #define DP_PHASE_SUMS 2u
 #define DP_PHASE_PLACE 4u

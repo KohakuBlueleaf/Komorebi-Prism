@@ -1,5 +1,5 @@
 """A binary box tree over triangles (8-word nodes): its build (median or SAH cut), its
-cut into treelets, saving and loading."""
+cut into treelets, saving and loading; the tracer's tree without nodes."""
 
 import concurrent.futures
 import os
@@ -23,6 +23,19 @@ def triangle_arrays(scene):
     tris = np.concatenate([p[:, 0], p[:, 1] - p[:, 0], p[:, 2] - p[:, 0]], axis=1)
     centroid = ((p[:, 0] + p[:, 1]) + p[:, 2]) / F(3)
     return p, tris, centroid
+
+
+def triangles(scene, keep=None):
+    """The tracer's tree of a scene without nodes: the triangles `keep` (all when None)
+    as v0 / e1 / e2 (N, 9) in the scene's order and leaf_tri their scene numbers;
+    `trace.batch` makes its own tree of them."""
+    indices = scene["indices"] if keep is None else scene["indices"][keep]
+    _, tris, _ = triangle_arrays({"positions": scene["positions"], "indices": indices})
+    number = np.arange(len(indices)) if keep is None else keep
+    return {
+        "tris": np.ascontiguousarray(tris, F),
+        "leaf_tri": np.ascontiguousarray(number, np.int32),
+    }
 
 
 def sort_key(key, owner):

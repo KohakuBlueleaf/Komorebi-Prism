@@ -27,7 +27,7 @@ ATTRIBUTES = "mesh.attributes"  # each layer's shade blocks, by its name
 DISPLAY = "display.picture"  # the target a COLOUR view's post step writes
 CAMERAS = "view.depth"  # another host's DEPTH views: indices, cameras, frame size
 DEPTH_LAYERS = raster_host.DEPTH_LAYERS  # the layers a DEPTH view draws
-RANGE_BLOCKS = 4  # the triangle blocks a count range holds, unless given
+BALANCE = 5  # the pull's end imbalance over a range's own cost, in blocks walked
 POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
@@ -49,6 +49,13 @@ def band_count(weight, heavy):
         return np.ones_like(weight)
     bands = np.minimum(-(-weight // int(heavy)), layout.G["kBandsMost"])
     return np.where(weight > heavy, bands, 1)
+
+
+def range_blocks_of(blocks, cores):
+    """The triangle blocks a count range holds for `blocks` over `cores`: where the
+    ranges' own cost (an ask, an answer, the pass's start and end) and the pull's end
+    imbalance sum least."""
+    return max(1, round(math.sqrt(int(blocks) / int(cores) / BALANCE)))
 
 
 def slots_needed(scenes, size, heavy):
@@ -77,9 +84,11 @@ def whole_pages(slots):
 class ThreadsHost(Host):
     """What the threads' frame needs on the host for `scene` on `session`. Options:
     size, cores, capacity (at least it), materials, lights (the layers' blocks as the
-    raster stage makes them), range_blocks, policy, near, heavy, list_slots_least
+    raster stage makes them), range_blocks (unless given, from the scene's blocks and
+    the cores), policy, near, heavy, list_slots_least
     (a number or a dict by layer name), account (the records a core's page of the
-    account holds; 0: no account, the build without it)."""
+    account holds; 0: no account, the build without it), keep_lists (False: every
+    frame counts and places)."""
 
     threads = True  # the frame's host of the threads' form
 
@@ -92,17 +101,19 @@ class ThreadsHost(Host):
         self.at_least = options.get("capacity") or default_capacity()
         self.materials = options.get("materials")
         self.lights = options.get("lights")
-        self.range_blocks = int(options.get("range_blocks") or RANGE_BLOCKS)
+        self.range_blocks = int(options.get("range_blocks") or 0)  # 0: the scene's
         self.policy = options.get("policy") or POLICY
         self.near = int(options.get("near", NEAR))
         self.heavy = int(options.get("heavy", HEAVY))
         self.least = options.get("list_slots_least") or 0
         self.account = int(options.get("account") or 0)
+        self.keep_lists = bool(options.get("keep_lists", True))
         self.account_pages = None
         self.layers = {}  # by name: its tensors and numbers
         self.depth_views = ()  # another host's DEPTH views
         self.loaded = None  # the run whose numbers and rows are written
         self.written = None  # the size whose grid is written
+        self.standing = None  # the eye's view (camera bytes, size) the last frame asked
         self.grown = {}  # what the last recover grew live (Loop's record)
 
     def tensor(self, rows):
@@ -123,6 +134,9 @@ class ThreadsHost(Host):
                 "slots": 0,
             }
             self.lists_for(name, eye[name])
+        if not self.range_blocks:
+            blocks = sum(one["blocks"] for one in self.layers.values())
+            self.range_blocks = range_blocks_of(blocks, self.cores)
 
     def lists_for(self, name, slots):
         """The layer `name`'s lists holding at least `slots` and LIST_MARGIN more (and
@@ -260,7 +274,10 @@ class ThreadsHost(Host):
 
     def view(self, loaded, camera, size):
         """The dispatcher's numbers (every phase) and every view's layer rows once a
-        run; the camera, and the grid and tiles when the size changed."""
+        run; the camera, and the grid and tiles when the size changed; the eye's lists
+        kept (dispatch.KEEP) when the run, its rows, the camera and the size stand."""
+        eye = (np.asarray(camera, dtype=np.float32).tobytes(), tuple(size))
+        keep = self.keep_lists and self.loaded is loaded and self.standing == eye
         if self.loaded is not loaded:
             loaded.numbers(self.numbers() | {dispatch.PHASES: 0})
             for index, name in enumerate(self.layers):
@@ -273,6 +290,8 @@ class ThreadsHost(Host):
             grid = raster_host.grid_word(self.size)
             loaded.numbers({"grid": grid, "tiles": across * down})
             self.written = self.size
+        loaded.number(dispatch.KEEP, int(keep))
+        self.standing = eye
 
     def needed(self, loaded):
         """The need page the dispatcher wrote when its view stopped with
@@ -313,6 +332,7 @@ class ThreadsHost(Host):
             before = one["slots"]
             self.lists_for(name, needed[name])
             loaded.layer(index, **self.columns(name))
+            self.standing = None
             least[name] = one["slots"]
             grown.append(
                 {

@@ -149,7 +149,8 @@ namespace geometry_k {
             range.first_block,
             range.first_block + range.blocks,
             ctx.page[TF_GRID],
-            with_shade
+            with_shade,
+            (ctx.page[TF_VIEW] >> 8) == TV_DEPTH
         );
 #else
         static_cast<void>(handler);

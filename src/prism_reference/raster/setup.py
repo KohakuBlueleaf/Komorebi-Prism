@@ -170,9 +170,17 @@ def boxes(scene):
         return np.concatenate(list(pool.map(run, cuts[:-1], cuts[1:])))
 
 
+def depth_origin(scene):
+    """The 1/z a view's 1/z planes are set up from: a DEPTH view's (`depth_view` true) that
+    of its near distance, else 0."""
+    return F(1) / scene["camera"][15] if scene.get("depth_view", False) else F(0)
+
+
 def setup(scene, extra=None):
     """Per-triangle records of the triangles that can cover a pixel (dict of arrays);
-    with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2"."""
+    with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2".
+    The 1/z planes are set up from 1/z less `depth_origin`, added back to their
+    constant."""
     x, y, ww, col, src = corners(scene, extra)
     cand = np.ones(len(src), dtype=bool)
     area2 = doubled_area(x, y)
@@ -197,7 +205,15 @@ def setup(scene, extra=None):
         c_coef[:, i] = -(a_coef[:, i] * x[:, p] + b_coef[:, i] * y[:, p])
     top_left = (a_coef > 0) | ((a_coef == 0) & (b_coef > 0))
     inv_area = F(1.0) / area2
-    wp = np.stack([planes(ww, c, inv_area) for c in (a_coef, b_coef, c_coef)], axis=1)
+    origin = depth_origin(scene)
+    if origin == 0:
+        wp = np.stack([planes(ww, c, inv_area) for c in (a_coef, b_coef, c_coef)], 1)
+    else:
+        shifted = ww - origin
+        wp = np.stack(
+            [planes(shifted, c, inv_area) for c in (a_coef, b_coef, c_coef)], 1
+        )
+        wp[:, 2] += origin
     cp = np.empty((len(keep), 3, 3), dtype=np.float32)
     for ch in range(3):
         for k, c in enumerate((a_coef, b_coef, c_coef)):

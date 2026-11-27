@@ -68,7 +68,11 @@ def depth_model(loop, scene, view):
     held = names.capacity(host)
     given = names.numbers(host)
     layers = [
-        (name, {**one, "camera": view["camera"], "size": view["size"]}, shade)
+        (
+            name,
+            {**one, "camera": view["camera"], "size": view["size"], "depth_view": True},
+            shade,
+        )
         for name, one, shade in tile_half.layers_of(loop, scene)
         if name in DEPTH_LAYERS
     ]

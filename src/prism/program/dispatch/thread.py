@@ -60,6 +60,7 @@ COLUMNS = tuple(
     )
 )
 PHASES = P + "phases"  # a view's phases (dispatch.h DP_PHASE_*; 0: every phase)
+KEEP = P + "keep"  # 1: the eye's view stands, its lists kept when they hold it
 TIMES = tuple(
     P + name for name in ("count", "sums", "running", "place", "words", "tile")
 )
@@ -136,7 +137,7 @@ UNIT = Unit(
         P + "state": Region(state_bytes),
         P + "need": Region(need_bytes),
     },
-    numbers=(*NUMBERS, PHASES),
+    numbers=(*NUMBERS, PHASES, KEEP),
     columns=COLUMNS,
     times=TIMES,
     results=RESULTS,

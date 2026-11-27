@@ -50,7 +50,8 @@ build's capacity needs (`DP_SMALL_REGION` otherwise) and writes back the slices'
 ## A view's phases
 
 `dp_view` runs the phases a number asks for (`DP_N_PHASES`, the bits `DP_PHASE_*`; 0, as
-the host writes it, is every phase; the checks run one phase at a time):
+the host writes it, is every phase, or the tile alone when the eye's lists are kept,
+below; the checks run one phase at a time):
 
 | phase | what the frame's thread does | on the cores | Komorebi's call |
 |---|---|---|---|
@@ -69,6 +70,24 @@ The sums and the running sum are the only places the frame waits for every core 
 inside a view; between the pulls the cores take the next command as soon as they are done
 with the last.
 
+
+**The eye's lists kept while its view stands.** The records, the slices' words and each
+layer's lists that count, sums and place leave are what the tile pull reads; when the
+eye's camera, the frame's size and the run are those of the frame before, they are
+still right, and the frame needs the tile pull alone (on a 29.8 M triangle scene 34.8
+against 85.1 ms, [measurements](../../../measurements/lists_kept/README.md)). The host knows the view: `ThreadsHost.view` writes the number
+`DP_N_KEEP` 1 when the run, the camera's 16 words and the size are those it wrote for
+the frame before and it has not given a layer new lists since (option `keep_lists`
+False: never). The dispatcher knows what the lists hold: a word of its own (`eye_held`,
+`dispatch_view.c`) set when the COLOUR view ends with every phase run and code 0, and
+cleared by any view that counts, by every DEPTH view (the sun's views draw into the same
+records, lists and slices' words) and by any view that ends with a code (a list too
+small, a late pull); a load starts it clear. A COLOUR view asked for every phase runs
+the tile alone only when both say so, so a frame after a sun pass, a pose, a size, a
+reload or lists grown counts and places again, whatever the host asked. The frame's
+times row tells which ran: a tile-alone frame has no count range (`dispatch_ranges` 0).
+`checks.lists_kept` runs the cases one after another against a load that counts every
+frame.
 ## The frame's page
 
 The block of every command of a view (`frame.h`, `TF_WORDS` = 256 words, at most a
@@ -97,8 +116,8 @@ The steps' words are assigned once on the host (`TileThread.words`: the defines
 
 ## Ranges, slices and records
 
-- **A count range** is `range_blocks` (default 4, `RANGE_BLOCKS`) of a layer's triangle
-  blocks of 32 triangles. The layers' ranges are numbered one after another
+- **A count range** is `range_blocks` of a layer's triangle blocks of 32 triangles,
+  chosen at load from the scene's blocks and the cores unless the option gives it (below). The layers' ranges are numbered one after another
   (`TF_L_RANGE_FIRST`), so one pull covers every layer; a layer's last range holds what
   is left.
 - **A slice** is a run of 16 neighbouring tiles along a row (`SLICE_TILES`; at most
@@ -174,10 +193,28 @@ when they change (`view`). Its options:
 | `policy` | the tile pull's choice | `prefer` |
 | `near` | the slices a near answer may be away | 1 |
 | `heavy` | the weight past which a tile is cut | 0 (never) |
-| `range_blocks` | the triangle blocks a count range | 4 |
+| `range_blocks` | the triangle blocks a count range | from the scene (below) |
+| `keep_lists` | the eye's lists kept while its view stands (`DP_N_KEEP`) | True |
 | `list_slots_least` | a layer's least list slots (a number, or by layer name) | none |
 | `account` | the records a core's account page holds; 0 builds no account | 0 |
 | `cores` | the frame's cores | every rank |
+
+**The size of a count range** (`threads.host.range_blocks_of`). A range is one exchange
+with X280 (an ask, an answer) and the pass's start and end on the core; the pull hands
+the ranges out in turn, so a core that takes a long range last ends the pull late, and a
+range's work is not known before it is counted. A core's time is its blocks' walk, plus
+its ranges' own cost, plus the end's imbalance, a few ranges of the core that ends last.
+Small ranges pay the first: at 4 blocks on a 29.8 M triangle scene over 120 cores X280
+answers 232,476 asks a pull, one at a time, and a core waits 20.5 of count's 29.9 ms for
+them; beyond the asks a range costs about 3 us. Large ranges pay the second: on sponza
+(8,196 blocks, 68 a core) 64 blocks a range is one range a core and the frame 1.5 ms
+longer. The sum of the two is least at `sqrt(blocks a core / BALANCE)`, `BALANCE` (5) the
+end's imbalance over a range's own cost in blocks walked. Over 120 cores: sponza 4; a
+4.8 M triangle scene (150,673 blocks) 16; 8.8 M (275,201) 21; 29.8 M (929,899) 39, where
+X280's answers take 3.1 ms of the pull, alone, against count's 18.7. Measured at the
+viewer's first pose, the 4.8 M scene's count is 5.37, 4.07 and 4.48 ms at 4, 16 and 35
+blocks, and the 29.8 M scene's frame 102.1 ms at 4, 85.1 at 39 and 85.0 at 64
+([measurements](../../../measurements/threads_ranges/README.md)).
 
 The build's capacity (`thread.Capacity`): the count ranges of every layer and the most
 slices of the frame sizes the load holds (`capacity_of`), the records a slice and the
