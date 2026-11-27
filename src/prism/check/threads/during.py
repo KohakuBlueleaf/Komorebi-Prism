@@ -1,6 +1,7 @@
-"""Frames while the field's update runs: each frame's picture against the stage-wise
-pictures of the field before and after its update (its own beside form), which one it
-equals; the ranks the frame's pulls took while an update waited."""
+"""Frames while the field's update runs (the second update on a scene with no valid
+field at load): each frame's picture against the stage-wise pictures of the field
+before and after its update (its own beside form), which one it equals; the ranks the
+frame's pulls took."""
 
 import numpy as np
 
@@ -8,21 +9,23 @@ from prism.check.threads import compare, whole
 from prism.check.threads.card import closed, run_frame
 from prism.check.threads.model import PORTS_CORES
 from prism.check.threads.names import STATE
+from prism.check.threads.second import second
 from prism.check.threads.update import field_host
 from prism.core.resources import TIMES_ROWS
 from prism.program.threads.hosts import transport_of
 
 BESIDE = "update_beside"  # the stage-wise option: the update beside the frames
 TOOK = "light_field"  # the light unit's result: 1 + the field's half a frame took
-VERSIONS = {1: "before", 2: "after"}  # what it names when the update writes half 1
 AFTER_MOST = 2  # frames sent after the update was seen served
 
 
-def stagewise_beside(open_loop, name, scene, options):
-    """The stage-wise preset `name` with its update beside the frames: the picture of
-    its first frame (the field before) and of the frame after the update (after)."""
-    loop = open_loop(name, {**options, BESIDE: True})
+def stagewise_beside(open_loop, name, scene, options, sun):
+    """The stage-wise preset `name` with its update of the sun options `sun` beside the
+    frames: the picture of its first frame (the field before) and of the frame after
+    the update (after)."""
+    loop = open_loop(name, {**options, **sun, BESIDE: True})
     try:
+        second(loop, scene["camera"], sun)
         before = loop.frame(scene["camera"], picture=True)
         code = loop.collect(wait=True)
         after = loop.frame(scene["camera"], picture=True)
@@ -72,9 +75,10 @@ def frames_during(loop, scene, policy, want, most):
     return out
 
 
-def reported(loop, frames):
+def reported(loop, frames, half):
     """Each frame's field as the light unit's result in its times row (read after the
-    stop): `took` (1 + the half; 0 the table's) and whether it names its picture's."""
+    stop): `took` (1 + the half; 0 the table's) and whether it names its picture's, the
+    field before the update in half `half`."""
     loaded = loop.loaded
     if TOOK not in loaded.layout.results:
         return
@@ -85,7 +89,7 @@ def reported(loop, frames):
     for one in frames:
         took = int(rows[one["row"] % TIMES_ROWS][word])
         one["took"] = took
-        named = "before" if took == 0 else VERSIONS.get(took)
+        named = {0: "before", 1 + half: "before", 2 - half: "after"}.get(took)
         one["took_agrees"] = one.get("equals") == [named]
 
 
@@ -117,7 +121,7 @@ def check(open_loop, threads_name, stage_name, scene, policy, options, sun, most
     pictures before and after (its beside form, its weights dealt to `deal` cores);
     then one frame sent right after an update's start, the run stopped, its pulls'
     ranks: the record."""
-    want = stagewise_beside(open_loop, stage_name, scene, {**sun, "cores": deal})
+    want = stagewise_beside(open_loop, stage_name, scene, {"cores": deal}, sun)
     out = {"stagewise": {"codes": want["codes"], "deal": deal}}
     out["stagewise"]["before_after"] = compare.pictures(want["before"], want["after"])[
         "pixels_differ"
@@ -125,18 +129,22 @@ def check(open_loop, threads_name, stage_name, scene, policy, options, sun, most
     loop = open_loop(threads_name, {**options, **sun})
     try:
         out["update_cores"] = transport_of(loop.loaded.assembled)[1].cores
+        out["first"] = second(loop, scene["camera"], sun)
+        half = field_host(loop).half
         out["frames"] = frames_during(loop, scene, policy, want, most)
     finally:
         out["stop"] = closed(loop)
-    reported(loop, out["frames"])
+    reported(loop, out["frames"], half)
     whole.say(f"reported: {[one.get('took') for one in out['frames']]}")
     loop = open_loop(threads_name, {**options, **sun})
     cores = transport_of(loop.loaded.assembled)[1].cores, field_host(loop).graph.cores
     try:
+        second(loop, scene["camera"], sun)
+        half = field_host(loop).half
         first = frames_during(loop, scene, policy, want, 1)
     finally:
         stop = closed(loop)
-    reported(loop, first)
+    reported(loop, first, half)
     out["first_frame"] = {"frame": first, "stop": stop, "pulls": placement(loop)}
     out["first_frame"]["cores"] = {"update": cores[0], "graph": cores[1]}
     whole.say(f"first frame's pulls: {out['first_frame']['pulls']}")
