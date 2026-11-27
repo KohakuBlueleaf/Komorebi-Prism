@@ -1,6 +1,6 @@
 """Run inside Blender: the passes of a Cycles multilayer EXR as float32 planes in an .npz,
 normals and positions in the description's axes (+Y up), the object index with its rows.
-`blender --background --python planes.py -- <truth.exr> <out.npz>`"""
+`blender --background --python planes.py -- <truth_gltf.exr> <out.npz>`"""
 
 import json
 import os

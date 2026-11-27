@@ -33,7 +33,7 @@ python scripts/data/artist_scenes.py measure [KEY ...]     # stats.json
 python scripts/data/artist_scenes.py export [KEY ...] [--frame N] [--plain]
 python scripts/data/artist_scenes.py render [KEY ...] [--size W H] [--samples N]
         [--engines CYCLES EEVEE] [--frame N] [--timeout SECONDS]
-python scripts/data/artist_scenes.py planes [KEY ...]     # surface/cycles.npz from truth.exr
+python scripts/data/artist_scenes.py planes [KEY ...]     # surface/cycles.npz from truth_gltf.exr
 python scripts/data/artist_scenes.py gltf_truth [KEY ...] [--size W H] [--samples N]
         [--engines CYCLES EEVEE] [--timeout SECONDS]
 python scripts/data/artist_scenes.py selftest             # the material rewrite's check
@@ -44,16 +44,19 @@ python -m checks.artist_export $PRISM_DATA/artist/<KEY>
 row's bytes and SHA-256, waits 20 s between two downloads and unpacks an archive into a
 folder named after it. The other commands write into `$PRISM_DATA/artist/<key>/`:
 `stats.json`, `scene.glb` with `scene.prism.json` and `scene.instances.npz`,
-`truth.exr` and `truth.png` (Cycles), `eevee.png` (EEVEE), `surface/cycles.npz` (`planes`),
-and with `gltf_truth` `scene_gltf.blend`, `truth_gltf.exr` and `truth_gltf.png` (Cycles),
-`eevee_gltf.png` (EEVEE) ([the same glTF as the truth](#the-same-gltf-as-the-truth)).
+with `render` `blend_cycles.exr` and `blend_cycles.png` (Cycles on the artist's `.blend`),
+`blend_eevee.png` (EEVEE on it), with `gltf_truth` `scene_gltf.blend`, `truth_gltf.exr` and
+`truth_gltf.png` (Cycles), `eevee_gltf.png` (EEVEE)
+([the same glTF as the truth](#the-same-gltf-as-the-truth)), and with `planes`
+`surface/cycles.npz` (the passes of `truth_gltf.exr`). A `.blend` render is never the
+truth: the truth is Cycles reading the same glTF the renderer reads.
 
 The scripts run on their own too:
 `blender --background <file.blend> --python scripts/blender/<name>.py -- <arguments>`,
 with `measure.py <out.json>`, `export.py <out_stem> [--frame N] [--plain]` and
 `render.py <out_stem> --engine CYCLES|EEVEE --size W H [--samples N] [--frame N]`;
 `planes.py` and `from_gltf.py` run without a `.blend`:
-`blender --background --python scripts/blender/planes.py -- <truth.exr> <out.npz>`,
+`blender --background --python scripts/blender/planes.py -- <truth_gltf.exr> <out.npz>`,
 `blender --background --python scripts/blender/from_gltf.py -- <stem> <out.blend>`.
 
 Cycles writes, besides Combined, the passes the surface's comparison reads: Z, Normal,
@@ -492,10 +495,10 @@ engines, size and samples of `render`. `from_gltf.py` starts from an empty file 
 
 Everything else is Blender's default in an empty file: Cycles' bounces, clamps and light
 settings, EEVEE's settings, no compositor nodes, no depth of field (glTF has none). The punctual
-lights go through the exporter's and the importer's unit conversions. `planes.py` reads
-`truth_gltf.exr` as it reads `truth.exr`, and `light_passes.py` runs on
-`scene_gltf.blend` as on the artist's file, so the surface's and the light's comparisons
-can be pointed at the same glTF by a data root holding the plain export and these files.
+lights go through the exporter's and the importer's unit conversions. `planes` reads
+`truth_gltf.exr` and `light_compare.py passes` runs `light_passes.py` on
+`scene_gltf.blend`, so the surface's and the light's comparisons read the same glTF as the
+reference.
 
 The card's picture is judged the same way: `python -m prism_cli open
 $PRISM_DATA/artist/<KEY>/scene.glb --pipeline lit --size 1280 720 --bake none` draws the
