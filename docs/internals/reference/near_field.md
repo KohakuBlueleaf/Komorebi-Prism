@@ -166,3 +166,102 @@ Each cause is shown by one changed run.
 - **Brightening beside near surfaces** when `E_far / K` alone is used without the frame
   (the field compensated): it fixes the mean (ratios 0.99 to 1.04) but brings the far mean
   into directions a near surface blocks; fused, the contacts darken as the truth does.
+
+## The form a tile could run
+
+Options of the reference that bound what one 16 x 16 tile of half pixels reads, each off
+by default:
+
+- **`angles`** (`march.SETTINGS`): `"exact"` (atan2 and the closed form, the default) or
+  `"free"` (`measure.side_share_free`: the angle by an odd polynomial of degree 13 with an
+  octant reduction, largest error 2.5e-7, and `cos(2t - g)` from the sample's coordinates
+  by the angle sum; no trigonometric call).
+- **`tile`** (`march.SETTINGS`, the rows marched together and the tile of the receiver);
+  `fuse.smooth(.., tile)` and `half.upsample(.., tile)` take no pixel of another tile.
+- **Last frame's geometry**: `frame["previous"] = fuse.previous_frame(camera, last)`;
+  short samples outside the receiver's tile and every coarse sample are read from the last
+  frame's depth at the receiver's place in it, their points turned into the current
+  camera (levels 2 and 3 of the entries); `fuse.near_radiance(.., previous)` takes those
+  entries' sources from the last frame's radiance.
+- **One apply a frame**: `fuse.one_apply`, one near bounce from the direct light plus
+  `albedo / pi` times the last frame's E, fused with the field; repeated a frame, it
+  replaces the two bounces.
+
+The furnace reads 1 at every pixel with all four on. Scores as above (same views,
+half setting with 2 slices); "walk" is the previous camera one walking step back, "fast"
+five times that; "one apply" is 8 frames from the field alone on a still camera; "all" is
+the tile, last frame's geometry, its coarse copy and one apply together (the previous view
+converged over 8 frames). The coarse copy's cells are given in full-resolution pixels.
+Contact crops (x0, y0, x1, y1): Sponza overview 150, 250, 400, 340; Sponza close 416, 330,
+832, 470; italian_flat camera 280, 520, 640, 720; italian_flat close 520, 80, 820, 240;
+lynxsdesign 0, 470, 400, 660.
+
+Whole frame:
+
+| view | half | cells 16 px | cells 32 px | tile | one apply | light only, walk | geometry, walk | geometry, fast | all, walk |
+|---|---|---|---|---|---|---|---|---|---|
+| Sponza overview | .955 / 21.32 / 23.57 | .943 / 21.16 / 23.37 | .934 / 20.76 / 22.76 | .955 / 21.31 / 23.55 | .958 / 21.33 / 23.58 | .961 / 21.39 / 23.71 | .962 / 21.49 / 23.85 | .967 / 21.46 / 23.77 | .965 / 21.50 / 23.85 |
+| Sponza close | .982 / 19.21 / 22.18 | .965 / 18.83 / 21.75 | .941 / 18.07 / 20.69 | .982 / 19.21 / 22.18 | .985 / 19.21 / 22.19 | .984 / 19.19 / 22.15 | .979 / 19.22 / 22.17 | .970 / 19.39 / 22.40 | .981 / 19.22 / 22.21 |
+| italian_flat camera | .915 / 21.56 / 26.83 | .910 / 21.50 / 26.79 | .922 / 21.52 / 26.73 | .915 / 21.55 / 26.85 | .931 / 21.55 / 26.78 | .928 / 21.52 / 26.76 | .928 / 21.57 / 26.93 | .939 / 21.53 / 26.87 | .942 / 21.55 / 26.89 |
+| italian_flat close | .893 / 22.17 / 26.21 | .874 / 22.04 / 25.88 | .860 / 21.82 / 25.41 | .893 / 22.16 / 26.20 | .908 / 22.07 / 26.04 | .922 / 21.38 / 24.77 | .883 / 22.19 / 26.37 | .890 / 22.17 / 26.34 | .895 / 22.18 / 26.36 |
+| lynxsdesign | .931 / 19.00 / 22.00 | .927 / 18.87 / 21.81 | .929 / 18.84 / 21.77 | .931 / 18.98 / 21.98 | .956 / 19.22 / 22.46 | .934 / 19.02 / 22.05 | .932 / 18.96 / 21.96 | .940 / 18.96 / 21.97 | .956 / 19.18 / 22.41 |
+
+Contact crops:
+
+| view | half | cells 16 px | cells 32 px | tile | one apply | light only, walk | geometry, walk | geometry, fast | all, walk |
+|---|---|---|---|---|---|---|---|---|---|
+| Sponza overview | .987 / 26.21 / 29.56 | .960 / 26.10 / 29.14 | .968 / 25.39 / 28.12 | .987 / 26.23 / 29.62 | .990 / 26.20 / 29.55 | .988 / 26.20 / 29.57 | .985 / 26.17 / 29.53 | .989 / 26.09 / 29.45 | .987 / 26.19 / 29.57 |
+| Sponza close | .894 / 16.79 / 18.40 | .865 / 16.42 / 17.97 | .819 / 15.41 / 16.80 | .894 / 16.79 / 18.40 | .898 / 16.81 / 18.44 | .896 / 16.76 / 18.41 | .894 / 16.80 / 18.49 | .891 / 16.89 / 18.50 | .897 / 16.82 / 18.53 |
+| italian_flat camera | .886 / 31.56 / 37.44 | .851 / 31.29 / 36.50 | .859 / 30.93 / 35.47 | .886 / 31.56 / 37.44 | .902 / 31.59 / 37.54 | .887 / 31.56 / 37.44 | .883 / 31.58 / 37.50 | .979 / 30.70 / 34.99 | .899 / 31.61 / 37.63 |
+| italian_flat close | .982 / 20.91 / 24.23 | .968 / 20.84 / 24.09 | .961 / 20.66 / 23.75 | .982 / 20.90 / 24.22 | .989 / 20.90 / 24.22 | .982 / 20.91 / 24.23 | .983 / 20.91 / 24.24 | .980 / 20.97 / 24.38 | .989 / 20.90 / 24.23 |
+| lynxsdesign | .988 / 18.79 / 21.58 | .972 / 18.35 / 20.92 | .979 / 18.15 / 20.62 | .988 / 18.78 / 21.56 | 1.066 / 18.56 / 21.21 | .997 / 18.85 / 21.71 | .989 / 18.79 / 21.67 | 1.013 / 18.68 / 21.50 | 1.065 / 18.49 / 21.15 |
+
+- `"free"` angles give the same operator to rounding: the blocked share differs at 15 of
+  235,520 half pixels (Sponza overview; largest 0.005) and 9 of 170,880 (italian_flat
+  close; 0.019), E by at most 0.07 %; the scores above are identical to 4 decimals.
+- Last frame's geometry outside the tile is never worse than last frame's light on the
+  current geometry, and removes its loss on italian_flat's close view (b8 24.77 to 26.37).
+  Of the entries' weight, 5 to 11 % is read from the last frame's pixels, 46 to 68 % from
+  its coarse copy.
+- 16 px cells cost 0.1 to 0.9 dB, 32 px up to 2.0 dB on Sponza close's contact crop.
+- The tile-bounded filter and upsample change the scores by under 0.03 dB; the difference
+  lies on the tile lines (mean 0.7 % of E, 99th percentile 8 to 12 %).
+- One apply a frame converges on a still camera: E changes 13 to 18 % in the first frame,
+  0.4 to 1.0 % in the second, 0.03 to 0.16 % in the third, nothing after the fifth. The
+  ratio rises 0.3 to 2.5 points against two bounces; on lynxsdesign's contact crop it
+  passes the truth (0.988 to 1.066).
+
+### One step compiled
+
+One march step of one vector of 32 samples (screen position, pixel index, two indexed
+loads of depth and packed normal, front and back points, distance, the plane and range
+tests, two dots and a share for each point, the bits, a popcount, the weight, the
+back-face test), written for the pack processor as the direct light's kernels are
+(vector-unit instruction macros, RVV indexed loads; `stages/direct/light`), compiled with
+the runtime's flags for that processor (`riscv-tt-elf-g++ -O3 -mcpu=tt-bh-tensix`, the
+`zve32f` vector extension), counted on the disassembly as issued vector-unit
+instructions (stores to the instruction buffer and direct vector instructions):
+
+| step | vector instructions | text bytes |
+|---|---:|---:|
+| exact, own tile | 509 | 3,600 |
+| free, own tile | 465 | 3,400 |
+| exact, last frame's sample (both points turned) | 567 | 3,996 |
+| free, last frame's sample | 523 | 3,800 |
+
+Every macro with operands compiles to three scalar instructions (12 bytes). The cycles an
+instruction come from the direct light's row compiled the same way with Sponza's terms
+(shadow, specular, no lamps): its measured laps, 644 and 1,107 cycles a vector of 32
+pixels, over 230 and 291 issued instructions, give 2.80 and 3.80 cycles an instruction
+(3.36 over both); an indexed load of 32 lanes takes about 152 cycles. At 1,920 x 1,080,
+half resolution, 64 samples a half pixel (26 short own, 6 short from the last frame,
+32 coarse with three loads), 120 cores at 1.35 GHz:
+
+| cycles an instruction | exact | free |
+|---:|---:|---:|
+| 2.80 | 12.2 ms | 11.4 ms |
+| 3.36 | 14.1 ms | 13.2 ms |
+| 3.80 | 15.6 ms | 14.6 ms |
+
+The free angles save 44 of 509 instructions: they keep the arctangent and drop the cosine
+and its range reduction.

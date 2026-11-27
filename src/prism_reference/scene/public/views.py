@@ -11,14 +11,16 @@ EPS_SCALE = 2e-5
 NEAR_SCALE = 1e-4
 
 
-def camera(eye, target, fov_deg, near):
-    """Camera array (16,) float32 looking from eye at target, square field of view."""
+def camera(eye, target, fov_deg, near, shift=(0.0, 0.0)):
+    """Camera array (16,) float32 looking from eye at target, square field of view; a
+    lens `shift` (x, y) in units of WIDTH moves the principal point by (-x, +y) WIDTH.
+    """
     eye, target = np.asarray(eye, np.float64), np.asarray(target, np.float64)
     fwd = normalize(target - eye)
     right = normalize(cross(fwd, np.array([0.0, 1.0, 0.0])))
     up = cross(right, fwd)
     focal = (WIDTH / 2) / np.tan(np.radians(fov_deg) / 2)
-    tail = [focal, WIDTH / 2, HEIGHT / 2, near]
+    tail = [focal, WIDTH / 2 - shift[0] * WIDTH, HEIGHT / 2 + shift[1] * WIDTH, near]
     return np.concatenate([eye, right, up, fwd, tail]).astype(np.float32)
 
 
@@ -34,7 +36,9 @@ def make_view(view, data):
     meta = [len(mesh["indices"]), len(p), 0, 0, 0]
     return {
         **mesh,
-        "camera": camera(spec["eye"], spec["target"], spec["fov"], near),
+        "camera": camera(
+            spec["eye"], spec["target"], spec["fov"], near, spec.get("shift", (0, 0))
+        ),
         "light": np.array(entry["light"], dtype=np.float32),
         "eps": np.array([EPS_SCALE * diag], dtype=np.float32),
         "meta": np.array(meta, dtype=np.int32),

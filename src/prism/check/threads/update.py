@@ -1,13 +1,15 @@
 """The field's update in the threads' form: the stage-wise preset's frame after its
 update (its picture, map, field pages, scale) at each deal of the transport's weights;
-the threads' loop's commands sent, its update's graph waited for, the field it wrote
-judged against each, then its frames after the update judged as the whole frame's."""
+the threads' loop's commands sent, its update's graph waited for (the second update on
+a scene with no valid field at load), the field it wrote judged against each, then its
+frames after the update judged as the whole frame's."""
 
 import komorebi as km
 import numpy as np
 
 from prism.check.threads import whole
 from prism.check.threads.card import closed, set_frame
+from prism.check.threads.second import second
 from prism.check.threads.standing import standing
 from prism.check.threads.sun import map_of, shadow_host
 from prism.core.implementation import command_of, hosted
@@ -127,6 +129,7 @@ def check(open_loop, threads_name, stage_name, scene, policies, options, sun, de
     out["update_cores"] = transport_of(loop.loaded.assembled)[1].cores
     whole.say(f"the update takes {out['update_cores']} cores")
     try:
+        out["first"] = second(loop, scene["camera"], sun)
         done = updated(loop, scene, policies[0])
         if "field" in done:
             done["judged"] = {

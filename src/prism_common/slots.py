@@ -102,6 +102,13 @@ slot(
     "the sun's shadow map: 1/z, in light pages of 32 x 32, pages row by row",
 )
 slot(
+    "light.shadow_maps",
+    "u32",
+    "page",
+    "the page of maps: 1 + the half of its records the frames read (the whole map's, "
+    "then each fitted map's: camera, pages, side, texel, bias, levels)",
+)
+slot(
     "light.field",
     "u32",
     "page",

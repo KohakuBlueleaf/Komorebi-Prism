@@ -8,7 +8,7 @@ Left, cards of real lines (teaser_lines.py), each marked in the colour of the ma
 centre draws for it; the shell commands of docs/guides/quick_start.md wrapped at their
 arguments, the C lines without their indentation. Centre: the card as levels.py draws it
 (ports: X280 1; the job thread: clusters 2 and 3, program/jobs/thread.py; an update's
-applies on ranks 0 to 29, update_cores 30); one frame's phases and the update after a
+applies as core steps on every core between two frames); one frame's phases and the update after a
 sun move from measurements/gi_threads (Sponza). Right: frames of gi_threads from the
 viewer (docs/images/frame-*.jpg), triangles from docs/concepts/scenes.md, ms from
 measurements/gi_threads; the rows from measurements/gi_threads (frame ratio less push,
@@ -103,18 +103,7 @@ def grid(s, x, y):
         for k in range(12):
             rank = row * 12 + k
             px = (tl if k < 6 else tr) + (k % 6) * pitch
-            apply = rank < 30
-            s.rect(
-                px,
-                ry,
-                cell,
-                cell,
-                c["r"][1],
-                c["a"][0] if apply else c["r"][0],
-                rx=2,
-                sw=1.6 if apply else 0.6,
-                layer=0,
-            )
+            s.rect(px, ry, cell, cell, c["r"][1], c["r"][0], rx=2, sw=0.6, layer=0)
             at[rank] = (px + cell / 2, ry + cell / 2)
     boxes = (("X280 0", "g", "Komorebi"), ("X280 1", "w", "frame"))
     boxes += (("X280 2", "m", "jobs"), ("X280 3", "m", "jobs"))
@@ -131,10 +120,6 @@ def grid(s, x, y):
         s.line(at[rank][0] + 6, at[rank][1], xc - 1, w1, "w", 1.6, tail=True)
     for rank in (44, 104):
         s.line(xc + bw + 1, w1, at[rank][0] - 6, at[rank][1], "w", 1.6, tail=True)
-    # the job thread queues the applies on ranks 0 to 29
-    w2 = mid["X280 2"]
-    s.line(xc - 1, w2, at[26][0] + 5, at[26][1] + 5, "m", 1.6)
-    s.line(xc + bw + 1, w2, at[21][0] - 5, at[21][1] + 5, "m", 1.6)
     # the display pages leave the card
     s.line(dr + 9, y + 75, RX - 4, y + 75, "p", 2.2)
     s.text(dr + 8, y + 162, "DRAM", 11, c["mute"], True, anchor="end")
@@ -147,7 +132,7 @@ def key(s, x, y):
     items = (
         ("w", "pulls: a core asks X280 1 for a thread"),
         ("r", "every core inside a tile thread"),
-        ("a", "ranks 0 to 29: an update's applies"),
+        ("a", "between two frames, every core: an apply"),
         ("m", "X280 2, 3: the job thread's graph"),
         ("p", "the display pages leave"),
     )
@@ -156,7 +141,9 @@ def key(s, x, y):
         if colour == "r":
             s.rect(x + 4, ly - 9, 12, 12, c["r"][1], c["r"][0], rx=2, sw=0.6)
         elif colour == "a":
-            s.rect(x + 4, ly - 9, 12, 12, c["r"][1], c["a"][0], rx=2, sw=1.6)
+            s.rect(x + 1, ly - 9, 7, 12, c["r"][1], c["r"][0], rx=2, sw=0.6)
+            s.rect(x + 9, ly - 9, 3, 12, c["a"][1], c["a"][0], rx=1, sw=0.6)
+            s.rect(x + 13, ly - 9, 7, 12, c["r"][1], c["r"][0], rx=2, sw=0.6)
         else:
             mark(s, x, ly - 3, colour, "both" if colour == "w" else "solid", 18)
         s.text(x + 26, ly, text, 11, c["fg"])

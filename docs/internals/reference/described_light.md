@@ -59,7 +59,13 @@ map it does not read). `direct_light(planes, eye, tree, diagonal, lights, world)
 every covered pixel of the surface planes:
 
 - The shading normal and the triangle's normal are both turned toward the eye where
-  the triangle faces away from it (Cycles shades both sides of a surface).
+  the triangle faces away from it (Cycles shades both sides of a surface). For the
+  specular lobe only, the shading normal is made valid for the view (`brdf.valid_normal`,
+  Cycles' `ensure_valid_specular_reflection`, which its Principled BSDF applies to its
+  specular layers): where the mirror direction of the view about it falls under the
+  triangle's plane (a normal map bent too far, as italian_flat's floor whose normal
+  texture is a white tile image), it is bent toward the triangle's normal until that
+  direction lies just above the plane. The diffuse and sheen use the shading normal.
 - A shadow ray starts at the point moved `RAY_OFFSET = 1e-5` of the scene's diagonal
   along that triangle normal; lengths, cosines and the spot's angle are measured from
   the point itself. It is traced through `trace.batch.trace` (any hit) over the box
@@ -74,22 +80,54 @@ every covered pixel of the surface planes:
 
 `w` is the sample's share of the irradiance (radiance times cosine over the sample's
 density); a sample with `w = 0` or below the shading horizon traces no ray. With the
-model of `material.brdf` (`f0`, `D`, `V`, `F` of the half vector):
+model of `material.brdf`, per pixel:
+
+- `f0 = dielectric weight (1 - metallic) + base metallic`, `f90 = weight (1 - metallic)
+  + metallic`: the dielectric's f0 is `((ior - 1) / (ior + 1))^2` times the specular
+  colour, at most 1 (`KHR_materials_ior`, 1.5 without; `KHR_materials_specular`'s
+  colour factor and texture), its weight the specular factor times the specular
+  texture's alpha (KHR_materials_specular as glTF states it: the weight scales
+  Schlick's Fresnel, `F = weight (f0 + (1 - f0) (1 - v_h)^5)` for a dielectric);
+- `M = 1 + f0 (1 - E) / E`, `E` the lobe's albedo with `F = 1` at the pixel's `n.v` and
+  roughness: the energy that bounces between microfacets, which the single-scattering
+  lobe loses (Cycles' Principled BSDF uses multiple-scattering GGX); a rough metal
+  loses about 60 % of its light without it;
+- the lobe's albedo `A = (f0 Ea + f90 Eb) M` (`Ea`, `Eb` Schlick's two parts of the
+  single-scattering albedo);
+- the sheen (`KHR_materials_sheen`): `sheen = colour D_charlie V_neubelt` and the layers
+  under it scaled by `S = min(1 - max(colour) Es(n.v), 1 - max(colour) Es(n.l))`, `Es`
+  the sheen's albedo (white colour); 0 and 1 without the extension.
+
+The albedos are tables of 32 x 32 cells over `n.v` and roughness (`brdf.ALBEDO`,
+`brdf.SHEEN`), each cell the mean of 64 x 64 fixed stratified samples, made when the
+module is imported, read bilinearly.
 
 | plane | sum over the visible samples | Cycles' pass beside it |
 | --- | --- | --- |
 | `diffuse_light` | `w / pi`: the irradiance over pi, before the base colour | Diffuse Direct |
-| `glossy_light` | `w D V F / f0`: the specular term over its colour `f0` | Glossy Direct |
-| `direct` | `w (diffuse (1 - F) + D V F)`, plus the surface's emission | (Combined) |
+| `glossy_light` | `w D V F M / A`: the specular light over the lobe's albedo | Glossy Direct |
+| `specular` | `w D V F M S`: the specular light itself | Glossy Direct x Glossy Color |
+| `sheen` | `w sheen` | (in Cycles' diffuse) |
+| `direct` | `w ((diffuse (1 - F) + D V F M) S + sheen)`, plus the surface's emission | (Combined) |
 
-`glossy_light` and `direct` are 0 where the shading normal faces away from the eye.
-Each plane is also kept by light kind (`kinds`), so one kind is the sum of its lights
-alone.
+The specular lobe is 0 where its valid normal faces away from the eye, the sheen where
+the shading normal does; the diffuse is not (as Cycles' diffuse BSDF, which reads only
+the light's side). The specular lobe's samples carry the valid normal's cosine in `w`
+(`w` scaled by its cosine over the shading normal's); a sample under the shading normal's
+horizon is not traced.
+
+A normal texture that holds a height image (a grey tile, read as a normal map: the
+texel `(g, g, g)` decodes to `+-(1, 1, 1) / sqrt(3)` in tangent space, inward where g is
+under one half) turns the shading normal away from the light on scattered pixels; with
+one shading point a pixel and the filtered texel, such a pixel is black, where Cycles,
+sampling the texture at each of its paths, averages the pixel's sub-texels. italian_flat's
+fabrics and lynxsdesign's sofas have such textures. Each
+plane is also kept by light kind (`kinds`), so one kind is the sum of its lights alone.
 
 Cycles' Glossy Direct is its specular light over its own glossy colour, the directional
-albedo of its specular layer; `glossy_light` divides by `f0` instead. The two agree
-where the albedo is near `f0` (a smooth surface seen near the normal) and differ by the
-ratio of the two colours elsewhere.
+albedo of its specular layer; `glossy_light` divides by the lobe's albedo in the same
+way, so the two passes are alike. `specular` against Glossy Direct times Glossy Color
+compares the light itself, whatever each side divides by.
 
 ## The display (`post/described.py`)
 

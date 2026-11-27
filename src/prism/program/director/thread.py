@@ -5,7 +5,7 @@ commands, declared on the program."""
 import inspect
 from pathlib import Path
 
-from prism.core.headers import INCLUDE
+from prism.core.headers import INCLUDE, defined
 from prism.core.resources import function_prefix
 from prism.core.unit import FRAMES
 from prism.program.director import generate
@@ -14,6 +14,9 @@ from prism_common.paths import build_root
 RUNTIME = Path(__file__).resolve().parent / "c"
 CLUSTER = FRAMES  # the work cluster the frame's thread runs on
 DEADLINE = 10.0  # seconds kmx_main may take
+D = defined(RUNTIME / "director.h")
+STEP_CODE_MASK = D["DR_STEP_CODE_MASK"]  # a core step's answer: its code's bits
+STEP_ARGS = D["DR_STEP_ARGS"]  # the core command's words a core step carries
 
 
 def folder_of(implementation):

@@ -200,23 +200,40 @@ preset, to judge them against a traced truth:
   (`{"kind": "box", "width"}`, (width + 1)^2 texel reads; width 1 is the present
   filter), rotated disk taps (`"disk"`, a golden-angle spiral turned per pixel), and
   PCSS (`"pcss"`, a blocker search, then the disk at the radius the sun's angle gives).
+  With `"levels": True` the search reads the map's nearest-depth levels
+  (`nearest_levels`: each texel the nearest 1/z of 2 x 2 below), on the level where its
+  reach spans 4 texels, a tap blocking where that cell's nearest surface is nearer than
+  the receiver's nearest in the cell. In a cascade's fine map the search from the near
+  plane reaches about 150 texels: 16 taps there miss blockers in one pixel and find them
+  in the next (square dark blocks along the penumbra), and a 32 x 32 tile's taps touch
+  121 to 220 map pages, against 8 to 14 with the levels.
   With `receiver_plane`, the comparisons follow the receiver's own slope (capped at 10
   texel widths), so a slanted receiver does not count as its own blocker.
 - `shadow_cascade`: the eye's seen depth range split (practical split, 0.75 toward
   logarithmic) into cameras with the sun camera's axes and distance, each fitted to
   its slice, the whole map last; a point takes the finest camera it lies in by a
-  margin of texels.
+  margin of texels. A fit can be kept: `fitted_camera` widens the slice by a margin (a
+  share of its extent on each side), puts the half width on steps of 2^(1/8) and the
+  centre on the camera's own texel grid, so a fit made again from nearby corners draws
+  the same texels; `kept_cameras` keeps each camera while `fit_holds` (its frame still
+  covers its slice) and fits again only those that do not. A wider margin is redrawn
+  less often and is coarser: walking at a tenth of the box's diagonal a second and
+  turning 15 degrees a second, the two maps are fitted again 8.2 and 1.3 times a second
+  on Sponza's overview with no margin, 2.0 and 0.9 with 0.1, 0.9 and 0.2 with 0.25,
+  while the edge error with the 2 x 2 filter grows 0.117, 0.129, 0.153 (at a close pose
+  in italian_flat_97f97a20ba, 2.4 and 0.4, 1.6 and 0, 0.8 and 0 a second, the error
+  0.163, 0.161, 0.159: there the fine map is finer than the frame needs).
 - `shadow_traced.traced_sun`: the truth. Rays over the sun's disk (Blender's sun
   angle, 0.00918 rad), turned per pixel, against every triangle but transparent ones;
   masked holes pass. On a written plate and floor it is within 0.002 (mean) of the
   closed form.
 
-Against the traced truth, the mean error in the pixels within 2 of an edge, side 2,048
-(host, 2026-11-27): italian_flat_97f97a20ba at a close pose 0.244 with the 2 x 2
-filter, 0.198 with a box of 5, 0.215 with PCSS, 0.200 at side 4,096, 0.175 with a
-cascade, 0.078 with a cascade and PCSS; breakfast_room's overview 0.183 with the 2 x 2
-filter, 0.094 with PCSS; Sponza's overview 0.423 with the 2 x 2 filter, 0.347 with a
-cascade and PCSS (before the DEPTH view's shifted planes). The texel reads a pixel:
+Against the traced truth, the mean error in the pixels within 2 of an edge, side 2,048,
+the DEPTH views' shifted planes in (host, 2026-11-27): italian_flat_97f97a20ba at a
+close pose 0.247 with the 2 x 2 filter, 0.209 with a box of 5, 0.220 with PCSS, 0.165
+with a cascade, 0.057 with a cascade and PCSS, 0.064 with its search on the levels;
+breakfast_room's overview 0.180 with the 2 x 2 filter, 0.087 with PCSS; Sponza's
+overview 0.200 with the 2 x 2 filter, 0.107 with a cascade and PCSS (either search). The texel reads a pixel:
 4 for the 2 x 2 filter, 36 for a box of 5, 160 for PCSS of 32 taps (search and filter).
 `checks/shadow_edge` checks these parts.
 
@@ -240,21 +257,47 @@ table lookup or a texel fetch.
    tone curve, or the background's radiance), `a` the glass's albedo x base colour,
    `n` its triangle's normal turned toward the eye (no normal map, also in the smooth
    variant), `v` toward the eye:
-   `colour = tau C + (1 - max tau) a / pi E + S + F reflection R`. `E` is the glass's own
-   irradiance by the rules of "Lighting" (sky x visibility, ambient, sun with shadow,
-   lamps); `S` the `lit` kind's Blinn-Phong term for the sun and each lamp with the
-   material's specular colour and exponent (always, when it has a specular colour);
-   `R` the environment's radiance along `2 (n.v) n - v` (the octahedral map's nearest
-   texel, turned like the background); `F = F0 + (1 - F0)(1 - n.v)^5`, `F0 = 0.04`,
-   `n.v` clamped at 0; `reflection` the scene's number of its `lighting` entry. Then
-   the tone curve as for every pixel. `rasterize_shaded` (no lighting) uses
+   `colour = tau C + (1 - max tau) a / pi E + S + F reflection R`. `E` is the glass's
+   own irradiance by the rules of "Lighting" (sky x visibility, ambient, sun with
+   shadow, lamps); `S` the `lit` kind's Blinn-Phong term for the sun and each lamp with
+   the material's specular colour and exponent (always, when it has a specular colour);
+   `R` the environment's radiance along `r = 2 (n.v) n - v` (the octahedral map's
+   nearest texel, turned like the background); `F = F0 + (1 - F0)(1 - n.v)^5`,
+   `F0 = 0.04`, `n.v` clamped at 0; `reflection` the scene's number of its `lighting`
+   entry. Then the tone curve as for every pixel. With the term `glass_light` (off by
+   default, until the card draws it):
+   `colour = tau (1 - (F - F0)) C + (1 - max tau) a / pi E + S + F R'`, `F0` the
+   material's specular colour, `R'` the radiance arriving along `r`: with `reflection`
+   above 0, `reflection` x the environment's; else, with the term indirect, the field's
+   irradiance at the glass for the normal `r` over pi (the room and the sky as the field
+   holds them, a hemisphere's mean); else the sky's irradiance for `r` over pi. The
+   converter's numbers make a BLEND material a coverage (its own diffuse and specular
+   weighted by alpha, `tau = 1 - alpha` and its transmitted part) and a metal opaque
+   ([glTF scenes](../../guides/gltf_scenes.md), "The mapping"). A thin surface: nothing
+   is refracted, the surface behind is seen where it lies.
+   `rasterize_shaded` (no lighting) uses
    `tau C + (1 - max tau) a light` with its light term and no `S` or `R`; on scenes without
    transparent materials its results are unchanged (no third FILL runs).
-3. **Shadows.** Transparent triangles cast none: the shadow map is `rasterize_shaded`'s
-   1/z, which is the surface behind the glass. The baked sky visibility is not rebuilt:
-   it still treats glass as opaque.
-4. **Terms.** `glass` (default on): left out, transparent triangles are not drawn. `R`
-   needs `background`; `S` needs `specular`. `parts` gains the glass layer's own planes
+3. **Shadows.** Transparent triangles cast no shadow: the shadow map is
+   `rasterize_shaded`'s 1/z, which is the surface behind the glass. With the term
+   `glass_light` they take the sun's light by their materials' `shadow`: a glass map
+   from the shadow map's camera (`sun_glass_map`: the 1/z of the glass nearest the sun
+   and its material's `shadow`, the transparent triangles alone) multiplies the sun's
+   irradiance by `shadow` at a point behind that glass (the four nearest texels,
+   bilinear, the shadow's bias; one glass along the sun's way; the glass's own pixels
+   are not attenuated). `shadow` is the materials file's, 1 for a file without it (the
+   sun passes, as without the term): 0 for a refractive glTF surface, which then casts
+   a full shadow, as Cycles reading the same file shows it (measured per glass object:
+   the direct light behind refractive glass is 5 to 11 % of what it would be without
+   it, the rest noise and indirect; under BLEND alpha 0.35 two panes pass 0.38 against
+   0.65^2 = 0.42). The lamps have no visibility, so glass changes nothing of theirs: a
+   lamp behind refractive glass lights through it, which Cycles does not, so a surface
+   lit through glass by lamps or by the field (the sliding door's panel) stays brighter
+   than Cycles' until lamps have visibility. The baked sky visibility is not rebuilt: it
+   still treats glass as opaque.
+4. **Terms.** `glass` (default on): left out, transparent triangles are not drawn. `R`'s
+   environment form needs `background`; `S` needs `specular` (without it the term
+   `glass_light`'s `F0` is 0). `parts` gains the glass layer's own planes
    where it is in front: `glass_depth` (1/z, 0 elsewhere), `glass_tri` and
    `glass_material` (-1 elsewhere), `glass_normal` (`n`). The other parts, `depth` and
    `tri` stay those of the surface behind. `rasterize_shaded` also returns the glass

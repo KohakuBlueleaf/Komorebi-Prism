@@ -30,6 +30,7 @@ docstring names the code and the records the figure is taken from.
 | [guides/viewer.md](guides/viewer.md) | the viewer: its server, its page, the scene menu, its notices |
 | [guides/gltf_scenes.md](guides/gltf_scenes.md) | opening a glTF file: the command, the material mapping, the view, the lighting |
 | [guides/artist_scenes.md](guides/artist_scenes.md) | the artists' Blender scenes: the workbench, the plain export, the truth by Cycles reading the same glTF |
+| [guides/compare.md](guides/compare.md) | one command: a picture against Cycles on the same glTF, by pass (the indirect split included), a strip, named crops |
 | [guides/checks.md](guides/checks.md) | what `checks/` and each stage's check do |
 
 ## Internals

@@ -44,6 +44,7 @@ MATERIAL_KEYS = (
     "exponent",
     "specular",
     "transmission",
+    "shadow",
     "texels",
     "mip",
     "levels",
@@ -253,10 +254,13 @@ def load_materials(name, data):
 
 
 def with_defaults(materials):
-    """The materials with a transmission of 0 (M, 3) added when they have none."""
+    """The materials with a transmission of 0 (M, 3) added when they have none, and a
+    shadow (the sun's light a surface lets through, M, 3) of 1 when they have none."""
     rows = len(materials["kind"])
     zeros = np.zeros((rows, 3), dtype=np.float32)
-    return {**materials, "transmission": materials.get("transmission", zeros)}
+    transmission = materials.get("transmission", zeros)
+    shadow = materials.get("shadow", np.ones((rows, 3), dtype=np.float32))
+    return {**materials, "transmission": transmission, "shadow": shadow}
 
 
 def export_materials(materials, folder):
