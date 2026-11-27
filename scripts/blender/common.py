@@ -152,10 +152,19 @@ def camera_rule(instance, transparent):
     return None
 
 
+def slot_materials(evaluated):
+    """The original material of each of an object's slots (None for an empty slot)."""
+    return [
+        getattr(s.material, "original", s.material) if s.material else None
+        for s in evaluated.material_slots
+    ]
+
+
 def copies(depsgraph, keep=False):
     """{key: {"source", "triangles", "matrices"}} over the depsgraph's instances of
     geometry with triangles that camera rays see, a key being base + (k,), k numbering
-    a base's evaluated data; `source` is a mesh made at the key's first copy when `keep`.
+    a base's evaluated data and slot materials; `source` is a mesh made at the key's
+    first copy (with its object's slot materials) when `keep`.
     Also {base: k's} and {name: (type, reason)} of the geometry left out."""
     found = {}
     keys = {}
@@ -171,7 +180,9 @@ def copies(depsgraph, keep=False):
             left.setdefault(evaluated.original.name_full, (evaluated.type, reason))
             continue
         base = base_of(evaluated.original)
-        pointer = (base, evaluated.data.as_pointer() if evaluated.data else 0)
+        slots = slot_materials(evaluated)
+        data = evaluated.data.as_pointer() if evaluated.data else 0
+        pointer = (base, data, tuple(m.name_full if m else "" for m in slots))
         if pointer not in keys:
             count = triangles(evaluated)
             keys[pointer] = (None, 0)
@@ -193,6 +204,10 @@ def copies(depsgraph, keep=False):
                 source = bpy.data.meshes.new_from_object(
                     evaluated, preserve_all_data_layers=True, depsgraph=depsgraph
                 )
+            if source is not None:
+                for i, material in enumerate(slots[: len(source.materials)]):
+                    if material is not None:
+                        source.materials[i] = material
             found[key] = {"source": source, "triangles": count, "matrices": []}
         found[key]["matrices"].append(instance.matrix_world.copy())
     return found, bases, left

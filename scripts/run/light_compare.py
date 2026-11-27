@@ -31,13 +31,14 @@ from prism_reference.post.described import displayed
 from prism_reference.post.display import to_srgb_standard8
 from prism_reference.post.view import view_of
 from prism_reference.scene.artist.entry import camera_node
-from prism_reference.scene.artist.table import artist_dir, blend_path
+from prism_reference.scene.artist.table import artist_dir
 from prism_reference.scene.description.flatten import drawn_triangles, flatten
 from prism_reference.scene.importers import gltf
 from prism_reference.trace.tree import build
 
 BLENDER_VARIABLE = "PRISM_BLENDER"
 SCRIPT = Path(__file__).resolve().parent.parent / "blender" / "light_passes.py"
+GLTF_BLEND = "scene_gltf.blend"  # from_gltf.py's file: `artist_scenes.py gltf_truth`
 MEASURED = Path(__file__).resolve().parents[2] / "measurements" / "reference_light"
 SCENE_FILES = ("scene.glb", "scene.prism.json", "scene.instances.npz")
 BACKGROUND_DEPTH = (
@@ -66,15 +67,18 @@ def passes_size(key, data):
 
 
 def run_passes(key, data, size, samples, timeout, runs=None):
-    """Runs light_passes.py on the scene's .blend at `size` (None: `passes_size`); its
-    JSON line, or the failure."""
+    """Runs light_passes.py on the .blend from_gltf.py made of the scene's .glb at
+    `size` (None: `passes_size`); its JSON line, or the failure."""
     folder = artist_dir(data) / key / "light"
+    blend = artist_dir(data) / key / GLTF_BLEND
+    if not blend.exists():
+        return {"scene": key, "error": f"no {blend}: run artist_scenes.py gltf_truth"}
     size = size or passes_size(key, data)
     command = [
         os.environ.get(BLENDER_VARIABLE, "blender"),
         "--background",
         "--disable-autoexec",
-        str(blend_path(key, data)),
+        str(blend),
         "--python",
         str(SCRIPT),
         "--",
@@ -337,6 +341,7 @@ def compare(key, data, filter_name="anisotropic"):
         ),
         "cycles_samples": blender.get("samples"),
     }
+    record["passes_file"] = Path(blender.get("file") or "unknown").name
     record["not_carried"] = not_carried(
         scene, missing, notes, blender, record["runs"], record["lights"]
     )
@@ -389,7 +394,10 @@ def table():
     for r in records:
         reference = ", ".join(f"{k} {n}" for k, n in r["lights"]["reference"].items())
         blender = ", ".join(f"{k} {n}" for k, n in r["lights"]["blender"].items())
-        lines.append(f"**{r['scene']}** ({r['size'][0]} x {r['size'][1]}, Cycles")
+        source = r.get("passes_file", "the artist's .blend")
+        source = "the glTF" if source == GLTF_BLEND else f"{source} (not the glTF)"
+        lines.append(f"**{r['scene']}** ({r['size'][0]} x {r['size'][1]}, Cycles on")
+        lines.append(f"{source},")
         lines.append(f"{r['lights']['cycles_samples']} samples, registered")
         lines.append(f"{r['registration']['registered']:.3f}): reference {reference};")
         lines.append(f"Blender {blender}.")

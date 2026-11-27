@@ -8,6 +8,7 @@ Each gives pictures (a label, the controls set, the JPEG) and what they must be.
 
 from functools import partial
 
+from prism.stages.post.show.host import VIEW
 from prism.stages.post.show.model.table import show_table
 from prism_reference.post.display import GAMMA, to_power8
 
@@ -101,10 +102,11 @@ def count(control, shown, post, record, wait):
     return pictures, {pictures[-1][0]: "same"}
 
 
-def gamma(control, shown, post, record):
+def gamma(control, shown, post, record, viewed=False):
     """The gamma halfway down to its least (the picture must differ) and back (the
     picture must be the one as loaded); when its most is over its value, up to the most
-    and back the same."""
+    and back the same. `viewed` (the file's view transform shown): no difference
+    expected."""
     name, value, (least, most) = control["name"], control["value"], control["limits"]
     others = [(least + value) / 2, *([most] if most > value else [])]
     pictures, expect = [], {}
@@ -112,8 +114,10 @@ def gamma(control, shown, post, record):
         there = (f"{name} = {other:g}", {name: other}, shown(control, other))
         back = (f"{name} = {value:g} again from {other:g}", {}, shown(control, value))
         pictures += [there, back]
-        expect |= {there[0]: "differs", back[0]: "same"}
+        expect |= {back[0]: "same"} | ({} if viewed else {there[0]: "differs"})
     record[name] = {"moved": others, "back": value, "limits": control["limits"]}
+    if viewed:
+        record[name]["not_expected"] = "no difference: the file's view transform is on"
     return pictures, expect
 
 
@@ -130,6 +134,9 @@ def checked(controls, shown, post, wait, record):
     must be against the one as loaded ("same" or "differs")."""
     pictures, expect = [], {}
     default_table(record)
+    viewed = any(
+        c["name"].endswith(".transfer") and c["value"] == VIEW for c in controls
+    )
     for control in controls:
         match control["kind"]:
             case "direction":
@@ -139,7 +146,7 @@ def checked(controls, shown, post, wait, record):
             case "count":
                 got = count(control, shown, post, record, wait)
             case "range" if control["name"].endswith(".gamma"):
-                got = gamma(control, shown, post, record)
+                got = gamma(control, shown, post, record, viewed)
             case _:
                 continue
         pictures += got[0]

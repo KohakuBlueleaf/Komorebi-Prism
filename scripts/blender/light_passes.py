@@ -263,6 +263,7 @@ def main():
     runs = ["all", *kinds, *(["world"] if world else []), "none"]
     runs = runs if args.runs is None else args.runs
     record = {"size": args.size, "samples": args.samples, "runs": {}}
+    record["file"] = bpy.data.filepath
     record["lights"] = drawn
     record["world"] = {"name": world.name if world else None}
     record["visibility"] = visibility(scene)

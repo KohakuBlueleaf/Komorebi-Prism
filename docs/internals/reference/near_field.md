@@ -265,3 +265,78 @@ half resolution, 64 samples a half pixel (26 short own, 6 short from the last fr
 
 The free angles save 44 of 509 instructions: they keep the arctangent and drop the cosine
 and its range reduction.
+
+## One tile
+
+`near/one_tile.py` writes both fields of a 32 x 32 px screen tile as one product,
+`E = W_T . S_T`: `W_T` has a row a half pixel (256 a tile) and 32 columns, `S_T` is 32
+colours a tile. The product's E is upsampled to full pixels after it (`half.upsample`
+within the tile). The form:
+
+- **Near columns (20)**: the tile (16 x 16 half pixels) in 2 x 2 cells of 8, then two
+  rings of 8 cells around it, of 16 and 48 half pixels (`tile.PATTERN`). The march's
+  entries are credited to the cell their sample lies in (`tile.near_weights`); a sample
+  outside the pattern sets no bits, its directions go to the far field. Seen-from-behind
+  samples count as the cell's front (back face 0). The tile-bounded filter is applied to
+  `W` itself. `S_near` is each cell's mean radiance over its covered half pixels
+  (`tile.cell_values`, by summed tables).
+- **Far columns (12)**: the field lookup written as weights on its 24 (voxel x 6 +
+  direction) entries a pixel (`tile_far.lookup_weights`, equal to `values.lookup`). A
+  tile reads a median 60 to 96 distinct entries, at most 250 to 950. They are put into
+  12 groups (`tile_far.grouped`): the six directions share the groups by the weight they
+  carry, and a direction's entries are split in halves along their box's longest side
+  at the weighted share. `W_far[pixel, g]` is the sum of the pixel's weights in group
+  `g`: nonnegative, each row's sum kept. `S_far[g]` is the group's field values averaged
+  with the tile's column sums as weights. A tile with 12 entries or fewer keeps them as
+  they are.
+- **The fusion as weights** (`tile_far.tile_weights`): `pi W_near` and
+  `(1 - blocked) / K W_far`, with `K` the grouped lookup of the furnace's field over pi;
+  where `K` is under `FLOOR_K`, `W_near / blocked` with hits and `W_far` alone without.
+  The ambient term where no lookup finds the field stays outside the product. The
+  furnace reads 1 by construction (`checks.near_field`).
+
+What is recomputed when: `W_T` depends on the geometry and the eye only (a moved sun
+gives the same `W_T` to the bit; the check holds `W_T` and compares it against one
+rebuilt under the moved sun). It is rebuilt when the eye or the geometry moves.
+`S_near` is rebuilt every frame from the lit radiance. `S_far` is rebuilt when the field
+changes, or when the groups change with `W_T`.
+
+On the five views (two bounces, h16 setting; ratio / PSNR / PSNR in 8 bits; the second
+group's scores take `W_T` in bfp8_b and `S_T` in bfloat16; "p99" is that 8-bit error's
+99th percentile in units of the frame's mean E; "lookup" is the far columns' mean error
+against the full lookup of the field):
+
+| view | rows | far basis | whole | contact | whole, 8 bit | contact, 8 bit | p99 | lookup |
+|---|---|---|---|---|---|---|---:|---:|
+| Sponza overview | full | SVD | .966 / 21.01 / 23.44 | .988 / 26.16 / 29.68 | 23.44 | 29.64 | 5.6 % | 1.5 % |
+| Sponza overview | half | SVD | .966 / 21.01 / 23.43 | .988 / 26.18 / 29.69 | 23.43 | 29.68 | 4.7 % | 1.4 % |
+| Sponza overview | half | groups | .966 / 20.95 / 23.33 | .993 / 26.19 / 29.75 | 23.33 | 29.75 | 1.3 % | 3.8 % |
+| Sponza close | full | SVD | .998 / 19.25 / 22.29 | .925 / 17.21 / 19.16 | 22.29 | 19.15 | 4.1 % | 0.3 % |
+| Sponza close | half | SVD | .998 / 19.25 / 22.29 | .925 / 17.21 / 19.16 | 22.30 | 19.17 | 3.7 % | 0.3 % |
+| Sponza close | half | groups | .999 / 19.22 / 22.26 | .925 / 17.24 / 19.19 | 22.25 | 19.18 | 1.4 % | 1.6 % |
+| italian_flat camera | full | SVD | .928 / 21.40 / 26.85 | .893 / 31.57 / 37.53 | 26.84 | 37.53 | 10.0 % | 2.1 % |
+| italian_flat camera | half | SVD | .928 / 21.42 / 26.86 | .893 / 31.57 / 37.53 | 26.86 | 37.52 | 8.9 % | 1.9 % |
+| italian_flat camera | half | groups | .928 / 21.36 / 26.70 | .896 / 31.54 / 37.49 | 26.70 | 37.48 | 2.1 % | 4.1 % |
+| italian_flat close | full | SVD | .897 / 22.17 / 26.25 | .985 / 20.91 / 24.23 | 26.25 | 24.23 | 5.8 % | 0.4 % |
+| italian_flat close | half | SVD | .897 / 22.18 / 26.26 | .985 / 20.91 / 24.24 | 26.26 | 24.22 | 4.8 % | 0.4 % |
+| italian_flat close | half | groups | .899 / 22.14 / 26.19 | .985 / 20.95 / 24.33 | 26.18 | 24.33 | 3.8 % | 2.4 % |
+| lynxsdesign | full | SVD | .934 / 18.94 / 22.03 | .991 / 18.76 / 21.56 | 22.07 | 21.57 | 5.2 % | 1.7 % |
+| lynxsdesign | half | SVD | .934 / 18.95 / 22.03 | .991 / 18.75 / 21.56 | 22.07 | 21.57 | 4.3 % | 1.6 % |
+| lynxsdesign | half | groups | .934 / 18.95 / 21.98 | .994 / 18.63 / 21.41 | 21.98 | 21.40 | 1.1 % | 3.8 % |
+
+- Half rows against full rows: within 0.02 dB on every view and crop. `W_T` at half rows
+  is 8,704 bytes a tile in bfp8_b (full rows 34,816).
+- Groups against the SVD basis (`tile_far.basis`, signed, exact on the furnace by
+  deflation): the lookup's error rises from 0.3 to 1.9 % to 1.6 to 4.1 % and the scores
+  fall by 0.03 to 0.16 dB; the 8-bit error's p99 falls from 3.7 to 8.9 % to 1.1 to 3.8 %
+  and its largest value by up to 3 times. The groups are the form: nonnegative columns
+  that keep the 8-bit error under the format's step, and `S_far` a weighted average the
+  card computes without a factorization.
+- `W_T` for a view at 1,920 x 1,080 takes 2.3 s on one host core after the march (6.7 s).
+
+The one-tile form does not replace any block of the transport. Of the dense cluster
+pairs of Sponza's transport, 1.9 % lie within the screen term's reach (centres within
+2 h); a transport built without its near blocks loses its multiple bounce (K 0.91 to
+0.16 on Sponza, 0.81 to 0.11 on italian_flat). The far field keeps all its blocks. What
+the one-tile form gives is the detail below an element's size, and the field's
+per-pixel lookup turned into a product.

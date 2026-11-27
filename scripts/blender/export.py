@@ -145,6 +145,20 @@ def listed(entries):
     return entries[:NAMES_LISTED] + ([more] if rest > 0 else [])
 
 
+def lens_blur(camera):
+    """The camera's f-stop and focus distance (to its focus object along its view axis
+    when it has one); None for both without depth of field."""
+    dof = camera.data.dof if camera is not None and camera.type == "CAMERA" else None
+    if dof is None or not dof.use_dof:
+        return {"aperture_fstop": None, "focus_distance": None}
+    distance = float(dof.focus_distance)
+    if dof.focus_object is not None:
+        view = camera.matrix_world
+        target = dof.focus_object.matrix_world.translation - view.translation
+        distance = float(-target.dot(view.col[2].xyz.normalized()))
+    return {"aperture_fstop": float(dof.aperture_fstop), "focus_distance": distance}
+
+
 def sidecar(source, depsgraph, stem, frame, left):
     """The sidecar's dictionary."""
     render, view = source.render, source.view_settings
@@ -176,6 +190,7 @@ def sidecar(source, depsgraph, stem, frame, left):
             "camera": camera.name if camera else None,
             "shift": [camera.data.shift_x, camera.data.shift_y] if camera else [0, 0],
             "sensor_fit": camera.data.sensor_fit if camera else None,
+            **lens_blur(camera),
             "exposure": float(view.exposure),
             "view_transform": view.view_transform,
             "look": view.look,
@@ -233,6 +248,8 @@ def main():
     parser.add_argument("stem")
     parser.add_argument("--frame", type=int, default=None)
     parser.add_argument("--plain", action="store_true")
+    parser.add_argument("--cache", default=None)
+    parser.add_argument("--bake-processes", type=int, default=None)
     args = parser.parse_args(common.arguments())
     started = time.perf_counter()
     source = bpy.context.scene
@@ -252,10 +269,17 @@ def main():
         shown["look"],
     )
     scene, names = build_scene(found, depsgraph, source)
-    rewritten, material_seconds, bakes = {}, 0.0, 0
+    rewritten, material_seconds, bakes, atlases = {}, 0.0, 0, {}
     if not args.plain:
-        rewriter = materials.Rewriter()
-        rewritten, material_seconds, bakes = rewriter.run(materials.used(found))
+        rewriter = materials.Rewriter(args.cache, args.bake_processes)
+        rewritten, material_seconds, bakes = rewriter.run(materials.used(found), found)
+        atlases = {
+            "atlases": len(rewriter.sides),
+            "atlas_largest_side": max((s for _, s in rewriter.sides), default=0),
+            "atlases_cut": sum(w > s for w, s in rewriter.sides),
+            "bake_device": rewriter.devices,
+            "bake_jobs": rewriter.jobs.summary(),
+        }
     record["materials"] = rewritten
     record["not_exported"]["materials"] = lossy(rewritten)
     table(found, names, args.stem + ".instances.npz")
@@ -296,6 +320,7 @@ def main():
             "materials_with_losses": len(record["not_exported"]["materials"]),
             "material_seconds": material_seconds,
             "bakes": bakes,
+            **atlases,
             "nodes_with_dropped_triangles": len(record["not_exported"]["triangles"]),
             "triangles_not_exported": sum(
                 d["expected"] - d["written"]

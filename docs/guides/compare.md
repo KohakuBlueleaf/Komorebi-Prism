@@ -28,6 +28,16 @@ the digest `prism_cli open` gives the file (its bytes, its sidecar's and its ins
 table's). The cache is `--cache`, else `$PRISM_COMPARE_CACHE`, else `<out>/truth`. A
 truth already kept is read, not rendered again.
 
+The cache's `index.json` names each kept truth (by its stem under the cache): the scene's
+key, the `.glb`'s path and SHA-256, the size, the samples, the camera, the date and
+Blender's version (`compare_index.py`, written when the truth is rendered). A kept truth
+is read only when its entry's `.glb` hash is the scene's `.glb`'s; one without an entry,
+or of another `.glb`, is refused with both paths and hashes. The run's `numbers.json`
+carries the hash and the version under `truth`. Every picture this tool labels "truth"
+or "Cycles" is Cycles on the `.blend` that `from_gltf.py` builds from the `.glb`, never
+the artist's `.blend` ([the artists' scenes](artist_scenes.md): `render` writes the
+artist's `.blend` as `blend_cycles` and `blend_eevee`).
+
 To make it, `from_gltf.py` reads the file into an empty Blender file (once a key; the
 `scene_gltf.blend` that `artist_scenes.py gltf_truth` left beside the file is used when
 it is newer than the file's own files), and `scripts/blender/compare_truth.py` renders it
@@ -178,3 +188,42 @@ camera, as fractions `(x0, y0, x1, y1)` of the picture, so the same region is as
 any size. `--crop NAME` takes a named one, `--crop all` every one of the view,
 `--crop NAME=x0,y0,x1,y1` one given here. Each crop's numbers are the whole picture's,
 inside the crop.
+
+## Ranking the error
+
+```
+python scripts/run/compare_rank.py RUN [--data FOLDER] [--pipeline P] [--carried-from GLB]
+```
+
+`RUN` is a folder `compare.py` wrote for an opened scene (its `numbers.json` names the
+file, the scene and the kept truth). Without a card, it splits the whole picture's
+error over the registered pixels, |frame - truth| on the channel mean in linear light,
+into rows, and gives each row's share of the rows' sum. Pixel classes take their pixels'
+whole error first:
+
+- `first hit transmissive: <material>`: the first surface is a material with
+  `KHR_materials_transmission` or a blended alpha, one row a material; when the truth has
+  its `emit` and `environment` passes, its error split into three causes: emission (the
+  surface emits, or Cycles' emission is over half its colour), environment (the world
+  seen through, over half the colour) and the surface behind the glass (the rest);
+- `emitters, window, picture (first hit opaque)`: the rest of the pixels whose surface
+  emits or whose emission and world together are over half the truth's colour.
+
+The other pixels are split by term, each the absolute difference of the frame's part and
+the truth's like part, summed over them:
+
+| row | the frame's | against |
+| --- | --- | --- |
+| `lights` | the lit colour and the sky's own light | the reference's direct diffuse with the file's lights |
+| `indirect` | the bounces alone | Cycles' diffuse indirect times its colour, plus its transmission |
+| `textures` | the reference's direct diffuse | Cycles' direct diffuse times its colour |
+| `specular` | colour less the lit and the bounces | Cycles' glossy, direct and indirect, times its colour |
+| `specular not carried` | as `specular`, on materials with anisotropy or clearcoat | as `specular` |
+| `display` | Blender's picture inverted through the plain tone (x / (1 + x), gamma 2.2, the frame's exposure) | the truth's linear colour |
+
+`--carried-from GLB` names the materials with anisotropy or clearcoat by another export
+of the same scene (a rewrite that dropped the extensions keeps the names). The terms
+overlap and are not a sum of the error: a share ranks causes, it does not budget them.
+The table (largest share first) is printed and written as `RUN/rank.md`; the ranking is
+one JSON line (`rows`: pixels and share; `causes`: by transmissive material, each
+cause's share of the same sum).

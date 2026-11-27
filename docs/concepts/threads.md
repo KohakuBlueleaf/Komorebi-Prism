@@ -37,7 +37,7 @@ Two kinds of thing are called a thread here, as in the code:
 | the sums (`RasterSums.sums`) | an ordinary command: each core takes the slices of its rank and writes their records and words | every Tensix core of the group |
 | the running sum, the steps' words, the tile pull's choice | between the pulls: each layer's place a slice, each step's words of the frame's page, the next tile thread for a core that asks | the frame's thread |
 | the tile thread | the steps of one tile (or one band of a tile's rows): visibility, material, light, display | the Tensix core that takes it |
-| the field's update (`gi_threads`) | a graph kept on the card: the job thread's sources, passes and finish, the transport's applies on the lowest ranks, the new field handed to the frame's thread | the job thread on X280 work clusters 2 and 3; the applies on Tensix cores |
+| the field's update (`gi_threads`) | a graph kept on the card: the job thread's sources, passes and finish, the transport's applies as the frame's thread's core steps on every core, the new field handed to the frame's thread | the job thread on X280 work clusters 2 and 3; the applies on Tensix cores |
 
 The host takes no part in a frame. It writes the camera, sends FRAME, and reads the
 display's pages after the frame's event (`push` is false in the threads' presets: the
@@ -185,11 +185,10 @@ the steps' frame words read (`src/prism/program/threads/units.py`). It serves:
 |---|---|
 | FRAME | the units' setup once, then the eye's view (view 0, COLOUR) as the four phases; its times row |
 | `sun` (`direct.shadow_pcf`) | one DEPTH view a quadrant of the sun's shadow map, each as the four phases |
-| `job_wants` (`gi_threads`) | from the field's graph, between two of the frame's commands: the cores an update wants, and a field just made (its half of the field's pages and its scale) |
+| `job_wants` (`gi_threads`) | from the field's graph, between two of the frame's commands: a field just made (its half of the field's pages and its scale) |
+| `core_step` (`gi_threads`) | from the field's graph, between two of the frame's commands: the transport's apply on every core, run by the director (its header, group and words) |
 
-While an update wants cores, a view's group starts above them (`jobs_unit_frame_first`):
-the frame's pulls take the other ranks, and a view that would be left no core stops with
-`DP_NO_CORES`, the cores wanted in its result. Each phase has a progress mark
+A view's group is every core. Each phase has a progress mark
 (`DP_WHERE_*`) and a give-up (`DP_LATE_COUNT`, `DP_LATE_PLACE`, `DP_LATE_TILE`) within
 the director's wait limit; the first code that is not 0 ends the view.
 
@@ -217,7 +216,6 @@ slots stops its view after the running sum, before any list is written:
 |---|---|---|
 | `DP_LISTS_SMALL` | a layer's entries over the slices pass its list slots | the frame's thread copies the need page (the view, its kind, each layer's entries); the host gives each layer past its slots lists of its entries and a quarter more while the run stays loaded, writes its row in every view again, and the frame is tried again (`retries` in the record) |
 | `DP_TOO_MANY` | the view's ranges or slices pass the dispatcher's capacity (a larger frame) | one reload with what it needed (`reloads` in the record) |
-| `DP_NO_CORES` | an update holds every core | the view is refused, the cores wanted in its result |
 
 The slots a layer grew to are kept in the option `list_slots_least` for a later load.
 

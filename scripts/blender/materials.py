@@ -1,17 +1,24 @@
 """Helpers the export imports inside Blender: every material of the built copy rewritten
 as a plain Principled BSDF the glTF exporter writes as it is (images kept, chains over
-images baked in texture space, other shader trees mapped), and the record of each."""
+images baked in texture space or on the meshes, tiled images split by tile, other shader
+trees mapped), and the record of each."""
 
+import os
+import tempfile
 import time
 
 import bake
+import bakejobs
 import bpy
+import meshbake
 import numpy
+import tiles
 from graph import DEFAULT_UV, chain, coordinate, names, resolve
 from shaders import PRINCIPLED, default_of, mapped
+from uv_scale import Lengths
 
-COLOUR = {"Base Color", "Emission Color"}
-CONSTANT_ONLY = {"Emission Strength", "IOR"}
+COLOUR = {"Base Color", "Emission Color", "Sheen Tint"}
+CONSTANT_ONLY = {"Emission Strength", "IOR", "Sheen Weight", "Sheen Roughness"}
 SOCKETS = (
     "Base Color",
     "Metallic",
@@ -21,6 +28,9 @@ SOCKETS = (
     "Emission Strength",
     "Transmission Weight",
     "IOR",
+    "Sheen Weight",
+    "Sheen Tint",
+    "Sheen Roughness",
     "Normal",
 )
 SAME = 1e-4  # a baked result whose values lie within this of each other: one value
@@ -68,9 +78,16 @@ def tiled(info):
 class Rewriter:
     """Chooses, bakes and rebuilds the materials; keeps the record and the seconds."""
 
-    def __init__(self):
+    def __init__(self, cache=None, processes=None):
         self.baker = None
         self.record = {}
+        self.tile_cache = {}
+        self.sides = []  # (wanted, given) of each atlas
+        self.devices = None
+        folder = cache or tempfile.mkdtemp(dir=os.environ.get("PRISM_CACHE"))
+        self.jobs = bakejobs.Jobs(folder, processes)
+        self.waiting = []
+        self.lengths = Lengths(None)
 
     def bake(self, material, path, out, info, colour, one_minus=False):
         """The chain at `out` baked over the uv square: ("constant", value) or
@@ -125,12 +142,16 @@ class Rewriter:
             value = found[1]
             return {"done": "constant", "value": 1 - value if one_minus else value}
         _, path, out = found
+        feed = {"feed": (path, out), "one_minus": one_minus}
         if name == "Normal":
-            return self.normal(material, path, out)
+            choice = self.normal(material, path, out)
+            if choice["done"] == "lost" and chain(path, out)["undefined"] is None:
+                return {"done": "mesh_baked", "node": choice["node"]} | feed
+            return choice | (feed if choice["done"] != "constant" else {})
         if not one_minus and name not in CONSTANT_ONLY:
             spec = as_is(path, out)
             if spec is not None:
-                return {"done": "as_is", "spec": spec}
+                return {"done": "as_is", "spec": spec} | feed
         info = chain(path, out)
         if info["geometry"] is None and tiled(info):
             cause = "UDIM tiles"
@@ -139,7 +160,7 @@ class Rewriter:
             if result is not None and result[0] == "constant":
                 return {"done": "constant", "value": result[1]}
             if result is not None and name not in CONSTANT_ONLY:
-                return {"done": "baked", "spec": result[1]}
+                return {"done": "baked", "spec": result[1]} | feed
             if result is not None:
                 value = mean_of(result, colour)
                 return {"done": "lost", "value": value, "node": "constant only"}
@@ -147,6 +168,8 @@ class Rewriter:
         else:
             cause = info["geometry"]
         value = self.mean(material, path, out, info, colour, fallback)
+        if info["undefined"] is None and name not in CONSTANT_ONLY:
+            return {"done": "mesh_baked", "value": value, "node": cause} | feed
         return {"done": "lost", "value": value, "node": cause}
 
     def normal(self, material, path, out):
@@ -204,47 +227,167 @@ class Rewriter:
         mute = sorted(set(info["mute"]))
         values = self.baker.bake(material, target, (width, rows), mute)
         heights = values[..., :3].mean(axis=-1).astype(numpy.float64)
+        coord = coords.pop() if coords else (DEFAULT_UV, None)
+        length = self.lengths.of(material, coord[0])
         normals = bake.normal_from_height(
-            heights, knobs[0][1], knobs[1][1], getattr(node, "invert", False)
+            heights,
+            knobs[0][1],
+            knobs[1][1],
+            getattr(node, "invert", False),
+            per_metre(coord[1], length["metres"]),
         )
         image = bake.byte_image(f"{material.name}_bump", normals * 0.5 + 0.5, False)
-        coord = coords.pop() if coords else (DEFAULT_UV, None)
-        return {"done": "bump", "spec": baked_spec(image, coord, info), "strength": 1.0}
+        spec = baked_spec(image, coord, info)
+        return {"done": "bump", "spec": spec, "strength": 1.0, "length": length}
 
-    def rewrite(self, material):
-        """Chooses for every input of one material, then rebuilds its tree; its record."""
+    def choose(self, material):
+        """The class and the choice for every input of one material (class X rebuilt
+        at once: its record and None)."""
         kind, sources, mode, cause = mapped(material)
         if kind == "X":
             choices = {
                 "Base Color": {"done": "lost", "value": tuple(material.diffuse_color)}
             }
             choices["Base Color"]["node"] = cause
-            sockets = {"Base Color": {"done": "lost", "node": cause}}
             build(material, choices, None)
-            return {"class": "X", "node": cause, "sockets": sockets}
+            return {"class": "X", "node": cause, "sockets": sockets_of(choices)}, None
         choices = {}
         for name in SOCKETS:
             if name in sources:
                 choices[name] = self.socket(material, name, sources[name])
-        build(material, choices, mode)
-        sockets = {
-            name: {"done": p["done"]} | ({"node": p["node"]} if "node" in p else {})
-            for name, p in choices.items()
-        }
-        return {"class": kind, "sockets": sockets}
+        sheen_folded(choices)
+        if not tiles.one_space(choices):
+            for name, choice in choices.items():
+                if "spec" in choice and choice["spec"]["image"].source == "TILED":
+                    choices[name] = {"done": "mesh_baked", "node": "UDIM tiles"} | {
+                        k: choice[k] for k in ("feed", "one_minus")
+                    }
+        return {"class": kind, "choices": choices, "mode": mode}, choices
 
-    def run(self, materials):
-        """Rewrites each material once; {name: record}, seconds and bakes."""
+    def on_meshes(self, material, record, meshes):
+        """A material with a chain baked on the meshes: its atlas prepared and its
+        passes handed to the jobs; finished by `finish`."""
+        if self.baker is None:
+            self.baker = bake.Baker()
+        try:
+            state = meshbake.prepare_atlas(
+                self.baker, self.jobs, material, record["choices"], meshes
+            )
+        except RuntimeError as failure:
+            choices, mode = record.pop("choices"), record.pop("mode")
+            lost = {n: lost_of(c) for n, c in choices.items()}
+            build(material, lost, mode)
+            return record | {"sockets": sockets_of(lost), "bake_error": str(failure)}
+        record["meshes"] = [mesh.name for mesh, _, _ in meshes]
+        self.waiting.append((material, record, state))
+        if not state["keys"]:
+            atlas = (material.name, state["record"]["side"])
+            self.jobs.progress(atlas, state["record"] | {"seconds": 0.0})
+        return record
+
+    def finish(self, material, record, state):
+        """A material whose atlas's passes are done: rebuilt once, its record."""
+        choices, mode = record.pop("choices"), record.pop("mode")
+        own, atlas = meshbake.finish_atlas(self.jobs, material, state)
+        build(material, own, mode)
+        self.sides.append((atlas.get("cut", [atlas["side"]])[0], atlas["side"]))
+        record["sockets"] = sockets_of(own)
+        for name, entry in record["sockets"].items():
+            if entry["done"] == "mesh_baked" and "node" in choices[name]:
+                entry["node"] = choices[name]["node"]
+            if "per_object" in own[name]:
+                entry["per_object"] = own[name]["per_object"]
+        record["atlas"] = atlas
+
+    def rewrite(self, material, meshes):
+        """Chooses for every input of one material, then rebuilds its tree (on the
+        meshes, or split by tile); its record."""
+        record, choices = self.choose(material)
+        if choices is None:
+            return record
+        if any(c["done"] == "mesh_baked" for c in choices.values()):
+            if meshes:
+                return self.on_meshes(material, record, meshes)
+            choices = {n: lost_of(c) for n, c in choices.items()}
+        mode = record.pop("mode")
+        record.pop("choices")
+        build(material, choices, mode)
+        record["sockets"] = sockets_of(choices)
+        if tiles.tiled_specs(choices):
+            carriers = [mesh for mesh, _, _ in meshes]
+            record |= tiles.split(material, choices, carriers, self.tile_cache)
+        return record
+
+    def run(self, materials, found=None):
+        """Rewrites each material once (on the meshes of `found`, a geometry key's
+        mesh at its first copy); {name: record}, seconds and bakes."""
         started = time.perf_counter()
+        self.lengths = Lengths(found)
+        carried = {}
+        for key in sorted(found or {}):
+            mesh = found[key]["source"]
+            for material in {m for m in mesh.materials if m is not None}:
+                if not len(meshbake.faces_of(mesh, material)):
+                    continue
+                matrices = found[key]["matrices"]
+                entry = (mesh, matrices[0], len(matrices))
+                carried.setdefault(material.name_full, []).append(entry)
         for material in materials:
             if material.name_full in self.record:
                 continue
-            self.record[material.name_full] = self.rewrite(material)
+            meshes = carried.get(material.name_full, [])
+            self.record[material.name_full] = self.rewrite(material, meshes)
+            self.jobs.pump()
+        self.jobs.run()
+        for material, record, state in self.waiting:
+            self.finish(material, record, state)
+        self.waiting = []
         seconds = time.perf_counter() - started
         bakes = self.baker.count if self.baker else 0
         if self.baker is not None:
+            self.devices = {"device": self.baker.device, "list": self.baker.devices}
             self.baker.close()
         return self.record, round(seconds, 1), bakes
+
+
+def sockets_of(choices):
+    """The record of each input: its `done` and, when lost or baked on the meshes, the
+    node (or reason) that kept it off the quad."""
+    return {
+        name: {"done": p["done"]} | {k: p[k] for k in ("node", "length") if k in p}
+        for name, p in choices.items()
+    }
+
+
+def lost_of(choice):
+    """A choice that waited for a mesh bake given up: lost with its fallback value."""
+    if choice["done"] != "mesh_baked":
+        return choice
+    found = {"done": "lost", "node": choice.get("node", "no mesh")}
+    return found | ({"value": choice["value"]} if "value" in choice else {})
+
+
+def sheen_folded(choices):
+    """A constant sheen weight folded into a constant tint (weight 1 after), as the
+    exporter writes the tint alone as the sheen colour."""
+    weight, tint = choices.get("Sheen Weight"), choices.get("Sheen Tint")
+    if weight is None or weight.get("value") is None:
+        return
+    value = weight["value"]
+    if tint is None or tint.get("value") is None or not 0 < value < 1:
+        return
+    tint["value"] = tuple(value * c for c in tint["value"][:3]) + (1.0,)
+    weight["value"] = 1.0
+
+
+def per_metre(mapping, metres):
+    """Texture units a metre along u and v: the Mapping's scale (inverted for a TEXTURE
+    mapping) over the metres a uv unit; one uv unit a metre when not measured."""
+    scale = (1.0, 1.0) if mapping is None else mapping[3][:2]
+    if mapping is not None and mapping[0] == "TEXTURE":
+        scale = tuple(1 / s if s else 0.0 for s in scale)
+    metres = metres or 1.0
+    return tuple(abs(s) / metres for s in scale)
 
 
 def mean_of(result, colour):

@@ -160,10 +160,12 @@ def coordinate(path, socket):
 
 
 def chain(path, out):
-    """The leaves of the chain feeding output socket `out`: {"images", "coords",
-    "mute", "geometry" (the first node depending on the geometry, or None),
-    "undefined" (a node with no value on a quad)}."""
+    """The leaves of the chain feeding output socket `out`: {"images", "leaves" (each
+    image or procedural texture with its path and texture space), "coords", "mute",
+    "geometry" (the first node depending on the geometry), "undefined" (a node with no
+    value on a quad), "data" (vertex or object data nodes), "per_object"}."""
     info = {"images": [], "coords": [], "mute": [], "geometry": None, "undefined": None}
+    info |= {"leaves": [], "data": [], "per_object": False}
     seen, stack = set(), [(tuple(path), out)]
     while stack:
         at, socket = stack.pop()
@@ -187,6 +189,7 @@ def chain(path, out):
                     info["mute"].append(space[2])
             if kind == "ShaderNodeTexImage":
                 info["images"].append(node)
+            info["leaves"].append((node, at, space if flat else ("geometry", kind)))
             inputs = [s for s in inputs if s.name != "Vector"]
         elif kind in ("ShaderNodeUVMap", "ShaderNodeTexCoord", "ShaderNodeMapping"):
             space = coordinate(at, _Probe(socket))
@@ -201,6 +204,11 @@ def chain(path, out):
             continue
         elif kind not in PURE:
             info["geometry"] = info["geometry"] or kind
+            info["data"].append(kind)
+            info["per_object"] |= kind == "ShaderNodeObjectInfo" or (
+                kind == "ShaderNodeAttribute"
+                and node.attribute_type in ("OBJECT", "INSTANCER")
+            )
             if kind in UNDEFINED_ON_QUAD:
                 info["undefined"] = info["undefined"] or kind
         for entry in inputs:

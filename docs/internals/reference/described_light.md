@@ -5,7 +5,7 @@ numbers), `sample` (the fixed sample sets) and `direct` (the shadow rays and the
 planes); `prism_reference.post.described` (the display). It lights the
 [surface](surface.md) of a [scene description](../../concepts/scene_description.md) with
 the description's own lights, point, spot, sun, area and world, in their units, and is
-judged against Cycles' direct-light passes of the same `.blend` and camera
+judged against Cycles' direct-light passes of the same glTF and camera
 (`scripts/run/light_compare.py`). Indirect light is not here.
 
 ## Units (`units.py`)
@@ -138,7 +138,9 @@ a look other than `None` is named and not applied.
 
 ## Cycles' passes (`scripts/blender/light_passes.py`)
 
-Run inside Blender on the scene's `.blend`: the scene's camera at the size given
+Run inside Blender on `scene_gltf.blend`, the file `from_gltf.py` builds from the
+scene's `.glb` (`artist_scenes.py gltf_truth`; `passes` refuses a scene without it; the
+record names the file it read): the scene's camera at the size given
 (resolution percentage 100, no border; `light_compare.py passes` gives the sidecar's
 render size scaled to a long side of 1,280, so the picture keeps the scene's aspect), Cycles on OptiX, fixed samples (256 by default)
 and seed, no denoiser, no adaptive sampling, `max_bounces = 0`, no render data kept

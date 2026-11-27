@@ -1,7 +1,7 @@
 """The preset `gi_threads`: `lit_threads` lit with the indirect field; the field's
 update the job thread's job on clusters 2 and 3, a graph the dispatcher keeps (its
-applies the transport's, queued on the lowest ranks), the field's version switched
-between two frames; its picture `gi`'s."""
+applies the transport's on every core, each a core step of the frame's thread), the
+field's version switched between two frames; its picture `gi`'s."""
 
 import runpy
 from pathlib import Path
@@ -28,7 +28,6 @@ OPTIONS = STAGE_WISE["OPTIONS"] | {
     "tile_thread": "prism.program.threads.tiles:GI",
     "push": False,
     "update_beside": True,
-    "update_cores": 30,  # an update's applies: the ranks one frame X280 core answers
 }
 SCENE_INPUTS = STAGE_WISE["SCENE_INPUTS"]
 SCENE_FILES = STAGE_WISE["SCENE_FILES"]

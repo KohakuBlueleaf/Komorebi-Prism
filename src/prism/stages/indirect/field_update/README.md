@@ -16,6 +16,7 @@ passes' x is stored there) and `light.shadow_map`, and writes `light.field`.
 | `__init__.py` | the declaration (`FIELD_UPDATE`), registered as `indirect.field_update` |
 | `unit.py` | the unit: its sources, the command `update`, the slot it takes, its six regions, its numbers, the header's word places as defines |
 | `host.py` | `FieldUpdateHost`: the lights at the sun, the field model, the light pages, the regions' contents, the numbers, the sun's words written live, the steps run, the field read back |
+| `graph.py` | the update as the job thread's job and a kept graph (`gi_threads`): the job's C, commands and regions, the graph, its host side |
 | `check.py` | the update against the reference: the texels, the scale and units, sky and L0, the codes, the times, the verdict (codes 0; the field's code difference at most 1 at 0 bounces or stepped, at most 12 whole with passes: the card applies the matrix in its tile formats, and the largest difference recorded is 10 of 255) |
 | `model/numbers.py` | the C header's numbers, the header region's words and places, the numbers it asks for |
 | `model/regions.py` | the operator by row, each row's place in the pages, the elements' arrays and region, the counts, the work region's layout |
@@ -95,6 +96,18 @@ bank, written by their hosts as on cluster 1. Frames go on while the update runs
   with the new scale, units and the new half's first page (`kLtFieldFirst`) is the
   swap; the halves then change roles. The first field, made at load, is in the first
   half.
+
+## As the job thread's graph (`gi_threads`)
+
+In the threads' form the update is the job thread's job on work clusters 2 and 3
+(`thread/job_field_*.c`), driven by a graph the dispatcher keeps (`graph.py`): the
+sources; for each bounce the transport's apply, then a pass; the finish and the scale;
+then `job_wants` to the frame's thread with the field's half and scale. The apply is
+the frame's thread's command `core_step` (the apply's header, its group of every core,
+its words): the director runs it between two of its commands, so it never lands inside
+a frame and needs no core of its own; its answer's code is checked by the graph. The
+job's `kmx_fetch` and `kmx_store` run on every core and go between two of the frame's
+core commands (the program's depth is 1).
 
 ## Running
 

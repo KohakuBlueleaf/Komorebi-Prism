@@ -36,8 +36,12 @@ KINDS = [
     ),
     (
         "emissive texture",
-        {"emissiveTexture": B, "pbr": {"roughnessFactor": 0.5}},
-        ("emissive", [1.0, 1.0, 1.0], [0, -1, -1, -1], 30, [0.04] * 3, [0.0] * 3),
+        {
+            "emissiveTexture": B,
+            "emissiveFactor": [0.3, 0.3, 0.3],
+            "pbr": {"roughnessFactor": 0.5},
+        },
+        ("emissive", [0.3, 0.3, 0.3], [0, -1, -1, -1], 30, [0.04] * 3, [0.0] * 3),
     ),
     (
         "emissive strength",
@@ -59,22 +63,30 @@ KINDS = [
             },
             "normalTexture": N,
         },
-        ("transparent", [0.5, 0.6, 0.7], [0, -1, -1, -1], 30, [0.04] * 3, [0.75] * 3),
+        ("transparent", [0.5, 0.6, 0.7], [0, -1, -1, -1], 30, [0.01] * 3, [0.75] * 3),
     ),
     (
         "transmission",
         {
             "extensions": {"KHR_materials_transmission": {"transmissionFactor": 0.8}},
-            "pbr": {"baseColorFactor": [0.5, 0.5, 1.0, 1.0], "metallicFactor": 1.0},
+            "pbr": {"baseColorFactor": [0.5, 0.5, 1.0, 1.0], "metallicFactor": 0.0},
         },
         (
             "transparent",
             [0.5, 0.5, 1.0],
             [-1, -1, -1, -1],
             1,
-            [0.5, 0.5, 1.0],
+            [0.04] * 3,
             [0.4, 0.4, 0.8],
         ),
+    ),
+    (
+        "transmission metal",
+        {
+            "extensions": {"KHR_materials_transmission": {"transmissionFactor": 0.8}},
+            "pbr": {"baseColorFactor": [0.5, 0.5, 1.0, 1.0], "metallicFactor": 1.0},
+        },
+        ("transparent", [0.0] * 3, [-1, -1, -1, -1], 1, [0.5, 0.5, 1.0], [0.0] * 3),
     ),
     (
         "flat mask",
@@ -116,6 +128,7 @@ KINDS = [
         ("textured", [1.0, 1.0, 1.0], [0, -1, -1, -1], 30, [0.04] * 3, [0.0] * 3),
     ),
 ]
+SHADOWS = {"blend": [0.75] * 3}  # a row's shadow when not 0: 1 - its coverage
 TEXTURED = len(KINDS)  # the textured material's row (row 0 is "(flat)")
 NO_UV = ("textured (no uv0)", "flat", [1.0, 1.0, 1.0], [-1, -1, -1, -1])
 

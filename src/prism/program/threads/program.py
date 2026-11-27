@@ -68,7 +68,7 @@ def ports(program, session):
 
 def frame_layout(assembled, host, jobs):
     """The frame thread's layout: the dispatcher's unit, each implementation's unit
-    in order, the job thread's unit when `jobs`."""
+    in order, the job thread's unit and the director's core steps when `jobs`."""
     units = [dispatch.entry(host.capacity)]
     for implementation in assembled.pipeline.implementations:
         if implementation.thread is not None:
@@ -77,7 +77,7 @@ def frame_layout(assembled, host, jobs):
     if jobs:
         units.append((jobs_frame.OWNER, jobs_frame.FRAME_UNIT, None))
     writes = {i.name: i.writes for i in assembled.pipeline.implementations}
-    return Layout(units, writes, FRAMES, core_step=False)
+    return Layout(units, writes, FRAMES, core_step=jobs)
 
 
 def threads(assembled, host, tile_thread, jobs):

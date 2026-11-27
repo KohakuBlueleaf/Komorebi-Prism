@@ -136,8 +136,8 @@ transform is applied to the corners' uv.
 ## The comparison (`scripts/run/surface_compare.py`)
 
 For a scene of `$PRISM_DATA/artist/<key>/`: the reference's planes at the sidecar's
-camera and 1,280 x 720 against Cycles' planes of the same `.blend` at the same size
-(`scripts/blender/planes.py`: the passes of `truth.exr`, 64 samples, normals and positions
+camera and 1,280 x 720 against Cycles' planes of the same glTF at the same size
+(`scripts/blender/planes.py`: the passes of `truth_gltf.exr`, normals and positions
 turned to +Y up). Written to `<key>/surface/`: each plane of both sides as a PNG
 (`ref_*`, `cycles_*`), the differences (`diff_normal`: the angle, 0 to 30 degrees;
 `diff_position`: log10 of the distance over the diagonal, -6 to -1; `diff_base_color`:

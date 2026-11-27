@@ -1,6 +1,7 @@
-"""Helpers the export imports inside Blender: a socket of a material's node tree baked in
-texture space on a unit quad by Cycles' bake of its emission, and a height turned into a
-tangent-space normal map."""
+"""Helpers the export imports inside Blender: a socket of a material's node tree baked by
+Cycles' bake of its emission (or of a normal, in tangent space) on a unit quad in texture
+space or on a mesh in a uv layer of its own, and a height turned into a tangent-space
+normal map."""
 
 import time
 
@@ -9,6 +10,7 @@ import numpy
 
 MOST_SIDE = 4096
 NO_IMAGE_SIDE = 8
+MESH_MARGIN = 2  # texels a mesh bake extends past its islands
 DEFAULT_UV = "UVMap"
 INTERFACE = {"RGBA": "NodeSocketColor", "VECTOR": "NodeSocketVector"}
 
@@ -25,13 +27,15 @@ def decode_srgb(encoded):
     return numpy.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 
-def normal_from_height(height, strength, distance, invert=False):
-    """(H, W) heights over the unit uv square, row 0 at v = 0, as (H, W, 3) unit
-    tangent-space normals: central differences repeating at the edges."""
+def normal_from_height(height, strength, distance, invert=False, per_metre=(1.0, 1.0)):
+    """(H, W) heights over the unit texture square, row 0 at v = 0, as (H, W, 3) unit
+    tangent-space normals: central differences repeating at the edges, slopes a metre
+    (`per_metre`: texture units a metre along u and v)."""
     rows, columns = height.shape
     d = -distance if invert else distance
     du = (numpy.roll(height, -1, 1) - numpy.roll(height, 1, 1)) * (columns / 2)
     dv = (numpy.roll(height, -1, 0) - numpy.roll(height, 1, 0)) * (rows / 2)
+    du, dv = du * per_metre[0], dv * per_metre[1]
     bent = numpy.stack([-d * du, -d * dv, numpy.ones_like(height)], -1)
     bent /= numpy.linalg.norm(bent, axis=-1, keepdims=True)
     s = max(float(strength), 0.0)
@@ -58,22 +62,25 @@ def byte_image(name, values, colour):
 
 
 def select_devices(scene):
-    """Cycles on the GPU (OptiX, else CUDA) when one is present, else the CPU."""
+    """Cycles on the GPU (OptiX, else CUDA) when one is present, else the CPU; the kind
+    chosen and Cycles' device list as [name, type, used]."""
     preferences = bpy.context.preferences.addons["cycles"].preferences
+    listed = []
     for kind in ("OPTIX", "CUDA"):
         try:
             preferences.compute_device_type = kind
         except TypeError:
             continue
         preferences.get_devices()
+        listed = [[d.name, d.type, False] for d in preferences.devices]
         devices = [d for d in preferences.devices if d.type == kind]
         if devices:
             for device in preferences.devices:
                 device.use = device.type == kind
             scene.cycles.device = "GPU"
-            return kind
+            return kind, [[d.name, d.type, d.use] for d in preferences.devices]
     scene.cycles.device = "CPU"
-    return "CPU"
+    return "CPU", listed
 
 
 class Baker:
@@ -84,7 +91,7 @@ class Baker:
         self.scene.render.engine = "CYCLES"
         self.scene.cycles.samples = 1
         self.scene.cycles.use_denoising = False
-        self.device = select_devices(self.scene)
+        self.device, self.devices = select_devices(self.scene)
         mesh = bpy.data.meshes.new("prism_bake_quad")
         mesh.from_pydata(
             [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)], [], [(0, 1, 2, 3)]
@@ -103,44 +110,72 @@ class Baker:
             for loop, corner in zip(layer.data, mesh.loops, strict=True):
                 loop.uv = mesh.vertices[corner.vertex_index].co.xy
 
-    def bake(self, material, target, size, mute=(), one_minus=False):
-        """The (H, W, 4) linear values of `target` (path of group node names, node
-        name, output identifier) of `material` over the unit square at size (W, H);
-        Mapping nodes `mute` (path, name) passed through, 1 - the value when asked."""
-        started = time.perf_counter()
+    def work(self, material, targets, size, kind="EMIT", mute=()):
+        """A copy of `material` whose output is `targets` ((path of group node names,
+        node name, output identifier), 1 - it) as an Emission (up to three scalars in
+        its red, green and blue) or, for "NORMAL", a Diffuse BSDF's normal, with a new
+        empty float image (W, H) on its active node; (copy, image)."""
         work = material.copy()
         cache = {(): work.node_tree}
-        image = None
-        try:
-            tree = work.node_tree
+        self.made.append(work)
+        tree = work.node_tree
+        sockets = []
+        for target, one_minus in targets:
             socket = expose(work, target, cache)
-            for path, name in mute:
-                writable(work, path, cache).nodes[name].mute = True
             if one_minus:
                 inverse = tree.nodes.new("ShaderNodeMath")
                 inverse.operation = "SUBTRACT"
                 inverse.inputs[0].default_value = 1.0
                 tree.links.new(socket, inverse.inputs[1])
                 socket = inverse.outputs[0]
+            sockets.append(socket)
+        self.groups.update(t.as_pointer() for path, t in cache.items() if path)
+        for path, name in mute:
+            writable(work, path, cache).nodes[name].mute = True
+        socket = sockets[0]
+        if len(sockets) > 1:
+            combine = tree.nodes.new("ShaderNodeCombineColor")
+            combine.mode = "RGB"
+            for entry, source in zip(combine.inputs, sockets, strict=False):
+                tree.links.new(source, entry)
+            socket = combine.outputs[0]
+        if kind == "NORMAL":
+            emission = tree.nodes.new("ShaderNodeBsdfDiffuse")
+            tree.links.new(socket, emission.inputs["Normal"])
+        else:
             emission = tree.nodes.new("ShaderNodeEmission")
             emission.inputs["Strength"].default_value = 1.0
             tree.links.new(socket, emission.inputs["Color"])
-            for node in tree.nodes:
-                if node.bl_idname == "ShaderNodeOutputMaterial":
-                    node.is_active_output = False
-            output = tree.nodes.new("ShaderNodeOutputMaterial")
-            output.target = "ALL"
-            tree.links.new(emission.outputs[0], output.inputs["Surface"])
-            output.is_active_output = True
-            width, height = size
-            image = bpy.data.images.new("prism_bake", width, height, float_buffer=True)
-            image.colorspace_settings.name = "Non-Color"
-            holder = tree.nodes.new("ShaderNodeTexImage")
-            holder.image = image
-            tree.nodes.active = holder
+        for node in tree.nodes:
+            if node.bl_idname == "ShaderNodeOutputMaterial":
+                node.is_active_output = False
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        output.target = "ALL"
+        tree.links.new(emission.outputs[0], output.inputs["Surface"])
+        output.is_active_output = True
+        width, height = size
+        image = bpy.data.images.new(
+            "prism_bake", width, height, alpha=True, float_buffer=True
+        )
+        image.colorspace_settings.name = "Non-Color"
+        image.generated_color = (0.0, 0.0, 0.0, 0.0)
+        holder = tree.nodes.new("ShaderNodeTexImage")
+        holder.image = image
+        tree.nodes.active = holder
+        return work, image
+
+    def bake(self, material, target, size, mute=(), one_minus=False):
+        """The (H, W, 4) linear values of `target` (path of group node names, node
+        name, output identifier) of `material` over the unit square at size (W, H);
+        Mapping nodes `mute` (path, name) passed through, 1 - the value when asked."""
+        started = time.perf_counter()
+        image = None
+        try:
+            work, image = self.work(material, [(target, one_minus)], size, "EMIT", mute)
             self.quad.data.materials.clear()
             self.quad.data.materials.append(work)
-            self.run()
+            run_bake(self.scene, [self.quad], None, "EMIT")
+            width, height = size
             pixels = numpy.empty(width * height * 4, numpy.float32)
             image.pixels.foreach_get(pixels)
             return pixels.reshape(height, width, 4)
@@ -148,8 +183,6 @@ class Baker:
             self.quad.data.materials.clear()
             if image is not None:
                 bpy.data.images.remove(image)
-            self.made.append(work)
-            self.groups.update(t.as_pointer() for path, t in cache.items() if path)
             self.seconds += time.perf_counter() - started
             self.count += 1
 
@@ -164,19 +197,31 @@ class Baker:
         for tree in [t for t in bpy.data.node_groups if t.as_pointer() in self.groups]:
             bpy.data.node_groups.remove(tree)
 
-    def run(self):
-        """Cycles' bake of the emission on the quad, in the bake scene."""
-        window = bpy.context.window
-        previous = window.scene
-        window.scene = self.scene
-        try:
-            layer = self.scene.view_layers[0]
-            for obj in layer.objects:
-                obj.select_set(obj == self.quad)
-            layer.objects.active = self.quad
-            bpy.ops.object.bake(type="EMIT", margin=0, use_clear=True)
-        finally:
-            window.scene = previous
+
+def run_bake(scene, holders, uv_layer=None, kind="EMIT"):
+    """Cycles' bake (EMIT, or NORMAL in tangent space) on `holders` in `scene`: on the
+    quad without a margin, on meshes into `uv_layer` with one."""
+    window = bpy.context.window
+    previous = window.scene
+    window.scene = scene
+    try:
+        layer = scene.view_layers[0]
+        for obj in layer.objects:
+            obj.select_set(obj in holders)
+        layer.objects.active = holders[0]
+        if uv_layer is None:
+            bpy.ops.object.bake(type=kind, margin=0, use_clear=True)
+        else:
+            bpy.ops.object.bake(
+                type=kind,
+                margin=MESH_MARGIN,
+                margin_type="EXTEND",
+                use_clear=False,
+                uv_layer=uv_layer,
+                normal_space="TANGENT",
+            )
+    finally:
+        window.scene = previous
 
 
 def writable(material, path, cache):
