@@ -195,7 +195,8 @@ when they change (`view`). Its options:
 | `heavy` | the weight past which a tile is cut | 0 (never) |
 | `range_blocks` | the triangle blocks a count range | from the scene (below) |
 | `keep_lists` | the eye's lists kept while its view stands (`DP_N_KEEP`) | True |
-| `cull` | each count range's box tested against the eye's view before its blocks are read | True |
+| `cull` | each count range's box tested against the view before its blocks are read, and each group's where the ranges are dealt | True |
+| `group_ranges` | the count ranges a group's box holds | 16 |
 | `list_slots_least` | a layer's least list slots (a number, or by layer name) | none |
 | `account` | the records a core's account page holds; 0 builds no account | 0 |
 | `cores` | the frame's cores | every rank |
@@ -236,8 +237,24 @@ sun's map, its own camera and 1,024 x 1,024 frame) culls its layers the same way
 layer's triangles by space before cutting them into blocks changed the share cut by under
 2.5 points on the scenes measured, as a scene's file already keeps neighbours together.
 On a 29.8 M triangle scene the frame is 66.1 against 85.2 ms at the viewer's first pose
-and 30.2 against 62.2 turned 90 degrees; a cut range still costs its ask of X280
+and 30.2 against 62.2 turned 90 degrees
 ([measurements](../../../measurements/walk_cull/README.md)).
+
+**Groups cut where the ranges are dealt.** A range cut by its core still costs its ask
+and answer and the pass's start and end, about 15 us; with most of a scene behind the
+camera the cut ranges come in runs, the cores ask faster than their X280 core answers,
+and the pull waits on its answers. So the test has a second, coarse level where the
+ranges are dealt. The host also keeps a box a group of `group_ranges` (16) consecutive
+ranges of a layer, written into the dispatcher's region `group_boxes` at load (the
+column `groups`: the layer's first group there; the number `cull`: the boxes'
+generation, a new one each write, read again by the dispatcher when it changes). Before
+the count pull the cluster's four X280 cores test every group of the view
+(`dispatch_cull.c`, the same test in C) and write the ranges of the groups not cut, in
+order, to the region `survivors`; the count pull's `pick` deals them, and its log holds
+only them, so place's replay deals the same. A range of a group that straddles the
+view's edge is dealt and tested again by its core. The X280 reads its region through a
+slow path (about 0.74 us a box a core), so testing every range there (24 B a range, 559
+KB on the 29.8 M triangle scene) took 4.4 ms; a box a group is 35 KB there.
 
 The build's capacity (`thread.Capacity`): the count ranges of every layer and the most
 slices of the frame sizes the load holds (`capacity_of`), the records a slice and the

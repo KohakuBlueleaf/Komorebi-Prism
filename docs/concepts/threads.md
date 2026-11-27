@@ -228,7 +228,8 @@ The slots a layer grew to are kept in the option `list_slots_least` for a later 
 | `cores` | every rank | the view's group |
 | `range_blocks` | from the scene ([dispatch](../internals/program/dispatch.md)) | triangle blocks a count range |
 | `keep_lists` | True | the eye's lists kept while its view stands: such a frame runs the tile pull alone |
-| `cull` | True | a count range whose box lies outside the eye's view is not read (count and place) |
+| `cull` | True | a count range whose box lies outside the view is not read (count and place); a group of ranges outside it is not dealt |
+| `group_ranges` | 16 | the count ranges a group's box holds |
 | `policy` | `prefer` | the tile pull's choice |
 | `near` | 1 | the slices a near answer may be away |
 | `heavy` | 0 (never) | the weight over every layer past which a tile is cut into bands, `ceil(weight / heavy)` of them |
