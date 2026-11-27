@@ -48,6 +48,8 @@ MATERIAL_KEYS = (
     "texels",
     "mip",
     "levels",
+    "uv_maps",
+    "normal_scale",
 )
 
 
@@ -254,13 +256,21 @@ def load_materials(name, data):
 
 
 def with_defaults(materials):
-    """The materials with a transmission of 0 (M, 3) added when they have none, and a
-    shadow (the sun's light a surface lets through, M, 3) of 1 when they have none."""
+    """The materials with a transmission of 0 (M, 3) added when they have none, a
+    shadow (the sun's light a surface lets through, M, 3) of 1, slot uv maps of the
+    identity (M, 4, 2, 3) and a normal scale of 1 (M,)."""
     rows = len(materials["kind"])
     zeros = np.zeros((rows, 3), dtype=np.float32)
     transmission = materials.get("transmission", zeros)
     shadow = materials.get("shadow", np.ones((rows, 3), dtype=np.float32))
-    return {**materials, "transmission": transmission, "shadow": shadow}
+    identity = np.tile(np.eye(3, dtype=np.float32)[:2], (rows, 4, 1, 1))
+    return {
+        **materials,
+        "transmission": transmission,
+        "shadow": shadow,
+        "uv_maps": materials.get("uv_maps", identity),
+        "normal_scale": materials.get("normal_scale", np.ones(rows, np.float32)),
+    }
 
 
 def export_materials(materials, folder):

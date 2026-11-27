@@ -7,24 +7,28 @@ from prism.stages.material.texture.model.numbers import F32, LEVEL_SLOTS, SH
 from prism.stages.raster.model.numbers import LANES
 from prism.stages.raster.model.records import mesh_blocks as raster_blocks
 from prism_reference.material.kinds import FLAT, TRANSPARENT
+from prism_reference.material.texture import map_area, uv_maps
 from prism_reference.raster.vector import cross3, dot3, normalized
 
 
 def texel_areas(materials):
     """Per triangle the doubled uv area in level 0 texels of its albedo, normal and
-    specular textures ((3, T) float32) and its material word, material | each one's
-    levels << 16, 20, 24 (levels 1 without that texture)."""
+    specular textures ((3, T) float32; each times its slot's uv map's area) and its
+    material word, material | each one's levels << 16, 20, 24 (levels 1 without that
+    texture)."""
     uv = materials["uv"]
     du1, dv1 = uv[:, 1, 0] - uv[:, 0, 0], uv[:, 1, 1] - uv[:, 0, 1]
     du2, dv2 = uv[:, 2, 0] - uv[:, 0, 0], uv[:, 2, 1] - uv[:, 0, 1]
     uv_area2 = np.abs(du1 * dv2 - du2 * dv1)
     word = materials["material"].astype(np.uint32)
     areas = np.zeros((len(LEVEL_SLOTS), len(uv)), dtype=F32)
+    maps = uv_maps(materials)[materials["material"]]
     for index, slot in enumerate(LEVEL_SLOTS):
         own = materials["textures"][materials["material"], slot]
         texture = np.maximum(own, 0)
         size = materials["mip"][texture, 0]
         texels = uv_area2 * (size[:, 1] * size[:, 2]).astype(F32)
+        texels = texels * map_area(maps[:, slot])
         areas[index] = np.where(np.isfinite(texels), texels, F32(0))
         levels = np.where(own >= 0, materials["levels"][texture], 1).astype(np.uint32)
         word |= levels << (16 + 4 * index)

@@ -143,14 +143,19 @@ namespace shade_k {
                         shade_word >> shift & 0xF,
                         numbers
                     )) {
-                    record_numbers(numbers);
+                    const bool mapped = slot_map(
+                        material_at, texture == 0 ? kMapNormal : kMapSpecular, numbers
+                    );
+                    record_numbers(numbers, mapped);
                     for (int32_t r = row_first; r <= row_last; ++r) {
                         record_row(
                             r,
                             kLightTexture,
                             texture == 0 ? kVecRed : kVecGreen,
                             false,
-                            false
+                            false,
+                            kMinusTwo,
+                            mapped
                         );
                     }
                 }
@@ -162,9 +167,10 @@ namespace shade_k {
                 merging,
                 numbers
             );
-            record_numbers(numbers);
+            const bool mapped = slot_map(material_at, kMapAlbedo, numbers);
+            record_numbers(numbers, mapped);
             for (int32_t r = row_first; r <= row_last; ++r) {
-                record_row(r, mode, kVecDepth, false, true);
+                record_row(r, mode, kVecDepth, false, true, kMinusTwo, mapped);
                 values[kShadeProfRows]++;
             }
             values[kShadeProfRecords]++;

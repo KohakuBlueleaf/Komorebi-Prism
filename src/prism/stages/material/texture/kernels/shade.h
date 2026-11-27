@@ -22,7 +22,7 @@ constexpr uint32_t kShadeGlass = 2;
 // Buffers: the reader's planes, the table, the pack thread's own space; the asks,
 // answers and slots are texel_pages' (protocol.h).
 constexpr uint32_t kShadePlanePages = 20;  // items of 5, 10 (merging), 15 (LIGHT) pages
-// the table in L1: 816 + 18 per material + 2 per (texture, level) words, in steps of
+// the table in L1: 816 + 37 per material + 2 per (texture, level) words, in steps of
 // kShadeTableStepBytes, at least kShadeTableLeastBytes; its bytes the field
 // frame_table's, as the build gives them (PRISM_FRAME_TABLE_WORDS)
 constexpr uint32_t kShadeTableLeastBytes = 32768;
@@ -51,7 +51,7 @@ constexpr uint32_t kTabBackground = 784;  // FILL's background rgb
 constexpr uint32_t kTabCamera = 800;      // lit: the reader's copy of the camera
 constexpr uint32_t kCamWordsShade = 16;   // the scene's camera (prism_reference.scene)
 constexpr uint32_t kTabMaterial = 816;
-constexpr uint32_t kMaterialWords = 18;
+constexpr uint32_t kMaterialWords = 37;
 constexpr uint32_t kMaterialMask = 4;      // 1 + mask's entry (sizes the albedo's)
 constexpr uint32_t kMaterialNormal = 5;    // 1 + normal's entry
 constexpr uint32_t kMaterialSpecular = 6;  // 1 + specular's entry
@@ -60,6 +60,14 @@ constexpr uint32_t kMaterialSpecularColour = 10;  // rgb, 0: no specular term
 constexpr uint32_t kMaterialExponent = 13;        // lit: specular exponent (0: none)
 constexpr uint32_t kMaterialTau = 14;     // transparent: transmission rgb (else 0)
 constexpr uint32_t kMaterialWeight = 17;  // transparent: 1 - max tau (else 1)
+// the albedo's (and mask's), normal's and specular's uv maps, each a b c d e f: the
+// slot's (u, v) = (a u + b v + c, d u + e v + f) of the stored (u, v)
+constexpr uint32_t kMaterialMaps = 18;
+constexpr uint32_t kMapWords = 6;
+constexpr uint32_t kMapAlbedo = 0;
+constexpr uint32_t kMapNormal = 1;
+constexpr uint32_t kMapSpecular = 2;
+constexpr uint32_t kMaterialNormalScale = 36;  // lit: the normal map's x, y factor
 constexpr uint32_t kEntryWords = 2;
 // kinds (prism_reference.material.kinds): lit is shaded as textured in this step;
 // masked as textured, its holes by the masked layer's SHADE (a6)
