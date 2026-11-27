@@ -36,5 +36,9 @@ constexpr uint32_t kShowProfWrite = 2;
 constexpr uint32_t kShowProfTotal = 3;
 constexpr uint32_t kShowProfItems = 4;
 constexpr uint32_t kShowProfRows = 5;
+// the view's (view.h): items converted, passes, pages asked
+constexpr uint32_t kShowProfViewItems = 6;
+constexpr uint32_t kShowProfViewPasses = 7;
+constexpr uint32_t kShowProfViewPages = 8;
 // A frame table or item the writer cannot use: its gave-up word, where.
 constexpr uint32_t kWhereShowBad = 28;

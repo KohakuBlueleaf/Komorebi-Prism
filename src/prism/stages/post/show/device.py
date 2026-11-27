@@ -1,6 +1,7 @@
 """SHOW on the card: one class, its handlers `show` (the frame's colour as 8-bit pixels
 into the display) and `copy` (plane 0 word for word into pages of another tensor), on
-the movers, each item's planes read by mover A and written by mover B."""
+the movers, each item's planes read by mover A and written by mover B; with a file's
+view transform on, `show`'s items through the pack CPU's fetch on their way."""
 
 import komorebi as km
 
@@ -8,6 +9,7 @@ from prism.core import fields
 from prism.core.compute import FRAME_COMPUTE
 from prism.stages.post.show.entries import DirFrames, DirHead, DirItem
 from prism.stages.post.show.model.table import SHOW
+from prism.stages.post.show.model.view import VIEW
 from prism.stages.raster import capacity
 from prism.stages.raster.model import numbers
 
@@ -24,7 +26,30 @@ READER_FRAME = (
     "frames_base8, frames_base9, frames_base10, frames_base11, frames_base12, "
     "frames_base13, frames_base14)) {\n    return true;\n}"
 )
-fields.need("show_scratch", "post.show", lambda held: 4 * SCRATCH_PAGES * PAGE_WORDS)
+# SHOW's part of the command space: the scratch pages, the view's slots, work, words
+SLOTS_AT = 4 * SCRATCH_PAGES * PAGE_WORDS
+WORK_AT = SLOTS_AT + VIEW["kViewSlots"] * VIEW["kViewPageBytes"]
+WORDS_AT = WORK_AT + VIEW["kViewWorkBytes"]
+SPACE_DEFINES = {
+    "PRISM_SHOW_VIEW_SLOTS_AT": str(SLOTS_AT),
+    "PRISM_SHOW_VIEW_WORK_AT": str(WORK_AT),
+    "PRISM_SHOW_VIEW_WORDS_AT": str(WORDS_AT),
+}
+fields.need(
+    "show_scratch", "post.show", lambda held: WORDS_AT + VIEW["kViewRegionBytes"]
+)
+# the pack CPU's state, its items converted to their end, the unpack CPU's service
+PACK = (
+    "const uint32_t space = compute_mail::write_ptr(command_space);\n"
+    "show_view::Packer packer{show_view::waits_of(compute.control()), "
+    "reinterpret_cast<const uint32_t*>(show_space::view_words(space)), viewed, "
+    "texel_asks, texel_dones, show_space::view_slots(space), "
+    "show_space::view_work(space), show_space::scratch(space) + kViewCountsByte, {}};"
+    "\npacker.count();\n"
+    "if (packer.items_of(view_items)) {\n"
+    "    compute_mail::end_mails();\n"
+    "}"
+)
 
 
 class Show(km.Program, compute=FRAME_COMPUTE):
@@ -37,6 +62,10 @@ class Show(km.Program, compute=FRAME_COMPUTE):
     item_planes: km.L1[km.u32, PLANE_PAGES, PAGE_WORDS] = km.own(
         push="mover_a", raw=True
     )
+    view_items: km.L1[km.u32, 2, 16] = km.own(push="mover_a", raw=True)
+    viewed: km.L1[km.u32, 2, 16] = km.own(push="pack", raw=True)
+    texel_asks: fields.field("texel_asks") = fields.own("texel_asks")
+    texel_dones: fields.field("texel_dones") = fields.own("texel_dones")
     command_space: fields.field("command_space") = fields.own("command_space")
 
     @km.handler
@@ -48,24 +77,73 @@ class Show(km.Program, compute=FRAME_COMPUTE):
         show_table: km.Region,
         display_pages: int,
     ):
-        """SHOW: each item of the core's directory page, its colour planes converted
-        by the thresholds to R, G, B, 255 in its tile's page of `display` (of
-        `display_pages`); the writer's profile page."""
+        """SHOW: each item of the core's directory page, its colour planes (through
+        the view after the thresholds when it is on) converted by the thresholds to R, G, B,
+        255 in its tile's page of `display` (of `display_pages`); the writer's profile
+        page."""
         self.thresholds.fill(km.Stream(show_table.pages(0, 1)))
         km.cxx(
-            "show_k::Reader reader;",
+            "show_k::Reader reader;\n"
+            "texel_pages::AskBuffers asks = {};\n"
+            "show_view::Served served = {};",
             on="mover_a",
-            include=["../../kernels/read.hpp"],
+            include=[
+                "../../kernels/read.hpp",
+                "../../kernels/view_show.hpp",
+                "../../kernels/space.hpp",
+            ],
         )
         km.cxx(
-            "show_k::Writer writer;",
-            on="mover_b",
-            include=["../../kernels/profile.hpp"],
+            "asks = {texel_asks, texel_dones, "
+            "show_space::view_slots(get_write_ptr(command_space))};\n"
+            "served = show_view::served_of(movement, show_table, "
+            "show_space::view_words(get_write_ptr(command_space)), true);\n"
+            "if (!show_view::hand(movement, view_items, served.on, 0)) {\n"
+            "    return false;\n}",
+            takes=[
+                show_table,
+                self.texel_asks,
+                self.texel_dones,
+                self.command_space,
+                self.view_items,
+            ],
+            on="mover_a",
         )
         km.cxx(
-            "writer.start(item_planes, show_space::scratch(get_write_ptr(command_space)));\nwriter.table(thresholds);",
-            takes=[self.item_planes, self.command_space, self.thresholds],
+            PACK,
+            takes=[
+                self.view_items,
+                self.viewed,
+                self.texel_asks,
+                self.texel_dones,
+                self.command_space,
+            ],
+            on="pack",
+            include=["../../kernels/view_show.hpp", "../../kernels/space.hpp"],
+        )
+        km.cxx(
+            "compute_mail::serve_mails(show_view::waits_of(compute.control()));",
+            on="unpack",
+            include=["../../kernels/view_show.hpp"],
+        )
+        km.cxx(
+            "show_k::Writer writer;\nbool viewing = false;",
             on="mover_b",
+            include=["../../kernels/profile.hpp", "../../kernels/view_show.hpp"],
+        )
+        km.cxx(
+            "const uint32_t scratch = show_space::scratch(get_write_ptr(command_space));"
+            "\nviewing = show_view::served_of(movement, show_table, scratch, false).on;\n"
+            "writer.start(item_planes, scratch);\n"
+            "writer.table(thresholds);",
+            takes=[
+                self.item_planes,
+                show_table,
+                self.command_space,
+                self.thresholds,
+            ],
+            on="mover_b",
+            include=["../../kernels/view_show.hpp"],
         )
         for head in directory.pages(self.rank, 1).entries(DirHead, size=3, fixed=1):
             for frames in directory.pages(self.rank, 1).entries(
@@ -86,19 +164,31 @@ class Show(km.Program, compute=FRAME_COMPUTE):
                     DirItem, first=DIR_IDS, size=1, count=2
                 ):
                     km.cxx(
+                        "const uint32_t planes_at = get_write_ptr(item_planes);\n"
                         "if (!reader.item(movement, command, item_id, "
                         "show_k::kShowFirstPlane, show_k::kShowPlanes)) {\n"
-                        "    return true;\n}",
-                        takes=[item],
+                        "    return true;\n}\n"
+                        "if (served.on && !show_view::serve_item(movement, "
+                        "command, view_items, item_id, planes_at, asks, served.base)) "
+                        "{\n    return false;\n}",
+                        takes=[item, self.view_items, self.item_planes],
                         on="mover_a",
                     )
                     km.cxx(
+                        "if (viewing && !show_view::viewed_wait(movement, viewed)) {\n"
+                        "    return false;\n}\n"
                         "if (const int wrote = writer.item(movement, command, item_id, "
                         "display.word, 0, kGridDefault, display_pages, false); "
                         "wrote >= 0) {\n    return wrote != 0;\n}",
-                        takes=[item, display, display_pages],
+                        takes=[item, display, display_pages, self.viewed],
                         on="mover_b",
                     )
+        km.cxx(
+            "if (served.on && !show_view::hand(movement, view_items, "
+            "show_view::kItemsEnd, 0)) {\n    return false;\n}",
+            takes=[self.view_items],
+            on="mover_a",
+        )
         km.cxx(
             "if (!show_k::send_profile(movement, command, writer, profile.word)) {\n"
             "    return false;\n}",
@@ -175,7 +265,9 @@ def made(host):
     return Show(
         **host.examples,
         **fields.given(Show, host.held),
-        defines=capacity.capacity_defines(host.held) | fields.defines(host.held),
+        defines=capacity.capacity_defines(host.held)
+        | fields.defines(host.held)
+        | SPACE_DEFINES,
         session=host.session,
         depth=1,
     )

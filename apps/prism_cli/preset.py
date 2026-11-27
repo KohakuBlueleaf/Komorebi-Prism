@@ -13,6 +13,7 @@ from prism.loop import Loop
 from prism_common.build import build
 from prism_common.paths import data_root
 from prism_reference.direct.lights import load as load_lights
+from prism_reference.post.view import with_view
 from prism_reference.scene.frame import frame_size
 from prism_reference.scene.generated import make_preset
 from prism_reference.scene.public import files
@@ -28,7 +29,7 @@ FAR_FIELD = ("indirect", "transport")  # a scene's files of the far field (SCENE
 INPUTS = {
     "materials": lambda view: load_materials(view, data_root())[0],
     "name": lambda view: view,
-    "lights": lambda view: load_lights(view, data_root()),
+    "lights": lambda view: with_view(load_lights(view, data_root()), view),
 }
 
 

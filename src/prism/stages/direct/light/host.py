@@ -317,11 +317,11 @@ class LightHost(Host):
         return f"no control {name!r}"
 
     def set_tone(self, exposure, saturation, curve):
-        """The tone step's numbers (exposure > 0, saturation >= 0, curve 0 plain or 1
-        filmic) into LIGHT's table, for the next frame."""
+        """The tone step's numbers (exposure > 0, saturation >= 0, curve 0 plain, 1
+        filmic, 2 view) into LIGHT's table, for the next frame."""
         exposure, saturation, curve = float(exposure), float(saturation), int(curve)
-        if not (exposure > 0 and saturation >= 0) or curve not in (0, 1):
-            raise ValueError("a tone is exposure > 0, saturation >= 0, curve 0 or 1")
+        if not (exposure > 0 and saturation >= 0) or curve not in (0, 1, 2):
+            raise ValueError("a tone is exposure > 0, saturation >= 0, curve 0 to 2")
         self.tone = {"exposure": exposure, "saturation": saturation, "curve": curve}
         self.write_region()
 
