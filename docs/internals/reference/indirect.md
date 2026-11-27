@@ -116,7 +116,8 @@ within 1.5 spacings, before the rule of item 5) mixes the elements of a
 curved surface that face the sky or the sun with those that do not, so arch soffits,
 vault strips and capitals are too bright (red); the open floor sees only
 the zenith, which 25 coefficients still underestimate (its sky -14 % on the elements).
-The frame is about 20 % dark on Sponza. The element sources use the shadow map and the
+The frame is about 20 % dark on Sponza. The light bounced within one spacing is taken from the frame's depth by the
+[near field](near_field.md). The element sources use the shadow map and the
 truth shadow rays.
 
 Built on the host, 8 threads on 8 CPUs, 2026-11-23 22:00 to 22:26 (`counts` in the
