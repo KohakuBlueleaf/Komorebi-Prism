@@ -260,6 +260,7 @@ def sun_check(view, materials, lights, got):
             "colors": np.zeros((len(view["positions"]), 3), dtype=np.float32),
             "camera": camera,
             "light": np.zeros(3, dtype=np.float32),
+            "depth_view": True,
         }
         shaded = rasterize_shaded(sun_view, materials)
         j, i = divmod(quadrant, side // fill)

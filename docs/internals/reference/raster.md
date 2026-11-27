@@ -30,6 +30,15 @@ multiply-add.
    the record is built: three edge functions `a x + b y + c`, the planes of `1/z` and of the
    three colour channels (linear in screen space, no perspective correction), the box of
    pixel centres it can cover (empty box: dropped), and which edges are top or left.
+   A DEPTH view (`depth_view`, the sun's) sets its `1/z` plane up from `1/z` less the
+   `1/z` of its near distance, added back to the plane's constant. Seen from 1000 scene
+   radii, every `1/z` of the view lies within a few 1e-4 of the others. From the raw
+   values, the constant `(c0 w0 + c1 w1 + c2 w2) / area` sums terms about a million
+   times larger than the result at 1,024 pixels, which leaves a relative error near
+   3e-5: a median 141 units, against a bias of 6.8, at the texels behind Sponza's false
+   shadow. Shifted, the error is 0.35 units. The eye's view keeps the raw form: its `1/z`
+   span orders of magnitude, so a shift by one value loses the far ones, and a shift by
+   a corner's own `1/z` loses them where a clipped corner lies far off the screen.
 2. **Binning.** A triangle goes to every tile its pixel box touches, in triangle order.
    The sizes of the tile lists are an output.
 3. **Fill**, one tile at a time. A pixel centre `(x + 0.5, y + 0.5)` is inside when

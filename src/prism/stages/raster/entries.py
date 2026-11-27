@@ -53,9 +53,11 @@ class Heavy(km.Entry):
 
 
 class View(km.Entry):
-    """The view's words in the camera area (kViewAt): the frame's grid (a8 bits)."""
+    """The view's words in the camera area (kViewAt): the frame's grid (a8 bits), 1 for
+    a DEPTH view (else 0)."""
 
     grid: int
+    depth: int
 
 
 class Range(km.Entry):

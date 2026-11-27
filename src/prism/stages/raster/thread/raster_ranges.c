@@ -16,13 +16,14 @@ void raster_view_page(const dr_view_t* view, uint32_t area) {
         page[i] = view->camera[i];
     }
     page[RASTER_K_VIEW_AT / 4 + RASTER_K_VIEW_GRID] = view->grid;
+    page[RASTER_K_VIEW_AT / 4 + RASTER_K_VIEW_DEPTH] = view->kind == DR_VIEW_DEPTH;
     dr_flush(
         DR_RASTER_REGION_CAMERA, DR_RASTER_REGION_CAMERA_AT + at, 4 * RASTER_K_CAM_WORDS
     );
     dr_flush(
         DR_RASTER_REGION_CAMERA,
         DR_RASTER_REGION_CAMERA_AT + at + RASTER_K_VIEW_AT,
-        4 * (RASTER_K_VIEW_GRID + 1)
+        4 * (RASTER_K_VIEW_DEPTH + 1)
     );
 }
 
