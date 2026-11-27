@@ -116,6 +116,13 @@ slot(
     "a has-data bit and three square-root codes",
 )
 slot(
+    "near.weights",
+    "bfp8_b",
+    "tile",
+    "the one-tile product's weights W_T of the standing camera: a screen tile's record "
+    "of 8 tiles, a half pixel a row, its 32 columns",
+)
+slot(
     "light.field_scale",
     "fp32",
     "page",

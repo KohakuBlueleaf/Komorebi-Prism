@@ -54,15 +54,15 @@ def cases(view, frame, op):
     args = (op, frame, covered, view["point"], view["normal"], model, furnace)
     held = tile_operator(*args)
     ones = np.ones(covered.shape + (3,))
-    e = tile_light(held, tile_operand(held, ones, ones, furnace), 1.0)
+    e = tile_light(held, tile_operand(held, ones, ones, furnace, np.pi))
     worst = float(np.abs(e[covered] / np.pi - 1.0).max())
     behind = np.zeros_like(ones)
     radiance, values = sun_light(view, model, SUNS[0])
-    before = tile_light(held, tile_operand(held, radiance, behind, values), 0.0)
+    before = tile_light(held, tile_operand(held, radiance, behind, values, 0.0))
     radiance, values = sun_light(view, model, SUNS[1])
-    moved = tile_light(held, tile_operand(held, radiance, behind, values), 0.0)
+    moved = tile_light(held, tile_operand(held, radiance, behind, values, 0.0))
     rebuilt = tile_operator(*args)
-    again = tile_light(rebuilt, tile_operand(rebuilt, radiance, behind, values), 0.0)
+    again = tile_light(rebuilt, tile_operand(rebuilt, radiance, behind, values, 0.0))
     return {
         "furnace": {
             "pixels": int(covered.sum()),
