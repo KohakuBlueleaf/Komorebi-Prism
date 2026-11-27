@@ -30,6 +30,9 @@ from prism_reference.material.texture import (
     TEXEL_SIGNED,
     TEXEL_UNIT,
     fetch,
+    mapped_uv,
+    normal_scales,
+    uv_maps,
 )
 from prism_reference.post.tone import CURVE_PLAIN, tone
 from prism_reference.raster.fill import BACKGROUND
@@ -83,12 +86,14 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
     texture = materials["textures"][m]
     level = prepared["level"][t]
     base = materials["base_colour"][m]
+    maps = uv_maps(materials)[m]
 
     def texel(slot):
         if len(materials["mip"]) == 0:
             return np.zeros((len(u), 4), dtype=np.uint8)
         tex = np.maximum(texture[:, slot], 0)
-        return fetch(materials, tex, level[:, slot], u, v)
+        su, sv = mapped_uv(maps[:, slot], u, v)
+        return fetch(materials, tex, level[:, slot], su, sv)
 
     albedo_texel = texel(ALBEDO)
     albedo = np.where(
@@ -109,7 +114,7 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
         smooth = np.where((dot3(smooth, to_eye) < 0)[:, None], -smooth, smooth)
         frame = np.stack([frame[:, 0], frame[:, 1], smooth], axis=1)
     mapped = (texture[:, NORMAL] >= 0) & prepared["frame_ok"][t]
-    n_texel = TEXEL_SIGNED[texel(NORMAL)[:, :3]]
+    n_texel = TEXEL_SIGNED[texel(NORMAL)[:, :3]] * normal_scales(materials)[m]
     bent = normalized(
         (frame[:, 0] * n_texel[:, 0:1] + frame[:, 1] * n_texel[:, 1:2])
         + frame[:, 2] * n_texel[:, 2:3]

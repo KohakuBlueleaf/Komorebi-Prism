@@ -13,7 +13,13 @@ from prism_reference.material.kinds import (
     SPECULAR,
     TRANSPARENT,
 )
-from prism_reference.material.texture import TEXEL_LINEAR, TEXEL_SIGNED, TEXEL_UNIT
+from prism_reference.material.texture import (
+    TEXEL_LINEAR,
+    TEXEL_SIGNED,
+    TEXEL_UNIT,
+    normal_scales,
+    uv_maps,
+)
 from prism_reference.raster.fill import BACKGROUND
 
 
@@ -66,7 +72,8 @@ def stepped(words):
 def table(materials, entries, pages, emissive_scale=1.0, size=None):
     """SHADE's table of `size` words (None: its stepped need): counts, the texel
     tables, the background, the materials (emissive bases x emissive_scale;
-    transparent: tau and 1 - max tau), the (texture, level) entries."""
+    transparent: tau and 1 - max tau; the slots' uv maps, the normal scale), the
+    (texture, level) entries."""
     count, levels = entries.shape[:2]
     size = stepped(table_needs(materials)[0]) if size is None else size
     words = np.zeros(size, dtype=np.uint32)
@@ -125,6 +132,13 @@ def table(materials, entries, pages, emissive_scale=1.0, size=None):
     rows[:, SH["kMaterialWeight"]] = (
         (F32(1) - tau.max(axis=1)).astype(F32).view(np.uint32)
     )
+    maps = uv_maps(materials)[:, [ALBEDO, NORMAL, SPECULAR]].reshape(
+        materials_count, -1
+    )
+    at_maps = SH["kMaterialMaps"]
+    rows[:, at_maps : at_maps + maps.shape[1]] = maps.astype(F32).view(np.uint32)
+    scale = normal_scales(materials)[:, 0].astype(F32)
+    rows[:, SH["kMaterialNormalScale"]] = scale.view(np.uint32)
     end = at + rows.size
     entry_words = np.zeros((count * levels, SH["kEntryWords"]), dtype=np.uint32)
     entry_words[:, 0] = entries[:, :, 0].ravel()

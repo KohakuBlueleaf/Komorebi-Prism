@@ -13,6 +13,7 @@ from prism.stages.raster.model.numbers import LANES
 from prism_common.digest import Digest
 from prism_common.paths import cache_root
 from prism_reference.material.kinds import LIT, MASKED, TEXTURED, TRANSPARENT
+from prism_reference.material.texture import uv_maps
 
 VERSION = 2  # of what is kept: another value keys every scene anew
 SCENE_KEYS = ("positions", "indices", "colors")
@@ -65,10 +66,11 @@ def entering(materials, lights, indices):
 
 def digest(scene, materials, lit):
     """The hex digest (`Digest`) of the version, the lit flag and every array entering
-    the blocks (its dtype, shape and bytes)."""
+    the blocks (its dtype, shape and bytes), the slots' uv maps among them."""
     hasher = Digest()
     hasher.update(f"{VERSION} {int(lit)}".encode())
     arrays = [scene[k] for k in SCENE_KEYS] + [materials[k] for k in MATERIAL_KEYS]
+    arrays.append(uv_maps(materials))
     for array in arrays:
         array = np.ascontiguousarray(array)
         hasher.update(f"{array.dtype.str} {array.shape}".encode())

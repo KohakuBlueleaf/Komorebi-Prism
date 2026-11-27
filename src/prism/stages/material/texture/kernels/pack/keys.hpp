@@ -31,6 +31,22 @@ namespace shade_k {
         }
     };
 
+    // The uv map `map` (kMapAlbedo, kMapNormal, kMapSpecular) of a material's row into
+    // the numbers from kConstMap; false for the identity (the stored (u, v) as they
+    // are).
+    inline bool slot_map(const uint32_t* material_at, uint32_t map, uint32_t* numbers) {
+        const uint32_t* words = material_at + kMaterialMaps + kMapWords * map;
+        constexpr uint32_t kIdentity[kMapWords] = {
+            0x3F800000u, 0, 0, 0, 0x3F800000u, 0
+        };
+        bool identity = true;
+        for (uint32_t i = 0; i < kMapWords; ++i) {
+            numbers[kConstMap + i] = words[i];
+            identity = identity && words[i] == kIdentity[i];
+        }
+        return !identity;
+    }
+
     // A record's mode and its numbers (kRecordNumbers) from its triangle, `material`
     // and albedo `level`; merging, a masked material's mask at the same level and
     // sizes. kFlat: FILL's colour divided by 1/z, no texel.

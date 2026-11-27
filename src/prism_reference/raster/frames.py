@@ -20,7 +20,11 @@ from prism_reference.material.texture import (
     TEXEL_SIGNED,
     TEXEL_UNIT,
     fetch,
+    map_area,
+    mapped_uv,
     mip_level,
+    normal_scales,
+    uv_maps,
 )
 from prism_reference.raster.fill import BACKGROUND, bin_triangles, fill_tile
 from prism_reference.raster.setup import at, grid, setup
@@ -109,8 +113,8 @@ def nearer_layer(first, second):
 
 def shade_setup(scene, materials):
     """Per triangle what SHADE needs (valid where `first` >= 0): "planes" (T, 3, 3) of
-    u, v and light term times 1/z, "level" (T, 4) per slot, the tangent "frame" (T, 3,
-    3) and "frame_ok"."""
+    u, v and light term times 1/z, "level" (T, 4) per slot (its uv map's area in,
+    `texture.map_area`), the tangent "frame" (T, 3, 3) and "frame_ok"."""
     count = len(scene["indices"])
     extra = np.concatenate([materials["uv"], materials["light"][:, :, None]], axis=2)
     records = setup(scene, extra)
@@ -127,10 +131,12 @@ def shade_setup(scene, materials):
         du2, dv2 = corner[:, 2, 0] - corner[:, 0, 0], corner[:, 2, 1] - corner[:, 0, 1]
         uv_area2 = np.abs(du1 * dv2 - du2 * dv1)
         texture = materials["textures"][materials["material"]]
+        maps = uv_maps(materials)[materials["material"]]
         for slot in range(4):
             tex = np.maximum(texture[:, slot], 0)
             size = materials["mip"][tex, 0]
             texels = uv_area2 * (size[:, 1] * size[:, 2]).astype(np.float32)
+            texels = texels * map_area(maps[:, slot])
             levels = np.where(texture[:, slot] >= 0, materials["levels"][tex], 1)
             level[:, slot] = mip_level(texels, records["area2"][pick], levels)
     p = scene["positions"][scene["indices"]]
@@ -199,12 +205,14 @@ def shade_layer(scene, materials, prepared, layer):
     texture = materials["textures"][m]
     level = prepared["level"][t]
     base = materials["base_colour"][m]
+    maps = uv_maps(materials)[m]
 
     def texel(slot):
         if len(materials["mip"]) == 0:
             return np.zeros((len(u), 4), dtype=np.uint8)
         tex = np.maximum(texture[:, slot], 0)
-        return fetch(materials, tex, level[:, slot], u, v)
+        su, sv = mapped_uv(maps[:, slot], u, v)
+        return fetch(materials, tex, level[:, slot], su, sv)
 
     albedo_texel = texel(ALBEDO)
     albedo = np.where(
@@ -247,7 +255,7 @@ def shade_lit(scene, materials, prepared, t, m, px, py, w, texel, albedo):
     frame = prepared["frame"][t]
     texture = materials["textures"][m]
     mapped = (texture[:, NORMAL] >= 0) & prepared["frame_ok"][t]
-    n_texel = TEXEL_SIGNED[texel(NORMAL)[:, :3]]
+    n_texel = TEXEL_SIGNED[texel(NORMAL)[:, :3]] * normal_scales(materials)[m]
     bent = normalized(
         (frame[:, 0] * n_texel[:, 0:1] + frame[:, 1] * n_texel[:, 1:2])
         + frame[:, 2] * n_texel[:, 2:3]

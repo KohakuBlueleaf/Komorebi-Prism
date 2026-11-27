@@ -12,7 +12,7 @@ from prism_reference.scene.artist.convert import convert
 from prism_reference.scene.importers.gltf.sidecar import sidecar_path
 from prism_reference.scene.public.table import OPENED_TABLE, public_dir
 
-CONVERTER = 5  # raised when the conversion's output changes
+CONVERTER = 6  # raised when the conversion's output changes
 DIGEST_HEX = 10  # hex digits of the key in a name
 CHUNK_BYTES = 1 << 22
 GENERIC_STEM = "scene"

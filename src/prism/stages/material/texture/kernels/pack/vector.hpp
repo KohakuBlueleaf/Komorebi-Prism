@@ -35,8 +35,9 @@ namespace shade_k {
     using setup_k::setup_pass::recip;
     using namespace pack_sfpu;
 
-    // Dst vectors: FILL's planes (32 p + r), frac(u) rows, 1 - frac(v) rows, a record's
-    // numbers; after the records the albedo's linear rgb rows from kVecAlbedo.
+    // Dst vectors: FILL's planes (32 p + r), u rows, v rows, a record's numbers (its
+    // slot's uv map last, kConstMap); after the records the albedo's linear rgb rows
+    // from kVecAlbedo.
     constexpr uint32_t kVecDepth = 0, kVecRed = 32, kVecGreen = 64, kVecBlue = 96;
     constexpr uint32_t kVecTri = 128;
     constexpr uint32_t kVecS = 160, kVecT = 192, kVecRecord = 224, kVecAlbedo = 160;
@@ -44,7 +45,8 @@ namespace shade_k {
     constexpr uint32_t kConstHLast = 4, kConstAcross = 5, kConstFirst = 6;
     constexpr uint32_t kConstBase = 7;   // red, green, blue
     constexpr uint32_t kConstMask = 10;  // the mask's first page less the albedo's
-    constexpr uint32_t kRecordNumbers = 11;
+    constexpr uint32_t kConstMap = 11;   // a b c d e f (kMaterialMaps)
+    constexpr uint32_t kRecordNumbers = kConstMap + kMapWords;
     constexpr uint32_t kMinusTwo = 0xC0000000;  // a pixel's triangle once coloured
     constexpr uint32_t kMinusOne = 0xBF800000;  // FILL's triangle of an empty pixel
     static_assert(kVecTri == 32 * (kPlanes - 1));

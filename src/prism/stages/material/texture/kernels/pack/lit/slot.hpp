@@ -61,7 +61,8 @@ namespace shade_k {
     }
 
     // A winner's slot from its first record: material word, lit base, specular, and
-    // (mapped: a normal texture, the host's frame_ok) the frame of its planes.
+    // (mapped: a normal texture, the host's frame_ok) the frame of its planes, its
+    // tangent and side times the material's normal scale.
     inline void fill_slot(
         uint32_t* slot,
         const volatile uint32_t* record,
@@ -106,8 +107,11 @@ namespace shade_k {
             slot[1 + channel] = material_at[kMaterialLitBase + channel];
             slot[4 + channel] = material_at[kMaterialSpecularColour + channel];
         }
+        const float scale = as_float(material_at[kMaterialNormalScale]);
         const Vec3 frame[3] = {
-            valid ? tangent : v3(0, 0, 0), valid ? side : v3(0, 0, 0), normal
+            valid ? scaled(tangent, scale) : v3(0, 0, 0),
+            valid ? scaled(side, scale) : v3(0, 0, 0),
+            normal
         };
         for (uint32_t axis = 0; axis < 3; ++axis) {
             slot[7 + 3 * axis] = as_bits(frame[axis].x);
