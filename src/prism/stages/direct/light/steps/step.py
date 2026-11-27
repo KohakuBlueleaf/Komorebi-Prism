@@ -3,6 +3,7 @@ into the first layer's colour planes, the light pages on request into the lit ma
 step's page cache, SHADE's table from the common field, its kept table, work and page
 table, its words of the frame's page."""
 
+from dataclasses import replace
 from pathlib import Path
 
 from prism.core.headers import constexpr
@@ -38,4 +39,11 @@ LIGHT = Step(
     thread=f"{STAGE}/thread/light_frame_words.c",
     begin=True,
     fields=("frame_table",),
+)
+
+# with the one-tile product: a row's I from the plane near.light when it is marked on
+LIGHT_NEAR = replace(
+    LIGHT,
+    header=f"{STAGE}/steps/kernels/light_near_step.hpp",
+    reads=(*LIGHT.reads, "near.light"),
 )

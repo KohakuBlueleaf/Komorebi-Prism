@@ -123,6 +123,13 @@ slot(
     "of 8 tiles, a half pixel a row, its 32 columns",
 )
 slot(
+    "near.light",
+    "fp32",
+    "tile",
+    "the one-tile product's E of a screen tile at its half pixels, a channel after "
+    "another, its half rows and columns in the frame, and whether it is the frame's",
+)
+slot(
     "light.field_scale",
     "fp32",
     "page",

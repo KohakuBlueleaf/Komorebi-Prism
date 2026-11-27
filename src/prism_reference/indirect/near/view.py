@@ -19,10 +19,11 @@ F = np.float32
 HALF = {**SETTINGS, "slices": 2, "tile": FORM["tile"]}
 
 
-def view_frame(scene, materials, lights):
+def view_frame(scene, materials, lights, terms=("ambient",)):
     """The view's camera, covered (H, W), world position, shading and geometric normal
-    (H, W, 3; the geometric one facing the eye) and the emissive pixels."""
-    lit = rasterize_lighted(scene, materials, lights, terms=("ambient",))
+    (H, W, 3; the geometric one facing the eye), the emissive pixels and the linear
+    colour lit by `terms`."""
+    lit = rasterize_lighted(scene, materials, lights, terms=terms)
     tri, depth = lit["tri"], lit["depth"]
     cam = scene["camera"]
     covered = tri >= 0
@@ -46,6 +47,7 @@ def view_frame(scene, materials, lights):
         "normal": normal,
         "geometric": geometric,
         "glow": glow,
+        "colour": lit["colour"],
     }
 
 

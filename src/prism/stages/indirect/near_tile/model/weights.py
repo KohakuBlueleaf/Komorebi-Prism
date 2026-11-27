@@ -1,6 +1,7 @@
 """W_T as the card holds it: a screen tile's record of RECORD_TILES bfp8_b tiles, tile k
 the half rows 2k and 2k + 1 (a half pixel a row, its WIDTH columns), one record after
-another in the screen's tiles' order; encoded and decoded."""
+another in the screen's tiles' order; encoded and decoded. The upsample's weights a
+screen tile: a tap's 32 x 32 pixels after another, float32."""
 
 import numpy as np
 from komorebi import formats
@@ -8,6 +9,7 @@ from komorebi import formats
 from prism_common.formats import TILE, format_of
 from prism_reference.indirect.near.one_tile import FORM
 from prism_reference.indirect.near.tile_far import WIDTH
+from prism_reference.scene.frame import frame_grid
 
 WEIGHT_FORMAT = format_of("bfp8_b")
 HALF_TILE = FORM["tile"]  # a screen tile's half pixels across and down
@@ -15,15 +17,10 @@ RECORD_TILES = HALF_TILE * HALF_TILE // TILE  # a record's tiles
 RECORD_BYTES = RECORD_TILES * WEIGHT_FORMAT.tile_bytes
 
 
-def tile_grid(size):
-    """The screen tiles (across, down) of a frame of `size` (width, height)."""
-    return -(-int(size[0]) // (2 * HALF_TILE)), -(-int(size[1]) // (2 * HALF_TILE))
-
-
 def records(w, size):
     """W_T (h, w, WIDTH) at half rows as the records (tiles, RECORD_TILES, 32, 32)
     float32 of a frame of `size`: the screen tiles row by row, 0 past the frame."""
-    across, down = tile_grid(size)
+    across, down = frame_grid(size)
     full = np.zeros((down * HALF_TILE, across * HALF_TILE, WIDTH), np.float32)
     full[: w.shape[0], : w.shape[1]] = w
     blocks = full.reshape(down, HALF_TILE, across, HALF_TILE, WIDTH).swapaxes(1, 2)
@@ -44,3 +41,14 @@ def decode(raw):
         raw, (len(raw), TILE, TILE), WEIGHT_FORMAT.komorebi, "tile"
     )
     return values.reshape(-1, RECORD_TILES, TILE, TILE)
+
+
+def upsample_records(weights, size):
+    """The upsample's weights (H, W, taps) as (tiles, taps x 1,024) float32 of a frame
+    of `size`, the screen's tiles row by row, 0 past the frame."""
+    across, down = frame_grid(size)
+    taps = weights.shape[-1]
+    full = np.zeros((down * TILE, across * TILE, taps), np.float32)
+    full[: weights.shape[0], : weights.shape[1]] = weights
+    blocks = full.reshape(down, TILE, across, TILE, taps).transpose(0, 2, 4, 1, 3)
+    return blocks.reshape(down * across, taps * TILE * TILE)

@@ -60,3 +60,30 @@ def upsample(images, depth_half, depth, normal, tile=0):
                 v = im[yy, xx]
                 o += v * (wt if v.ndim == 2 else wt[..., None])
     return [o / (total if o.ndim == 2 else total[..., None]) for o in outs]
+
+
+def upsample_weights(depth_half, depth, normal, tile):
+    """`upsample`'s weights (H, W, 4) over each full pixel's taps (dy, dx) = (0, 0),
+    (0, 1), (1, 0), (1, 1), normalized, with only half pixels of its own tile."""
+    h, w = depth_half.shape
+    zh = np.where(np.isfinite(depth_half), depth_half, 1e30)
+    nh = half_of(normal)
+    big_h, big_w = depth.shape
+    gy, gx = np.mgrid[0:big_h, 0:big_w]
+    fy, fx = gy / 2.0, gx / 2.0
+    y0, x0 = np.floor(fy).astype(np.int64), np.floor(fx).astype(np.int64)
+    out = np.zeros((big_h, big_w, 4))
+    for at, (dy, dx) in enumerate(((0, 0), (0, 1), (1, 0), (1, 1))):
+        yy, xx = tap_place(y0 + dy, gy, h, tile), tap_place(x0 + dx, gx, w, tile)
+        bw = (1 - np.abs(fy - (y0 + dy))) * (1 - np.abs(fx - (x0 + dx)))
+        rel = (zh[yy, xx] - depth) / (0.02 * np.abs(depth) + 1e-9)
+        agree = np.maximum((nh[yy, xx] * normal).sum(-1), 0.0) ** 8
+        out[..., at] = np.maximum(bw, 1e-3) * np.exp(-rel * rel) * agree + 1e-12 * bw
+    return out / out.sum(-1, keepdims=True)
+
+
+def tap_place(index, full, size, tile):
+    """A tap's half-pixel index along one axis: within the frame and the full pixel's
+    own tile."""
+    low = (full // 2) // tile * tile
+    return np.clip(np.clip(index, 0, size - 1), low, np.minimum(low + tile, size) - 1)

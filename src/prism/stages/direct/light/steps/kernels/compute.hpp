@@ -95,7 +95,8 @@ namespace light_step {
         const compute_mail::Waits& waits,
         const Tile& tile,
         const FormPlanes& from,
-        uint32_t mode
+        uint32_t mode,
+        const void* near = nullptr
     ) {
         using namespace prism_frame;
         const uint32_t* table = reinterpret_cast<const uint32_t*>(
@@ -118,6 +119,11 @@ namespace light_step {
                  ctx.kept(kKeptLightPages) + kLightStepPagesBytes
              )}
         };
+#if defined(PRISM_LIGHT_NEAR)
+        lit.near = static_cast<const NearPlanes*>(near);
+#else
+        static_cast<void>(near);
+#endif
         Pass& pass = lit.pass;
         pass.cam = table + kLtCamera;
         pass.glass = glass;
@@ -213,8 +219,23 @@ namespace light_step {
         const uint32_t opaque = layer_planes(planes.frame_visibility, 0);
         const uint32_t glass = glass_of(ctx.page, tile);
         setup();
+        const void* near = nullptr;
+#if defined(PRISM_LIGHT_NEAR)
+        // the one-tile product's E when the near tile step marked it on
+        const NearPlanes near_planes_of = near_planes(planes.near_light);
+        if (reinterpret_cast<const uint32_t*>(
+                planes.near_light
+            )[near_tile_step::kNearOn] != 0) {
+            near = &near_planes_of;
+        }
+#endif
         bool lit = light_form(
-            ctx, waits, tile, {surface, opaque, 0, false}, glass ? kLightLinear : 0
+            ctx,
+            waits,
+            tile,
+            {surface, opaque, 0, false},
+            glass ? kLightLinear : 0,
+            near
         );
         if (lit && glass != 0) {
             lit = light_form(
