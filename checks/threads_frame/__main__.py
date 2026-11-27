@@ -51,7 +51,7 @@ def parse():
     parser.add_argument("--view", default=None, help="a public scene's view")
     parser.add_argument("--size", type=int, nargs=2, default=None, help="W H")
     parser.add_argument(
-        "--cores", type=cores_of, nargs="+", default=[1, None], help="counts or all"
+        "--cores", type=cores_of, nargs="+", default=[16, None], help="counts or all"
     )
     parser.add_argument(
         "--policy", nargs="+", choices=sorted(names.POLICIES), default=None
