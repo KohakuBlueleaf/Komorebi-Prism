@@ -88,7 +88,7 @@ X280: before a map's views the unit zeroes its tops, after them it fetches the t
 2,048 map: 64 x 64 of them), ends each tile whose top is not marked (drawn in bands: its
 slot fetched, reduced from its 16 x 16, stored), reduces the tops' grid level by level and
 stores each coarse level as a page of the fitted tensor. `sun` does it for the whole map
-around its quadrants (and is sent once at load when the levels are on), `fit` for a fitted
+around its quadrants (sent at every load), `fit` for a fitted
 map around its view. The record names the slots' tensor and first slot, the tops' tensor,
 and the coarse levels' tensor and first page.
 
@@ -110,7 +110,10 @@ sun from the run's options, which keep it across reloads.
 
 `set("sun", (azimuth, elevation))` moves the lights' sun (the light stage's
 `sun_lights`) and rewrites its part of the region; a sun given in the options does the
-same at load.
+same at load. The card draws the map at every load: a map baked into the scene's
+lighting file is never what the frames read, so a file baked by older code (or by the
+host's reference raster) cannot put its faults on the card, and the card's map is
+always the one its own raster draws.
 The host then asks for `sun` (`commands()`): the loop sends it after the hosts' views
 and before the next FRAME, as a times row of its own (`Loaded.serve(row=True)`), and a
 code takes the frame's recovery: the row names the view and the layer, the raster host

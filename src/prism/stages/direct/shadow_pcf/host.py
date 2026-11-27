@@ -40,7 +40,7 @@ from prism.stages.direct.shadow_pcf.model.region import (
 )
 from prism_common.paths import data_root
 from prism_reference.direct import lights as reference_lights
-from prism_reference.direct.lights import placeholder, shadow_side, sun_angles
+from prism_reference.direct.lights import shadow_side, sun_angles
 from prism_reference.scene.frame import frame_grid
 
 SUN = "sun"  # the unit's region and its command
@@ -195,7 +195,8 @@ class ShadowHost(Host):
 
     def view(self, loaded, camera, size):
         """Once a run: the column naming LIGHT's table in every layer row; the SUN
-        command asked for when the sun was moved or the lights hold a placeholder map;
+        command asked for (the card draws the map at every load, whatever map the
+        lights' file holds);
         every frame, the fitted maps that no longer hold the eye's slices fitted again
         into the half of the page of maps the frames do not read, their FIT commands
         asked for."""
@@ -204,8 +205,7 @@ class ShadowHost(Host):
             table = loaded.thread.regions.address(SUN)[1]
             for index in range(loaded.layout.layers):
                 loaded.layer(index, sun_table=table)
-            self.pending = self.sun is not None or placeholder(self.lights)
-            self.pending = self.pending or self.fits.levels
+            self.pending = True
             self.fits.half, self.fits.asked = 0, []
             self.fits.cameras = [None] * self.fits.count
         if self.pending or not self.fits.count or self.sun_now()[1] <= 0:
