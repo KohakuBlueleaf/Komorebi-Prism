@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="640" viewBox="0 0 880 640" role="img">
+<title>Komorebi-Prism's pipeline: items, slots, steps and presets</title>
+<defs><marker id="ha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bc4c00"/></marker><marker id="hb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1b7c83"/></marker><marker id="hm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8250df"/></marker><marker id="hw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0969da"/></marker><marker id="hr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1a7f37"/></marker><marker id="hp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#bf3989"/></marker><marker id="hy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9a6700"/></marker><marker id="hg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#818b98"/></marker></defs>
+<rect width="880" height="640" fill="#ffffff"/>
+<text x="16.0" y="18.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">the items, the slots between them, the step each gives the tile thread</text>
+<rect x="16.0" y="92.0" width="120.0" height="86.0" rx="6" fill="#ddf4ff" stroke="#0969da" stroke-width="1.4"/>
+<text x="26.0" y="110.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#0969da" text-anchor="start" xml:space="preserve">raster</text>
+<text x="26.0" y="126.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">the layers' visibility</text>
+<rect x="24.0" y="148.0" width="104.0" height="22.0" rx="5" fill="#dafbe1" stroke="#1a7f37" stroke-width="1.2"/>
+<text x="76.0" y="163.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">visibility</text>
+<rect x="276.0" y="92.0" width="130.0" height="86.0" rx="6" fill="#fff1e5" stroke="#bc4c00" stroke-width="1.4"/>
+<text x="286.0" y="110.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#bc4c00" text-anchor="start" xml:space="preserve">material</text>
+<text x="286.0" y="126.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">texels; lit surfaces</text>
+<rect x="284.0" y="148.0" width="114.0" height="22.0" rx="5" fill="#dafbe1" stroke="#1a7f37" stroke-width="1.2"/>
+<text x="341.0" y="163.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">material_lit</text>
+<rect x="546.0" y="92.0" width="110.0" height="86.0" rx="6" fill="#fff8c5" stroke="#9a6700" stroke-width="1.4"/>
+<text x="556.0" y="110.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#9a6700" text-anchor="start" xml:space="preserve">direct</text>
+<text x="556.0" y="126.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">sun, lamps, sky</text>
+<rect x="554.0" y="148.0" width="94.0" height="22.0" rx="5" fill="#dafbe1" stroke="#1a7f37" stroke-width="1.2"/>
+<text x="601.0" y="163.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">light</text>
+<rect x="740.0" y="92.0" width="124.0" height="86.0" rx="6" fill="#ffeff7" stroke="#bf3989" stroke-width="1.4"/>
+<text x="750.0" y="110.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#bf3989" text-anchor="start" xml:space="preserve">post</text>
+<text x="750.0" y="126.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">8-bit, a page a tile</text>
+<rect x="748.0" y="148.0" width="108.0" height="22.0" rx="5" fill="#dafbe1" stroke="#1a7f37" stroke-width="1.2"/>
+<text x="802.0" y="163.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" font-weight="600" fill="#1f2328" text-anchor="middle" xml:space="preserve">post</text>
+<text x="698.0" y="122.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">colour</text>
+<text x="698.0" y="152.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">planes</text>
+<rect x="476.0" y="26.0" width="254.0" height="40.0" rx="6" fill="#f6f8fa" stroke="#818b98" stroke-width="1.2" stroke-dasharray="5 3"/>
+<text x="486.0" y="42.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">shadow: the sun's DEPTH views</text>
+<text x="486.0" y="58.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">visibility, material_lit, depth_out</text>
+<rect x="466.0" y="218.0" width="260.0" height="52.0" rx="6" fill="#f1e8ff" stroke="#8250df" stroke-width="1.2"/>
+<text x="476.0" y="235.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#8250df" text-anchor="start" xml:space="preserve">indirect: the field</text>
+<text x="476.0" y="251.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">the transport's apply a bounce;</text>
+<text x="476.0" y="264.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">the job thread, beside the frames</text>
+<text x="16.0" y="228.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1a7f37" text-anchor="start" xml:space="preserve">the tile thread LIT: one core runs</text>
+<text x="16.0" y="243.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1a7f37" text-anchor="start" xml:space="preserve">the green steps of a tile in order;</text>
+<text x="16.0" y="258.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="600" fill="#1a7f37" text-anchor="start" xml:space="preserve">the yellow slots are planes in its L1</text>
+<text x="16.0" y="330.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">the presets: which implementation fills each item</text>
+<text x="22.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">preset</text>
+<text x="150.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">raster</text>
+<text x="250.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">material</text>
+<text x="376.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">shadow</text>
+<text x="500.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">direct</text>
+<text x="624.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">indirect</text>
+<text x="766.0" y="356.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#59636e" text-anchor="start" xml:space="preserve">post</text>
+<rect x="16.0" y="364.0" width="848.0" height="32.0" rx="4" fill="#dafbe1" stroke="#1a7f37" stroke-width="0.8"/>
+<text x="22.0" y="378.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">textured_threads</text>
+<text x="22.0" y="391.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">threads</text>
+<text x="148.0" y="377.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">raster</text>
+<text x="148.0" y="390.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="248.0" y="377.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">material.texture</text>
+<text x="248.0" y="390.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="432.0" y="384.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="556.0" y="384.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="689.0" y="384.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="764.0" y="377.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">post.show</text>
+<text x="764.0" y="390.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<rect x="16.0" y="400.0" width="848.0" height="32.0" rx="4" fill="#dafbe1" stroke="#dafbe1" stroke-width="0.8"/>
+<text x="22.0" y="414.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">lit_threads</text>
+<text x="22.0" y="427.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">threads</text>
+<text x="148.0" y="413.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">raster</text>
+<text x="148.0" y="426.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="248.0" y="413.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">material.texture</text>
+<text x="248.0" y="426.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="374.0" y="420.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.shadow_pcf</text>
+<text x="498.0" y="413.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.light</text>
+<text x="498.0" y="426.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="689.0" y="420.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="764.0" y="413.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">post.show</text>
+<text x="764.0" y="426.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<rect x="16.0" y="436.0" width="848.0" height="32.0" rx="4" fill="#dafbe1" stroke="#dafbe1" stroke-width="0.8"/>
+<text x="22.0" y="450.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">gi_threads</text>
+<text x="22.0" y="463.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">threads</text>
+<text x="148.0" y="449.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">raster</text>
+<text x="148.0" y="462.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="248.0" y="449.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">material.texture</text>
+<text x="248.0" y="462.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<text x="374.0" y="456.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.shadow_pcf</text>
+<text x="498.0" y="449.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.light</text>
+<text x="498.0" y="462.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads_field</text>
+<text x="622.0" y="449.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">transport.threads</text>
+<text x="622.0" y="462.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">field_update.threads</text>
+<text x="764.0" y="449.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">post.show</text>
+<text x="764.0" y="462.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">.threads</text>
+<rect x="16.0" y="482.0" width="848.0" height="32.0" rx="4" fill="#f6f8fa" stroke="#818b98" stroke-width="0.8"/>
+<text x="22.0" y="496.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">textured</text>
+<text x="22.0" y="509.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">stage-wise</text>
+<text x="148.0" y="502.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">raster</text>
+<text x="248.0" y="502.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">material.texture</text>
+<text x="432.0" y="502.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="556.0" y="502.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="689.0" y="502.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="764.0" y="502.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">post.show</text>
+<rect x="16.0" y="518.0" width="848.0" height="32.0" rx="4" fill="#f6f8fa" stroke="#f6f8fa" stroke-width="0.8"/>
+<text x="22.0" y="532.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">lit</text>
+<text x="22.0" y="545.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">stage-wise</text>
+<text x="148.0" y="538.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">raster</text>
+<text x="248.0" y="538.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">material.texture</text>
+<text x="374.0" y="538.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.shadow_pcf</text>
+<text x="498.0" y="538.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.light</text>
+<text x="689.0" y="538.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="middle" xml:space="preserve">-</text>
+<text x="764.0" y="538.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">post.show</text>
+<rect x="16.0" y="554.0" width="848.0" height="32.0" rx="4" fill="#f6f8fa" stroke="#f6f8fa" stroke-width="0.8"/>
+<text x="22.0" y="568.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start" xml:space="preserve">gi</text>
+<text x="22.0" y="581.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" fill="#59636e" text-anchor="start" xml:space="preserve">stage-wise</text>
+<text x="148.0" y="574.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">raster</text>
+<text x="248.0" y="574.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">material.texture</text>
+<text x="374.0" y="574.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.shadow_pcf</text>
+<text x="498.0" y="574.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">direct.light</text>
+<text x="622.0" y="567.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">transport</text>
+<text x="622.0" y="580.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">field_update</text>
+<text x="764.0" y="574.0" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11" fill="#1f2328" text-anchor="start" xml:space="preserve">post.show</text>
+<text x="16.0" y="610.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">A threads' preset is judged by its stage-wise preset (gi_threads by gi), picture for picture. On a scene without its far field,</text>
+<text x="16.0" y="625.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#59636e" text-anchor="start" xml:space="preserve">gi_threads lights with direct.light.threads and fills no indirect item (the preset's FAR_FIELD_ABSENT).</text>
+<rect x="24.0" y="34.0" width="81.2" height="17.0" rx="8" fill="#f6f8fa" stroke="#818b98" stroke-width="1"/>
+<text x="30.0" y="46.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">scene.mesh</text>
+<rect x="24.0" y="56.0" width="88.2" height="17.0" rx="8" fill="#f6f8fa" stroke="#818b98" stroke-width="1"/>
+<text x="30.0" y="68.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">view.camera</text>
+<line x1="70.0" y1="76.0" x2="70.0" y2="90.0" stroke="#818b98" stroke-width="1.6" marker-end="url(#hg)"/>
+<line x1="138.0" y1="132.0" x2="274.0" y2="132.0" stroke="#0969da" stroke-width="1.8" marker-end="url(#hw)"/>
+<rect x="144.6" y="106.0" width="122.8" height="17.0" rx="8" fill="#fff8c5" stroke="#9a6700" stroke-width="1"/>
+<text x="150.6" y="118.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">frame.visibility</text>
+<rect x="161.9" y="144.0" width="88.2" height="17.0" rx="8" fill="#ddf4ff" stroke="#0969da" stroke-width="1"/>
+<text x="167.9" y="156.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">frame.lists</text>
+<line x1="408.0" y1="132.0" x2="544.0" y2="132.0" stroke="#bc4c00" stroke-width="1.8" marker-end="url(#ha)"/>
+<rect x="425.0" y="106.0" width="102.0" height="17.0" rx="8" fill="#fff8c5" stroke="#9a6700" stroke-width="1"/>
+<text x="431.0" y="118.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">frame.surface</text>
+<rect x="418.1" y="144.0" width="115.8" height="17.0" rx="8" fill="#fff1e5" stroke="#bc4c00" stroke-width="1"/>
+<text x="424.1" y="156.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">mesh.attributes</text>
+<line x1="658.0" y1="132.0" x2="738.0" y2="132.0" stroke="#9a6700" stroke-width="1.8" marker-end="url(#hy)"/>
+<rect x="748.2" y="188.0" width="115.8" height="17.0" rx="8" fill="#ffeff7" stroke="#bf3989" stroke-width="1"/>
+<text x="754.2" y="200.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">display.picture</text>
+<line x1="810.0" y1="180.0" x2="810.0" y2="186.0" stroke="#bf3989" stroke-width="1.6" marker-end="url(#hp)"/>
+<line x1="600.0" y1="68.0" x2="600.0" y2="90.0" stroke="#818b98" stroke-width="1.6" marker-end="url(#hg)"/>
+<rect x="606.0" y="72.0" width="122.8" height="17.0" rx="8" fill="#f6f8fa" stroke="#818b98" stroke-width="1"/>
+<text x="612.0" y="84.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">light.shadow_map</text>
+<line x1="586.0" y1="216.0" x2="586.0" y2="180.0" stroke="#8250df" stroke-width="1.6" marker-end="url(#hm)"/>
+<rect x="594.0" y="192.0" width="88.2" height="17.0" rx="8" fill="#f1e8ff" stroke="#8250df" stroke-width="1"/>
+<text x="600.0" y="204.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">light.field</text>
+<rect x="466.0" y="276.0" width="129.7" height="17.0" rx="8" fill="#f1e8ff" stroke="#8250df" stroke-width="1"/>
+<text x="472.0" y="288.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">elements.radiance</text>
+<rect x="602.0" y="276.0" width="143.5" height="17.0" rx="8" fill="#f1e8ff" stroke="#8250df" stroke-width="1"/>
+<text x="608.0" y="288.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="11.5" fill="#1f2328" xml:space="preserve">elements.irradiance</text>
+</svg>

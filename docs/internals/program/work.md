@@ -6,6 +6,13 @@ by one, hands each to the three compute CPUs and to the second mover, runs it to
 and asks for the next. This page follows a thread through a core: the five CPUs, the
 rings between them, what stays in the core's memory, and every wait with its limit.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../images/levels-dark.svg">
+  <img src="../../images/levels-light.svg" width="880" alt="The renderer at three levels: the card with its DRAM banks, X280 clusters and 120 Tensix cores by port; a frame as the view's phases; one core with mover A, mover B, the compute CPUs running the steps, the rings between them and its L1 holding the planes.">
+</picture>
+
+*The handler `work` is the third level: one core taking a tile thread from its port and running its steps with the planes in its L1.*
+
 The code: `src/prism/program/frame/` (`device.py` the class, `generate.py` the program
 composed for a tile thread and its kinds, `host.py` a record and the frame's page on the
 host) and its kernels `frame/kernels/` (`frame.h` the layouts, `context.hpp` what a

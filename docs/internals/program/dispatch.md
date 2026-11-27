@@ -9,6 +9,13 @@ each of its waits ends. What a core does with what it is handed is
 [steps, kinds and the tile thread](steps.md); the frame as threads in the large is
 [the frame as threads](../../concepts/threads.md).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../images/dispatch-dark.svg">
+  <img src="../../images/dispatch-light.svg" width="880" alt="The cut into count ranges, slices and records; one pull between mover A and its port on X280 1; the tile pull's policies prefer, order and kept with their tile pull times; a list too small grown while the run stays loaded.">
+</picture>
+
+*The dispatcher's side in one figure: what a thread is, a pull, the choice, the need page.*
+
 The code: `src/prism/program/dispatch/` (`c/dispatch.h`, `c/dispatch_view.c`, the
 choice `c/dispatch_choose.h` and `.c`, the unit and its numbers `thread.py`, the
 generated part `generate.py`), the shared layouts `src/prism/core/include/thread/`

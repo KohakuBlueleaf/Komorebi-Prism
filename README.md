@@ -7,8 +7,13 @@ and matrix-heavy. glTF in, frame out.**
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/teaser-dark.svg">
-  <img src="docs/images/teaser-light.svg" width="1280" alt="Komorebi-Prism in one figure, in three columns. Left, the host: a glTF file opened once into a scene (prism_cli open), then for each frame Loop.frame(camera) writes the camera and sends one thread command, FRAME; after the frame it reads the display's pages back. Centre, the frame's thread on X280 work cluster 1 (four cores, each the port of 30 Tensix cores) runs the eye's view in four phases: the count pull (ranges of four triangle blocks to whichever core asks), the sums (an ordinary command), the running sum over the slices, the place pull (each core its own ranges again), the steps' words, then the tile pull (the next tile thread for the core that asks, by the policy prefer). Right, one of 120 Tensix cores: mover A asks its port, takes a tile thread and runs its steps in order, visibility, material_lit, light, post, with the planes frame.visibility and frame.surface kept in the core's L1 between the steps; the step post writes the tile's display page. Below, in gi_threads, the job thread on X280 work clusters 2 and 3 runs the field's update as a graph kept on the card: sources, then for each bounce the transport's apply on the lowest 30 or more ranks and a pass, then the finish; the new field's half is handed to the frame's thread by job_wants and the next frame's light step reads it. A strip of measured numbers: Sponza's overview at 1,920 x 1,080 on one P150A, the threads' frame 13.134 ms (textured) and 14.584 ms (lit, built with the account) against the stage-wise frame's 16.428 and 18.838 ms, every picture equal.">
+  <img src="docs/images/teaser-light.svg" width="880" alt="glTF in, frame out: the host opens scene.glb once with prism_cli open and loads its tables into the card's DRAM; each frame Loop.frame(camera) sends the camera and one command, FRAME, to the frame's thread on X280 cluster 1, whose four cores are the ports of the 120 Tensix cores; the cores ask it for tile threads (pulls) and each runs every step of the tile it took (visibility, material_lit, light, post) with the tile's planes in its L1, then writes one display page of 32 x 32 pixels; the frame of 1,920 x 1,080 is 60 x 34 tiles, cut into slices of 16 tiles; the job thread on X280 clusters 2 and 3 updates the indirect field beside the frames; the host reads the display pages back. Sponza at 1,920 x 1,080: gi_threads 18.610 ms a frame against the stage-wise gi's 22.447 ms less its push.">
 </picture>
+
+*The host opens the file once; after that a frame is one command. The frame's thread on the card's
+X280 cores hands the frame's tiles to the Tensix cores that ask, and a core runs every step of
+the tile it took. Sponza's overview, 1,920 x 1,080, one P150A, the median frame on the card
+([gi_threads](measurements/gi_threads/README.md)); every `gi_threads` picture equal to `gi`'s.*
 
 A frame is drawn by the card alone. The host writes the camera and sends one command,
 FRAME, to a thread on the card's X280 cores, **the frame's thread**. It cuts the view's
@@ -99,9 +104,13 @@ later runs. The variables are in [the environment](docs/guides/environment.md).
 ## The renderer
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/frame-dark.svg">
-  <img src="docs/images/frame-light.svg" width="830" alt="A frame as threads, in two panels. First, the eye's view on the cores in time, Sponza's overview at 1,920 x 1,080, lit, on one P150A: the threads' frame (14.584 ms, policy prefer) as the count pull 1.041 ms, the sums 0.272, the running sum on the X280 0.050, the place pull 1.919 and the tile pull 11.301; below it the stage-wise frame (18.838 ms) as count 0.944, sums 0.329, the middle pass on the X280 2.028, place 0.339, set-up 1.528, and fill, shade, light, show and push 13.668. Second, one tile thread on one core: mover A takes the thread's number from its X280 port and hands its descriptor to the compute CPUs and mover B; the movers stream the layers' lists and read the pages the steps ask for; the compute CPUs (unpack, math, pack) run the steps visibility, material_lit, light and post, the planes frame.visibility and frame.surface staying in L1 from step to step; the post step's output block is converted by a mover and written to the tile's display page. Pack's time a frame a core by step (Sponza, lit, order, the cores' median): visibility 2.77 ms, material 4.91, light 2.93, post 0.05. A note: a DEPTH view of the sun runs visibility, material_lit and depth_out, which writes the tile's 1/z into the shadow map.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/levels-dark.svg">
+  <img src="docs/images/levels-light.svg" width="880" alt="The renderer at three levels. 1, the machine: the host joined by PCIe to one Blackhole P150A, its eight DRAM banks D0 to D7, X280 cluster 0 (Komorebi's dispatcher), cluster 1 (the frame's thread) and clusters 2 and 3 (the job thread), and 120 Tensix cores coloured by their port on X280 1: ranks 0 to 29, 30 to 59, 60 to 89, 90 to 119; the lowest 30 ranks take an update's applies in gi_threads. 2, a frame: one view as six columns, each with what X280 1 does, what the Tensix cores do and what is left in DRAM: count (a pull of ranges of 4 triangle blocks; counts and rows pages), sums (an ordinary command; records and the slices' words), running sum (on the X280; the slices' places), place (a pull replaying the log; each layer's lists), words (on the X280; the frame's page), tile (a pull answered by dp_choose; display pages). 3, one core: its port on X280 1, mover A (asks, reads the record, hands on the descriptor), mover B, the rings frame_jobs and frame_list_a and _b, the compute CPUs unpack, math and pack running visibility, material_lit, light and post, and its L1: the shared line of 1,216 bytes, the steps' kept state, frame.visibility and frame.surface of 20 pages of 4 KiB each; the display page is the one write.">
 </picture>
+
+*The same renderer at three levels, each zoomed from the one above: the card and who sits
+where; a frame as the view's pulls and what each leaves in DRAM; one core running a tile
+thread with the tile's planes in its L1.*
 
 | step | what it computes | where it runs |
 |---|---|---|
@@ -120,11 +129,54 @@ The parts, the slots between them and the presets are in
 [the frame as threads](docs/concepts/threads.md); the indirect light in
 [light transport](docs/concepts/light_transport.md).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline-dark.svg">
+  <img src="docs/images/pipeline-light.svg" width="880" alt="The pipeline: the items raster (step visibility), material (step material_lit), direct (step light) and post (step post) in a row, the slots between them: scene.mesh and view.camera into raster; frame.visibility and frame.lists from raster to material; frame.surface and mesh.attributes from material to direct; the colour planes to post; display.picture out. Above direct, the shadow, the sun's DEPTH views (visibility, material_lit, depth_out), giving light.shadow_map; below it, indirect, the field from the transport's apply a bounce on the job thread, giving light.field from elements.radiance and elements.irradiance. Below, a table of which implementation fills each item in the presets textured_threads, lit_threads and gi_threads (raster.threads, material.texture.threads, direct.shadow_pcf, direct.light.threads or direct.light.threads_field, indirect.transport.threads and indirect.field_update.threads, post.show.threads) and textured, lit and gi (raster, material.texture, direct.shadow_pcf, direct.light, indirect.transport and indirect.field_update, post.show).">
+</picture>
+
+*The items, the named slots between them and the step each gives the tile thread; the slots
+drawn yellow are planes that stay in a core's L1 in the threads' form. A preset chooses which
+implementation fills each item.*
+
 The presets in [configs/pipeline](configs/pipeline): `gi_threads` is the renderer;
 `lit_threads` is it without the indirect light, `textured_threads` without any light; `textured`, `lit` and `gi` run the same parts
 stage-wise, as commands on every core one after another, and draw the pictures the
 threads' presets are judged by; `raster`, `lit_tile`, `gi_tile`, `field` and `apply` are
 parts and comparisons.
+
+### The frame as threads
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/threads-dark.svg">
+  <img src="docs/images/threads-light.svg" width="880" alt="One frame of Sponza's overview, 1,920 x 1,080, lit, on 11 of the 120 cores, both forms on one time axis in ms. Above, lit_threads with the tile pull's choice prefer, 14.584 ms: X280 1 answers the asks; each core takes 15 to 21 count ranges in the count pull (1.04 ms), one core runs the sums, each core takes place ranges in the place pull (1.92 ms; core 55 holds one long range), then 14 to 20 tile threads in the tile pull (11.30 ms), each bar split into visibility, material_lit, light and post; the cores end at different times and the pull ends with the last tile thread. Below, the stage-wise lit, 18.838 ms: every core runs count, sums, place, set-up, fill, shade, light and show as commands one after another, each core standing still at each command's end until the slowest is done; the X280's middle pass (2.028 ms) holds every core; the push ends the frame.">
+</picture>
+
+*The same frame both ways on one axis. Threads: a core takes its next thread as soon as its last
+ends, so it stands still only at a pull's end. Stage-wise: every command waits for its slowest
+core. Phase and command times measured ([threads_account](measurements/threads_account/README.md),
+[account](measurements/account/README.md)); where each core's threads lie inside a phase is drawn
+to the measured counts and spans, not taken from one record.*
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/resident-dark.svg">
+  <img src="docs/images/resident-light.svg" width="880" alt="Tile-resident, Sponza's overview, 1,920 x 1,080, lit, a frame over all cores. Above, stage-wise: FILL 2.397 ms writes 83.56 MB of planes to DRAM; SHADE 6.061 ms reads 320.58 MB and writes 98.89 MB; LIGHT 3.099 ms reads 174.12 MB and writes 25.07 MB; SHOW 1.542 ms reads 25.07 MB and writes 8.36 MB; PUSH 0.564 ms sends 8.36 MB to the host; each command on every core, waiting for the slowest. Below, lit_threads: one Tensix core runs one tile thread's steps visibility (2.77 ms a frame a core), material_lit (4.91), light (2.93) and post (0.05) with frame.visibility (20 x 4 KiB) kept in L1 from visibility to post and frame.surface (20 x 4 KiB) from material_lit to light; it reads lists (83.48 MB a frame) and texture and light pages (276.41 MB) and writes only the display pages (8.36 MB); 2,040 tile threads a frame, each on the core that asks next.">
+</picture>
+
+*Tile-resident: the core that took a tile keeps the tile's planes in its L1 through every
+step and writes only the finished display page; the stage-wise form writes the frame's planes
+to DRAM between its commands (207.52 MB a frame) and reads them back. Stage-wise bytes and
+times by command from [account](measurements/account/README.md); the threads' bytes by path
+and pack's time a step from [threads_account](measurements/threads_account/README.md).*
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dispatch-dark.svg">
+  <img src="docs/images/dispatch-light.svg" width="880" alt="How work reaches a core. The cut: a layer's triangle blocks of 32 triangles in count ranges of 4 blocks; a row of the frame's 60 tiles in slices of 16; slice 1's records in order of weight, numbered slice x 32 + place, a tile past the weight heavy cut into bands of rows. A pull: mover A tells its port on X280 1 the ended thread's number, cost and codes, and asks; the answer, a record's number and its word, is usually waiting (0.3 us); mover A hands the descriptor to the compute CPUs and mover B and takes one more ahead; an answer of 0 means none left. The tile pull's choice: prefer (a slice within one of the core's last, heaviest first) 9.930 ms, order (the next slice with records left, one cursor) 10.647 ms, kept (slice s to core s mod cores; 136 slices on 120 cores, 16 cores take two) 20.243 ms, Sponza textured. Lists too small: the running sum finds a layer's entries past its list slots, the view stops with DP_LISTS_SMALL before place writes, the need page goes to DRAM, the host's ThreadsHost.needed makes lists of the entries and a quarter more, writes the rows again and keeps list_slots_least, and the frame is tried again; past the build's capacity, DP_TOO_MANY, one reload.">
+</picture>
+
+*Work reaches a core only when it asks: the frame is cut into ranges, slices and records;
+each ask is answered from its port on X280 1; the tile pull's policy chooses the record; a
+list too small is grown while the run stays loaded. Tile pull times: Sponza's overview,
+textured ([threads_account](measurements/threads_account/README.md)).*
 
 ## Results
 

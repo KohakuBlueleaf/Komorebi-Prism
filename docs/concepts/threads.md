@@ -12,6 +12,13 @@ the dispatcher and the handler work inside is in
 [dispatch](../internals/program/dispatch.md), [work](../internals/program/work.md) and
 [steps](../internals/program/steps.md).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/resident-dark.svg">
+  <img src="../images/resident-light.svg" width="880" alt="Above, the stage-wise lit frame: FILL, SHADE, LIGHT and SHOW each a command on all 120 cores, writing 83.56, 98.89, 25.07 and 8.36 MB to DRAM and reading the planes back. Below, one Tensix core running one tile thread's steps visibility, material_lit, light and post with frame.visibility and frame.surface kept in L1, reading lists and pages and writing only the display page.">
+</picture>
+
+*Tile-resident: a tile's planes stay in the L1 of the core that took it (Sponza's overview, 1,920 x 1,080, lit; [account](../../measurements/account/README.md), [threads_account](../../measurements/threads_account/README.md)).*
+
 Two kinds of thing are called a thread here, as in the code:
 
 - **The threads of a view's work**, which the Tensix cores take: a count range, a place
@@ -37,6 +44,13 @@ display's pages after the frame's event (`push` is false in the threads' presets
 post step writes each tile's display page from the cores).
 
 ## A view in four phases
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/threads-dark.svg">
+  <img src="../images/threads-light.svg" width="880" alt="One frame of Sponza's overview, lit, on 11 of the 120 cores, both forms on one time axis: the threads' count, sums, place and tile pulls with each core taking threads as it frees up, 14.584 ms; the stage-wise commands on every core, each waiting for its slowest core, 18.838 ms.">
+</picture>
+
+*The frame in time on the cores, both forms on one axis; where a core's threads lie inside a phase is drawn to the measured counts and spans.*
 
 `dp_view` (`src/prism/program/dispatch/c/dispatch_view.c`) runs a view as four phases,
 each one command on the view's group with the frame's page (the view, its layers, the
@@ -107,6 +121,13 @@ converted and written by the mover that takes it. A step with `begin` runs
 `<name>_begin` once a command, before its first thread.
 
 ## Who hands out what
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/dispatch-dark.svg">
+  <img src="../images/dispatch-light.svg" width="880" alt="The cut into count ranges, slices and records; one pull between mover A and its port on X280 1; the tile pull's policies prefer, order and kept with their tile pull times; a list too small grown while the run stays loaded.">
+</picture>
+
+*How work reaches a core: only when the core asks.*
 
 Every Tensix core has a port on one of the frame cluster's four X280 cores
 (`program.ports`: a quarter of the cores each, so a core's index at its port is its

@@ -14,6 +14,13 @@ A pipeline is a list of implementations in order (`prism.core.pipeline.Pipeline`
 fills an item of the pipeline (`raster`, `material`, `direct`, `indirect`, `post`) or
 none, and names the slots it reads and writes. The renderer's parts:
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/pipeline-dark.svg">
+  <img src="../images/pipeline-light.svg" width="880" alt="The renderer's items raster, material, direct and post with their steps visibility, material_lit, light and post, the shadow's DEPTH views and the indirect field beside direct, the slots between them, and a table of which implementation fills each item in each preset.">
+</picture>
+
+*The items, the slots between them, the step each gives the tile thread, and the implementation each preset puts in each item.*
+
 | part | item | what it computes | stage-wise implementation | threads' implementation (what the tile thread runs) |
 |---|---|---|---|---|
 | visibility of the layers | `raster` | each layer's triangles counted into tiles, placed into lists, and filled: each pixel's 1/z, colour and triangle number, equal depths going to the lower triangle number | `raster` (passes COUNT to FILL a layer, a middle pass on the X280) | `raster.threads`: the count and place pulls, the sums, the step `visibility` |
