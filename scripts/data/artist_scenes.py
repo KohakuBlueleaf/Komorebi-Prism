@@ -1,7 +1,8 @@
 """Lists and fetches the artists' scenes, and runs the scripts of `scripts/blender/` on
-them into <data>/artist/<key>/: list | fetch | measure | export | render | planes |
-gltf_truth (Cycles and EEVEE of the exported .glb read back by Blender's importer);
-selftest runs the material rewrite's own check in Blender."""
+them into <data>/artist/<key>/: list | fetch | measure | export | render (the artist's
+.blend, blend_*) | gltf_truth (Cycles and EEVEE of the exported .glb read back by
+Blender's importer) | planes (of the glTF truth); selftest the material rewrite's check.
+"""
 
 import argparse
 import json
@@ -23,10 +24,10 @@ from prism_reference.scene.artist.table import (
 BLENDER_VARIABLE = "PRISM_BLENDER"
 SCRIPTS = Path(__file__).resolve().parent.parent / "blender"
 PAUSE_SECONDS = 20
-ENGINE_STEMS = {"CYCLES": "truth", "EEVEE": "eevee"}
+ENGINE_STEMS = {"CYCLES": "blend_cycles", "EEVEE": "blend_eevee"}  # the .blend's
 GLTF_STEMS = {"CYCLES": "truth_gltf", "EEVEE": "eevee_gltf"}
 GLTF_BLEND = "scene_gltf.blend"  # the .glb and its sidecar as a scene of their own
-PLANES = "surface/cycles.npz"  # the planes of truth.exr, under a scene's folder
+PLANES = "surface/cycles.npz"  # the planes of truth_gltf.exr, under a scene's folder
 
 
 def blender(key, data, script, arguments, timeout, open_blend=True):
@@ -126,7 +127,7 @@ def run(command, keys, data, args):
             record |= blender(key, data, "export", arguments, args.timeout)
         elif command == "planes":
             (folder / PLANES).parent.mkdir(exist_ok=True)
-            arguments = [str(folder / "truth.exr"), str(folder / PLANES)]
+            arguments = [str(folder / "truth_gltf.exr"), str(folder / PLANES)]
             record |= blender(key, data, "planes", arguments, args.timeout, False)
         elif command == "gltf_truth":
             arguments = [str(folder / "scene"), str(folder / GLTF_BLEND)]

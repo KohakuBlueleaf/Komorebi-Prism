@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 from compare_crops import crops_of
 from compare_frame import INDIRECT, card_linear, frame_of
+from compare_index import checked, noted
 from compare_pictures import (
     crop_box,
     cropped,
@@ -153,7 +154,11 @@ def truth_of(glb, key, args, cache):
         line = blender_line(arguments, args.timeout, args.gpu)
         line |= {"file": str(glb), "key": key, "blend": str(blend)}
         record_path.write_text(json.dumps(line, indent=1))
+        executable = os.environ.get(BLENDER_VARIABLE, "blender")
+        noted(cache, stem, glb, key, line, executable)
+    entry = checked(cache, stem, glb)
     record = json.loads(record_path.read_text()) | {"kept": str(stem)}
+    record |= {"glb_sha256": entry["glb_sha256"], "blender": entry["blender"]}
     planes = dict(np.load(stem.with_suffix(".npz")))
     return planes, picture_of(stem.with_suffix(".png")), record
 
