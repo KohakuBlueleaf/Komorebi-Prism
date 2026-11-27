@@ -361,7 +361,7 @@ class Raster(km.Program, compute=FRAME_COMPUTE):
             on="pack",
             include=["../../kernels/passes/pack.hpp"],
         )
-        for view in camera.pages(0, 1).entries(View, first=VIEW_WORD, size=1, fixed=1):
+        for view in camera.pages(0, 1).entries(View, first=VIEW_WORD, size=2, fixed=1):
             km.cxx(
                 "setup_k::setup_slots(movement, {slots.word, list_slots, items.word, "
                 "next_slots, item_words, command_space}, items, view_grid);",
@@ -380,7 +380,8 @@ class Raster(km.Program, compute=FRAME_COMPUTE):
             for span in camera.pages(1 + self.rank, 1).entries(Range, size=2, fixed=1):
                 km.cxx(
                     "pack_pass.start(setup_k::kHandlerSetup, out, work, work, "
-                    "span_first, span_end, view_grid);",
+                    "span_first, span_end, view_grid, false, "
+                    "view_depth != 0);",
                     takes=[self.out, self.work, span, view],
                     on="pack",
                 )
@@ -444,7 +445,7 @@ class Raster(km.Program, compute=FRAME_COMPUTE):
             on="pack",
             include=["../../kernels/passes/pack.hpp"],
         )
-        for view in camera.pages(0, 1).entries(View, first=VIEW_WORD, size=1, fixed=1):
+        for view in camera.pages(0, 1).entries(View, first=VIEW_WORD, size=2, fixed=1):
             km.cxx(
                 "setup_k::setup_slots(movement, {slots.word, list_slots, items.word, "
                 "next_slots, item_words, command_space}, items, view_grid);",
@@ -463,7 +464,8 @@ class Raster(km.Program, compute=FRAME_COMPUTE):
             for span in camera.pages(1 + self.rank, 1).entries(Range, size=2, fixed=1):
                 km.cxx(
                     "pack_pass.start(setup_k::kHandlerSetup, out, work, work, "
-                    "span_first, span_end, view_grid, true);",
+                    "span_first, span_end, view_grid, true, "
+                    "view_depth != 0);",
                     takes=[self.out, self.work, span, view],
                     on="pack",
                 )

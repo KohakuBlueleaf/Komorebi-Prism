@@ -118,7 +118,9 @@ namespace setup_k {
         bool succeeded = true;
         bool weighted = false;  // SETUP on a shaded frame: a shade block a block
         Grid grid = {kGridDefault, kGridDefault};  // the frame's (a8, grid.h)
-        uint32_t kept_count = 0, clipped = 0;      // the profile's counts
+        bool depth_view = false;    // a DEPTH view: its 1/z planes from depth_origin
+        uint32_t depth_origin = 0;  // 1 / the camera's near distance (bits), else 0
+        uint32_t kept_count = 0, clipped = 0;  // the profile's counts
         uint32_t
             block_cost = 0;  // COUNT: the block's predicted cost (setup.h kCostBlock)
         // COUNT with ranges: the costs summed after j x blocks / kCostKnots blocks
@@ -238,7 +240,9 @@ namespace setup_k {
             setup_pass::order(
                 setup_pass::word(setup_pass::kSlotColour + 8) + 2 * (piece_count - 1)
             );
-            setup_pass::triangles(handler == kHandlerSetup, grid, weighted);
+            setup_pass::triangles(
+                handler == kHandlerSetup, grid, weighted, depth_origin
+            );
             ckernel::tensix_sync();
             setup_pass::records_out(records);
             const volatile uint32_t* areas =

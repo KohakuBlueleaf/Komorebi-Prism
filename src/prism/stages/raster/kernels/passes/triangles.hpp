@@ -110,6 +110,38 @@ namespace setup_k {
             }
         }
 
+        // As plane, of the values less `origin_bits` (L5), added back to the constant.
+        inline void plane_from(
+            uint32_t first_slot,
+            uint32_t step,
+            uint32_t first_word,
+            uint32_t origin_bits
+        ) {
+            immediate(L5, origin_bits);
+            for (uint32_t coefficient = 0; coefficient < 3; ++coefficient) {
+                load(L0, kSlotRecords + 3 * coefficient);
+                load(L1, first_slot);
+                sub(L1, L5, L1);
+                mul(L0, L1, L2);
+                load(L0, kSlotRecords + 3 * coefficient + 1);
+                load(L1, first_slot + step);
+                sub(L1, L5, L1);
+                mul(L0, L1, L3);
+                add(L2, L3, L2);
+                load(L0, kSlotRecords + 3 * coefficient + 2);
+                load(L1, first_slot + 2 * step);
+                sub(L1, L5, L1);
+                mul(L0, L1, L3);
+                add(L2, L3, L2);
+                load(L4, kSlotInverseArea);
+                mul(L2, L4, L2);
+                if (coefficient == 2) {
+                    add(L2, L5, L2);
+                }
+                store(L2, kSlotRecords + first_word + coefficient);
+            }
+        }
+
         // The float32 bits of an integer n in [1, 2^24).
         inline uint32_t float_bits(uint32_t n) {
             const uint32_t exponent = 31 - __builtin_clz(n);
@@ -117,9 +149,13 @@ namespace setup_k {
         }
 
         // A block's screen, area, box (in `grid`'s padded frame), distances, `planes`
-        // edges and planes; `weighted` (shaded) first multiplies corner values by 1/z.
+        // edges and planes; `weighted` (shaded) first multiplies corner values by 1/z;
+        // the 1/z plane from 1/z less `depth_origin` (bits, 0: none).
         inline void triangles(
-            bool planes, Grid grid = {kGridDefault, kGridDefault}, bool weighted = false
+            bool planes,
+            Grid grid = {kGridDefault, kGridDefault},
+            bool weighted = false,
+            uint32_t depth_origin = 0
         ) {
             screen();
             area_and_order();
@@ -137,7 +173,11 @@ namespace setup_k {
             load(L0, kSlotArea);
             recip(L0, L1, L2, L3, L4, L5);
             store(L1, kSlotInverseArea);
-            plane(kSlotScreen + 2, 3, 12);
+            if (depth_origin != 0) {
+                plane_from(kSlotScreen + 2, 3, 12, depth_origin);
+            } else {
+                plane(kSlotScreen + 2, 3, 12);
+            }
             if (weighted) {
                 for (uint32_t corner = 0; corner < 3; ++corner) {
                     load(L1, kSlotScreen + 3 * corner + 2);

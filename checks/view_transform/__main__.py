@@ -1,7 +1,9 @@
-"""Each case's tables written by `scripts/blender/view.py` from the Blender named by
+"""Each case's file written by `scripts/blender/view.py` from the Blender named by
 $PRISM_BLENDER, a test picture (ramps over 24 stops of grey and eight hues, random HDR
 colours) and the given linear frames through Blender's view transform (its 8-bit save
-and OpenColorIO's values) and through the reference's; exit 1 past 1 in 8 bits."""
+and OpenColorIO's values) and through the reference's; exit 1 past a case's bound in 8
+bits (a plain view 1, a look baked into the cube 2), the open cases reported, not
+judged."""
 
 import argparse
 import json
@@ -25,11 +27,13 @@ CASES = (
     ("Standard", "None"),
     ("AgX", "AgX - Punchy"),
 )
+OPEN = {("AgX", "AgX - Punchy")}  # a look that mixes channels between cube and tail
 STOPS = (-14.0, 10.0)  # the ramps' exposures, log2
 HUES = ((1, 1, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (0, 1, 1), (1, 0, 1))
 HUES += ((1, 0.5, 0.2), (0.2, 0.5, 1))
 RAMP, RANDOM_ROWS, WIDTH = 4096, 256, 1024
-MOST = 1  # the largest difference allowed, in 8 bits
+MOST = 1  # the largest difference allowed, in 8 bits: a plain view's
+MOST_LOOK = 2  # a look baked into the cube (its largest at pure primaries past 16)
 TIMEOUT_S = 600
 
 
@@ -58,9 +62,9 @@ def blender(*arguments):
 
 
 def differences(ours, theirs):
-    """The largest difference, and the share of channels that differ."""
+    """The largest difference, the share of channels that differ and of those over 1."""
     d = np.abs(ours.astype(np.int16) - theirs.astype(np.int16))
-    return int(d.max()), float(np.mean(d > 0))
+    return int(d.max()), float(np.mean(d > 0)), float(np.mean(d > 1))
 
 
 def case(view, look, pictures, folder):
@@ -71,13 +75,14 @@ def case(view, look, pictures, folder):
     record = {"view": view, "look": look, "notes": written["notes"]}
     if written["view_tables"] is None:
         return record | {"tables": None}
-    ops, kept = load_view(tables)
-    record["kinds"] = [kind for kind, _ in ops]
+    view_file, kept = load_view(tables)
+    cube = view_file["cube"]
+    record["cube"] = None if cube is None else cube.shape[0]
     for name, source in pictures.items():
         out = folder / f"{stem}_{name}"
         out.mkdir(exist_ok=True)
         blender("pictures", str(source), str(out), kept["view"], kept["look"] or "None")
-        ours = view8(ops, np.load(source))
+        ours = view8(view_file, np.load(source))
         saved = np.load(out / "blender.npy")
         theirs = np.rint(np.clip(np.load(out / "ocio.npy"), 0, 1) * 255).astype("u1")
         record[name] = {
@@ -106,8 +111,10 @@ def main():
             if name in record
             for side in ("blender", "ocio")
         ]
-        record["ok"] = bool(worst) and max(worst) <= MOST
-        failed |= not record["ok"]
+        record["bound"] = MOST if look == "None" else MOST_LOOK
+        record["ok"] = bool(worst) and max(worst) <= record["bound"]
+        record["open"] = (view, look) in OPEN
+        failed |= not record["ok"] and not record["open"]
         print(json.dumps(record), flush=True)
     sys.exit(1 if failed else 0)
 

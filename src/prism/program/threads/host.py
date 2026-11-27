@@ -27,7 +27,8 @@ ATTRIBUTES = "mesh.attributes"  # each layer's shade blocks, by its name
 DISPLAY = "display.picture"  # the target a COLOUR view's post step writes
 CAMERAS = "view.depth"  # another host's DEPTH views: indices, cameras, frame size
 DEPTH_LAYERS = raster_host.DEPTH_LAYERS  # the layers a DEPTH view draws
-RANGE_BLOCKS = 4  # the triangle blocks a count range holds, unless given
+ANSWERS_A_BLOCK = 16  # the asks X280 answers while a core walks one triangle block
+BALANCE = 5  # the pull's end imbalance over a range's own cost, in blocks walked
 POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
@@ -49,6 +50,15 @@ def band_count(weight, heavy):
         return np.ones_like(weight)
     bands = np.minimum(-(-weight // int(heavy)), layout.G["kBandsMost"])
     return np.where(weight > heavy, bands, 1)
+
+
+def range_blocks_of(blocks, cores):
+    """The triangle blocks a count range holds for `blocks` over `cores`: the larger of
+    the asks' bound (a range outlasts an answer to every core) and the balance's (the
+    ranges' own cost against the pull's end imbalance, least at their sum's minimum)."""
+    asks = -(-int(cores) // ANSWERS_A_BLOCK)
+    balance = round(math.sqrt(int(blocks) / int(cores) / BALANCE))
+    return max(1, asks, balance)
 
 
 def slots_needed(scenes, size, heavy):
@@ -77,7 +87,8 @@ def whole_pages(slots):
 class ThreadsHost(Host):
     """What the threads' frame needs on the host for `scene` on `session`. Options:
     size, cores, capacity (at least it), materials, lights (the layers' blocks as the
-    raster stage makes them), range_blocks, policy, near, heavy, list_slots_least
+    raster stage makes them), range_blocks (unless given, from the scene's blocks and
+    the cores), policy, near, heavy, list_slots_least
     (a number or a dict by layer name), account (the records a core's page of the
     account holds; 0: no account, the build without it)."""
 
@@ -92,7 +103,7 @@ class ThreadsHost(Host):
         self.at_least = options.get("capacity") or default_capacity()
         self.materials = options.get("materials")
         self.lights = options.get("lights")
-        self.range_blocks = int(options.get("range_blocks") or RANGE_BLOCKS)
+        self.range_blocks = int(options.get("range_blocks") or 0)  # 0: the scene's
         self.policy = options.get("policy") or POLICY
         self.near = int(options.get("near", NEAR))
         self.heavy = int(options.get("heavy", HEAVY))
@@ -123,6 +134,9 @@ class ThreadsHost(Host):
                 "slots": 0,
             }
             self.lists_for(name, eye[name])
+        if not self.range_blocks:
+            blocks = sum(one["blocks"] for one in self.layers.values())
+            self.range_blocks = range_blocks_of(blocks, self.cores)
 
     def lists_for(self, name, slots):
         """The layer `name`'s lists holding at least `slots` and LIST_MARGIN more (and

@@ -30,7 +30,7 @@ from prism_reference.scene.public.materials import load_materials
 from prism_reference.scene.public.mesh import load_mesh
 from prism_reference.scene.public.table import public_dir, table
 from prism_reference.scene.public.views import EPS_SCALE
-from prism_reference.trace.tree import build as build_tree
+from prism_reference.trace.tree import triangles
 
 F = np.float32
 
@@ -40,11 +40,7 @@ def open_tree(mesh, materials, tree=None):
     leaf_tri naming the scene's triangles); `tree` is kept when there is no glass."""
     glass = materials["kind"][materials["material"]] == TRANSPARENT
     if tree is None or glass.any():
-        keep = np.nonzero(~glass)[0]
-        tree = build_tree(
-            {"positions": mesh["positions"], "indices": mesh["indices"][keep]}
-        )
-        tree["leaf_tri"] = keep[tree["leaf_tri"]].astype(np.int32)
+        tree = triangles(mesh, np.nonzero(~glass)[0])
     return {k: np.ascontiguousarray(v) for k, v in tree.items()}
 
 

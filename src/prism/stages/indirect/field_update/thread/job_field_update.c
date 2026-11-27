@@ -343,6 +343,7 @@ static uint32_t finish_update(jf_job_t* job, uint64_t* mark) {
     g_scale = update->times[FU_T_SCALE];
     update->state = 0;
     update->number++;
+    update->times[FU_T_ENDED] = (uint32_t)kmx_time();
     return 0;
 }
 
@@ -368,6 +369,7 @@ static uint32_t step(uint32_t which) {
         for (uint32_t i = 0; i < FU_T_WORDS; i++) {
             update->times[i] = 0;
         }
+        update->times[FU_T_BEGAN] = (uint32_t)started;
     }
     if (code == 0) {
         switch (which) {

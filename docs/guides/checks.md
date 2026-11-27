@@ -53,7 +53,13 @@ python scripts/run/preset.py --pipeline lit --scene sponza --view overview --siz
 Every display preset ends in `post.show`, so its check is the default one. The frames
 with the field's update are checked by `--check prism.check.field_frames.check` (each sun
 of the options in turn, the field the card wrote against the reference's, the pictures
-after the update, the frames drawn during it). The runs with their own scripts
+after the update, the frames drawn during it), in both forms: the stage-wise update's
+times row is the field update's thread region, the threads' form's the job thread's
+region. In the threads' form a row also holds the update's span on the card (`span`,
+ms at the thread's 50 MHz timer): from the start of the sources step to the end of the
+finish step, every pass and the transport's applies the graph queues between them
+included; the scale command and the `job_wants` that hands the field to the frame's
+thread, both after the finish, are left out. The runs with their own scripts
 (`scripts/run/raster_frame.py`, `texture_frame.py`, `field.py`, `apply.py`) step one part
 by the host against the reference ([scripts](../../scripts/README.md)).
 

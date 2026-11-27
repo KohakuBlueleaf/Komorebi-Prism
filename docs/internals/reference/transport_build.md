@@ -34,8 +34,9 @@ numpy's loops, LAPACK, the C++ tracer and libc apart), its time is never the int
 
 The same files, built without the dense matrix:
 
-1. **The ray tree once**, with glass open (`blockwise.build.ray_tree`), by the
-   `presorted` median build ([trace](trace.md)).
+1. **The ray tree once**, with glass open (`blockwise.build.ray_tree`): the triangles
+   that are not `transparent`, without a box tree's nodes (`trace.tree.triangles`;
+   the tracer makes its own tree of them, [trace](trace.md#the-batch-tracer)).
 2. **Empty rows** are found by the kernel's sign test alone (`pairs.facing_any`: two
    products of rank 3 a chunk): an element no other element faces is dropped. Rows that
    are empty only by visibility are kept (zero rows of `M`), so a few percent more
