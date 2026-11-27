@@ -268,7 +268,7 @@ watt, as Blender's exporter writes them). It is drawn only with the option `file
 | `sun` | the first directional light: `direction` its node's world -Z axis, `colour` its colour, `irradiance` colour x lux / 683 (W/m^2) |
 | `lights` | each point, spot and area light: `kind`, `position` (its node's, an area light's centre), `colour`, `intensity` (candela / 683, W/sr; an area light power / pi), a spot's `axis`, `inner`, `outer`, an area light's `axis` (its emitting normal) and `area` |
 | `world` | the sidecar's world: `colour` and `strength`, or `environment` (the map's resolved path), `strength` and `rotation`; null without one |
-| `exposure` | 2^(the sidecar's exposure), 1 without a sidecar |
+| `exposure` | 1 (the sidecar's `render.exposure` replaces it when the lights are loaded) |
 | `turn`, `ambient`, `lamp_scale`, `emissive_scale`, `shadow_bias` | 0, (0, 0, 0), 1, 1, 3 |
 | `merge_distance`, `radius`, `size` | 0.01 d, 10 d, 0.002 d |
 | `notes` | what the file's lighting drops or stands in for |

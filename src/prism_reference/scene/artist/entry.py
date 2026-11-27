@@ -33,7 +33,7 @@ BY_DIAGONAL = {"merge_distance": 0.01, "radius": 0.2, "size": 0.002}
 # A file's lighting: the lamps' window past the scene (no glTF range), by the diagonal.
 FILE_RADIUS = 10.0
 FILE_LIGHTING = {"turn": 0.0, "ambient": [0.0, 0.0, 0.0], "lamp_scale": 1.0}
-FILE_LIGHTING |= {"emissive_scale": 1.0, "shadow_bias": 3.0}
+FILE_LIGHTING |= {"emissive_scale": 1.0, "exposure": 1.0, "shadow_bias": 3.0}
 STAND_IN = "a cosine lamp at its centre, unshadowed, with the option area_lights"
 
 
@@ -211,8 +211,7 @@ def world_of(scene):
 
 def file_lighting_of(scene, diagonal):
     """The file's own lighting (the option file_lights): its sun, lamps and world in
-    radiometric units with the sidecar's exposure (2^exposure), and its notes; None
-    when the file has none of them."""
+    radiometric units, and its notes; None when the file has none of them."""
     sun, lamps, notes = file_lights_of(scene)
     world = world_of(scene)
     if sun is None and not lamps and world is None:
@@ -220,8 +219,6 @@ def file_lighting_of(scene, diagonal):
     lengths = {k: f * diagonal for k, f in BY_DIAGONAL.items()}
     lighting = dict(FILE_LIGHTING) | lengths | {"lights": lamps, "world": world}
     lighting["radius"] = FILE_RADIUS * diagonal
-    exposure = 0.0 if scene.render is None else float(scene.render.exposure)
-    lighting["exposure"] = 2.0**exposure
     lighting["notes"] = notes
     if sun is not None:
         lighting["sun"] = sun
