@@ -23,7 +23,10 @@ scene has none, and draws `--frames` frames (16) as threads, the last written as
 folder's when the file is called `scene`; the digits begin the file's key, the BLAKE2b
 digest of the name, size and bytes of the file, of its sidecar and the sidecar's instance
 table when they are there, of the converter's version (`opened.CONVERTER`) and of
-`--camera`. The mesh and materials files are written as below; the entry goes into
+`--camera`. What only the display reads is not in it: the view's tables
+(`<stem>.view.npz` beside the sidecar) and the sidecar's exposure are read whenever a
+preset loads the scene's lights, so adding the tables later keeps the key (editing the
+sidecar's bytes does change it). The mesh and materials files are written as below; the entry goes into
 `<data>/opened_scenes.json`, which the table reads whenever it exists. An open whose key
 is already in that file with its mesh and materials present converts nothing.
 
@@ -213,7 +216,7 @@ the occlusion texture, an emissive material's base-colour texture, a normal text
 kind that draws none, the normal scale, a second UV set (texture uses naming it, and
 drawn primitives carrying `uv1`), a texture transform on any texture but the base
 colour, `double_sided`, `unlit`, every carried material extension but transmission, the
-camera's roll, the camera's lens shift (`camera shift`), a spot light's cone (drawn as a
+camera's roll, a spot light's cone (drawn as a
 point light) and area lights.
 
 That is what the conversion drops of a glTF file. What a file exported from Blender
@@ -244,7 +247,7 @@ With d the diagonal of the mesh's bounding box and c its centre, `light` is
 | --- | --- |
 | `environment`, `turn`, `sun_to_sky` | `kloppenheim_05`, 0, 5 |
 | `ambient` | 0.35, 0.33, 0.3 |
-| `lamp_scale`, `emissive_scale`, `exposure`, `shadow_bias` | 1, 1, 1, 3 |
+| `lamp_scale`, `emissive_scale`, `exposure`, `shadow_bias` | 1, 1, 1 (the sidecar's `render.exposure` replaces it when the lights are loaded), 3 |
 | `merge_distance`, `radius`, `size` | 0.01 d, 0.2 d, 0.002 d |
 | `sun` | from the first directional light: `direction` its node's world -Z axis (the way the light travels), `colour` its colour |
 | `lights` | the point and spot lights (a spot as a point) at their nodes' world positions, with their colours |

@@ -19,8 +19,8 @@ GENERIC_STEM = "scene"
 
 
 def scene_files(path):
-    """The files a scene's conversion reads: the scene file, then its sidecar, the
-    sidecar's instance table and its view transform's tables when they are there."""
+    """The files a scene's conversion reads: the scene file, then its sidecar and the
+    sidecar's instance table when they are there."""
     path = Path(path)
     files = [path]
     sidecar = sidecar_path(path)
@@ -29,8 +29,6 @@ def scene_files(path):
         table = json.loads(sidecar.read_text()).get("instances")
         if table is not None and (path.parent / table["file"]).is_file():
             files.append(path.parent / table["file"])
-        view = json.loads(sidecar.read_text()).get("render", {}).get("view_tables")
-        files += [path.parent / view] if view and (path.parent / view).is_file() else []
     return files
 
 

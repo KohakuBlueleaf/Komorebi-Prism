@@ -95,8 +95,12 @@ linear through the display, view and look, and splits it at its last 3D table:
 
 A view without a 3D table (Standard) is the thresholds alone. The file `<stem>.view.npz`
 holds the matrix, the range, the cube, the thresholds and a note of its own check against
-OpenColorIO on random colours. The sidecar names the file in `render.view_tables` and
-copies the note into `render.view_notes`.
+OpenColorIO on random colours. Blender's `scripts/blender/view.py sidecar` writes it
+beside a sidecar from the sidecar's `render` and leaves the sidecar as it is; the file
+is found by its name (or by `render.view_tables` when an export names it there). A
+display setting is not part of what a scene's conversion makes, so giving a scene its
+view keeps its key, its name, its far field and its compared truths
+([glTF scenes](../../guides/gltf_scenes.md)).
 
 `prism_reference.post.view` evaluates the form in float32, written op by op as the card
 does it:
@@ -125,7 +129,10 @@ OpenColorIO's values:
 
 ## A file's view transform on the card
 
-The host's transfer `view` is the default when the scene's sidecar has tables (the
+The scene's display is read from its file's sidecar whenever a preset loads its
+lights (`prism_reference.post.view.with_view`): the exposure, 2 to the power of
+`render.exposure` (stops), and the view when its tables are there. The host's transfer
+`view` is the default when the scene's sidecar has tables (the
 option `view` gives a sidecar or a `.view.npz` path; `False` gives none). The thresholds
 are the file's. The cube becomes a tensor of 4 KiB pages (`kernels/view.h`), one per
 brick of 8 x 8 x 8 nodes, with bricks stepping 7 cells so that neighbours share a node.

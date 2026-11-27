@@ -401,8 +401,13 @@ def sidecar_case(name, path):
         (p.shift_x, p.shift_y, p.sensor_fit, o.shift_x, o.shift_y, o.sensor_fit),
         (0.1, -0.05, "HORIZONTAL", 0.0, 0.0, ""),
     )
-    shifted = [n.detail for n in view_of(scene)[2] if n.what == "camera shift"]
-    same(f"{name} camera shift note", shifted, ["0.1000, -0.0500 of the fitted side"])
+    views, _, notes = view_of(scene)
+    same(f"{name} view shift", views["camera"]["shift"], [0.1, -0.05])
+    same(
+        f"{name} no camera shift note",
+        [n for n in notes if n.what == "camera shift"],
+        [],
+    )
     w = scene.world
     same(f"{name} world", (w.strength, w.environment), (1.5, "sky.hdr"))
     same(
