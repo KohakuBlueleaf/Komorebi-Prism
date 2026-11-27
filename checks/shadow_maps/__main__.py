@@ -1,7 +1,8 @@
 """The page of maps on the card: a walk at the viewer's speed (a tenth of the scene box's
 diagonal a second at 60 frames a second, turning), the fitted maps kept while they hold
 the eye's slices and drawn again beside the frames (a FIT command a map between two
-frames, the records swapped in when whole); then still frames until no redraw is asked,
+frames, the records swapped in when whole); then frames standing (each frame whole or
+stood, its kept lists),
 each map the frames read against the reference's at its camera (texels over 1e-5
 relative apart, texels empty on one side only), each map's levels against the
 reference's of the card's map (exact); the redraws, the FIT and SUN commands' times and
@@ -21,6 +22,7 @@ import numpy as np
 from prism_cli.preset import opened
 from prism_viewer.server.camera import camera_of, diagonal, pose_of
 
+from prism.check.threads import names
 from prism.check.threads.card import recorded
 from prism_common.paths import cache_root
 from prism_reference.direct.shadow import map_at
@@ -31,7 +33,8 @@ NAME = "direct.shadow_pcf"
 FPS = 60
 SPEED = 0.1  # of the scene box's diagonal a second (the viewer's walk)
 TURN = 15.0  # degrees a second
-STILL = 8  # frames at most after the walk for the last redraw
+STILL = 10  # frames standing after the walk (the last redraw among them)
+RANGES = names.P + "ranges"  # a times row's count ranges (threads' presets)
 
 
 def parse():
@@ -42,7 +45,7 @@ def parse():
     parser.add_argument("--size", type=int, nargs=2, default=(1920, 1080))
     parser.add_argument("--card", type=int, required=True)
     parser.add_argument("--cascades", type=int, default=2)
-    parser.add_argument("--margin", type=float, default=0.1)
+    parser.add_argument("--margin", type=float, default=0.25)
     parser.add_argument("--seconds", type=float, default=2.0)
     parser.add_argument("--no-levels", action="store_true")
     parser.add_argument("--out", type=Path, default=None)
@@ -120,13 +123,12 @@ def main():
         frames = []
         try:
             for index, camera in enumerate(cameras + [cameras[-1]] * STILL):
-                if index >= len(cameras) and not host.fits.asked:
-                    break
                 began = time.perf_counter()
                 frame = loop.frame(camera)
                 frames.append(
                     {
                         "code": frame.code,
+                        "row": frame.row,
                         "s": round(time.perf_counter() - began, 4),
                         "asked": len(host.fits.asked),
                     }
@@ -135,6 +137,12 @@ def main():
         finally:
             loop.stop()
         times = host.times(loop.loaded)
+        rows = loop.times()
+    for one in frames:
+        row = rows[one["row"]] if 0 <= one["row"] < len(rows) else None
+        ranges = None if not row else row.get(RANGES)
+        ranges = sum(ranges) if isinstance(ranges, list) else ranges
+        one["kind"] = None if ranges is None else ("whole" if ranges else "tile")
     record["maps"] = judged(maps, preset.scene, loop.options["materials"])
     record["redraws"] = host.fits.redraws
     record["frames"] = frames
@@ -150,13 +158,17 @@ def main():
         "frames": len(frames),
         "codes": codes,
         "redraws": len(host.fits.redraws),
+        "whole": sum(f["kind"] == "whole" for f in frames),
+        "stood": sum(f["kind"] == "tile" for f in frames),
         "fit_us": [round(t["pass"], 1) for t in fits],
         "fit_view_us": [round(t["quadrants"][0], 1) for t in fits],
         "fit_levels_us": [round(t["levels"], 1) for t in fits],
         "fit_copies_us": [round(t["copies"], 1) for t in fits],
+        "fit_ended": [t["ended"] for t in fits],
         "sun_us": [round(t["pass"], 1) for t in times if t["map"] < 0],
         "sun_levels_us": [round(t["levels"], 1) for t in times if t["map"] < 0],
         "sun_copies_us": [round(t["copies"], 1) for t in times if t["map"] < 0],
+        "sun_ended": [t["ended"] for t in times if t["map"] < 0],
         "maps": record["maps"],
     }
     record["summary"] = summary

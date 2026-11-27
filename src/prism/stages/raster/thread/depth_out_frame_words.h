@@ -1,6 +1,6 @@
 /* The depth_out step's words of a DEPTH view's frame's page: the target's first page,
- * its pages a row of tiles, its pages (PRISM_TF_DEPTH_OUT_*), and the target as the
- * page's target (TF_TARGET). */
+ * its pages a row of tiles, its pages, its levels' slots, their shift and its tops
+ * (PRISM_TF_DEPTH_OUT_*), and the target as the page's target (TF_TARGET). */
 #pragma once
 
 #include <stdint.h>

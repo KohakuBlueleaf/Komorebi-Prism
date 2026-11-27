@@ -15,10 +15,16 @@ from prism.program.loaded import MICROSECONDS
 from prism.stages.direct.light.model.sun import scene_box, shadow_of_pages
 from prism.stages.direct.shadow_pcf.model.fit import Fits
 from prism.stages.direct.shadow_pcf.model.maps import (
+    SLOT_BYTES,
+    TOP_BYTES,
+    coarse_pages,
     levels_bytes,
-    levels_of_pages,
+    levels_of,
     maps_bytes,
     of_pages,
+)
+from prism.stages.direct.shadow_pcf.model.maps import (
+    map_pages as pages_of,
 )
 from prism.stages.direct.shadow_pcf.model.region import (
     QUADRANT,
@@ -65,7 +71,7 @@ class ShadowHost(Host):
         self.pending = False  # the SUN command asked for, not yet done
         self.passes = []  # each SUN command sent: the sun, its code
         self.sent = 0  # SUN and FIT commands of the loaded run
-        self.fitted = None  # the fitted maps' and the levels' tensor
+        self.fitted = {}  # the tensors: fitted maps and coarse levels, slots, tops
         self.swap = 0  # 1 + the half the next SUN swaps in (0: none)
 
     def prepare(self):
@@ -85,7 +91,7 @@ class ShadowHost(Host):
             self.scene,
             count,
             side,
-            float(self.options.get("cascade_margin", 0.1)),
+            float(self.options.get("cascade_margin", 0.25)),
             bool(self.options.get("shadow_levels", False)),
             self.options.get("cascade_reach"),
             1 + quadrants,
@@ -106,11 +112,27 @@ class ShadowHost(Host):
                 f"direct.shadow_pcf: a map of side {shadow_side(self.lights)} takes "
                 f"{map_pages(self.lights)} pages, the light pages hold {self.target.pages}"
             )
-        pages = self.fits.fit_pages(shadow_side(self.lights))
+        side = shadow_side(self.lights)
+        pages = self.fits.fit_pages(side)
         if pages:
-            self.fitted = self.session.tensor(
-                np.zeros((pages, PAGE_WORDS), dtype=np.uint32), "uint32"
+            self.fitted["maps"] = self.own(pages, PAGE_WORDS)
+        slots = self.fits.slot_count(side)
+        if slots:
+            self.fitted["slots"] = self.own(slots, SLOT_BYTES // 4)
+            self.fitted["tops"] = self.own(slots, TOP_BYTES // 4)
+
+    def own(self, pages, words):
+        """A tensor of its own: `pages` pages of `words` words, refused when its pages
+        are aligned to other bytes."""
+        tensor = self.session.tensor(
+            np.zeros((pages, words), dtype=np.uint32), "uint32"
+        )
+        if tensor.aligned_page_bytes != 4 * words:
+            raise ValueError(
+                f"direct.shadow_pcf: a page of {4 * words} B is aligned to "
+                f"{tensor.aligned_page_bytes} B"
             )
+        return tensor
 
     def moved(self):
         """The lights at the sun now."""
@@ -256,40 +278,49 @@ class ShadowHost(Host):
         (pages,) = loaded.session.read(self.target, pages=map_pages(self.lights))
         return shadow_of_pages(pages.view(np.uint32).reshape(len(pages), -1))
 
+    def read(self, loaded, name, first, pages):
+        """`pages` pages of the tensor `name` from page `first` as words (pages, -1)."""
+        (out,) = loaded.session.read(self.fitted[name], first=first, pages=pages)
+        return out.view(np.uint32).reshape(pages, -1)
+
     def fitted_maps(self, loaded):
         """The card's maps of the page of maps' half the frames read: per record (the
         whole map's, then each fitted map's present) its index, camera, map (side,
         side) float32 1/z and its levels (none when it has none)."""
-        out = []
-        whole = self.map(loaded)
-        lights = self.moved()
-        out.append({"index": 0, "camera": lights["shadow_camera"], "map": whole})
         fits = self.fits
         side = shadow_side(self.lights)
+        lights = self.moved()
+        out = [{"index": 0, "camera": lights["shadow_camera"], "map": self.map(loaded)}]
+        if fits.levels:
+            slots = self.read(loaded, "slots", 0, pages_of(side))
+            coarse = self.read(
+                loaded, "maps", fits.coarse_first(side), coarse_pages(side)
+            )
+            out[0]["levels"] = levels_of(slots, coarse, side)
         for index, (camera, place) in enumerate(zip(fits.cameras, fits.places)):
             if camera is None:
                 continue
-            first = fits.first_of(side, index, place)
-            (pages,) = loaded.session.read(
-                self.fitted, first=first, pages=fits.per_map()
-            )
-            pages = pages.view(np.uint32).reshape(fits.per_map(), -1)
-            count = (fits.side // 32) ** 2
-            out.append(
-                {
-                    "index": 1 + index,
-                    "camera": camera,
-                    "map": of_pages(pages[:count], fits.side),
-                    "levels": (
-                        levels_of_pages(pages[count:], fits.side) if fits.levels else []
-                    ),
-                }
-            )
-        if fits.levels:
-            (pages,) = loaded.session.read(self.fitted, pages=fits.first_of(side, 0, 0))
-            out[0]["levels"] = levels_of_pages(
-                pages.view(np.uint32).reshape(-1, 1024), side
-            )
+            count = pages_of(fits.side)
+            one = {
+                "index": 1 + index,
+                "camera": camera,
+                "map": of_pages(
+                    self.read(loaded, "maps", fits.first_of(index, place), count),
+                    fits.side,
+                ),
+            }
+            if fits.levels:
+                slots = self.read(
+                    loaded, "slots", fits.slot_first(side, index, place), count
+                )
+                coarse = self.read(
+                    loaded,
+                    "maps",
+                    fits.coarse_first(side, index, place),
+                    coarse_pages(fits.side),
+                )
+                one["levels"] = levels_of(slots, coarse, fits.side)
+            out.append(one)
         return out
 
     def times(self, loaded):

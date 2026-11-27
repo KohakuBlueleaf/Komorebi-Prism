@@ -104,6 +104,7 @@ def times_rows(raw, quadrants, served, microseconds):
                 "map": int(row[H["SHADOW_PCF_T_MAP"]]) - 1,
                 "levels": float(row[H["SHADOW_PCF_T_LEVELS"]]) * microseconds,
                 "copies": float(row[H["SHADOW_PCF_T_COPIES"]]) * microseconds,
+                "ended": int(row[H["SHADOW_PCF_T_ENDED"]]),
                 "quadrants": [
                     float(t) * microseconds for t in row[first : first + quadrants]
                 ],

@@ -8,8 +8,8 @@ from prism.stages.direct.shadow_pcf.model.maps import (
     FIT,
     PAGE,
     WHOLE,
-    level_sides,
-    levels_pages,
+    coarse_pages,
+    level_count,
     map_pages,
     maps_words,
     record_at,
@@ -51,23 +51,62 @@ class Fits:
         self.next = (self.cameras, self.places)  # the redraw's, swapped in at its last
 
     def fit_pages(self, whole_side):
-        """The fitted tensor's pages: the whole map's levels, then two places of each
-        fitted map's pages and levels."""
-        whole = levels_pages(whole_side) if self.levels else 0
-        return whole + 2 * self.count * self.per_map()
+        """The fitted tensor's pages: two places of each fitted map's pages, then with
+        the levels the coarse levels' pages (the whole map's, then two places of each
+        fitted map's)."""
+        maps = 2 * self.count * map_pages(self.side)
+        if not self.levels:
+            return maps
+        return (
+            maps + coarse_pages(whole_side) + 2 * self.count * coarse_pages(self.side)
+        )
 
-    def per_map(self):
-        """A fitted map's pages and its levels'."""
-        return map_pages(self.side) + (levels_pages(self.side) if self.levels else 0)
+    def slot_count(self, whole_side):
+        """The slots (and tops) of the maps' tiles: the whole map's, then two places of
+        each fitted map's; none without the levels."""
+        if not self.levels:
+            return 0
+        return map_pages(whole_side) + 2 * self.count * map_pages(self.side)
 
-    def first_of(self, whole_side, index, place):
+    def first_of(self, index, place):
         """The first page of fitted map `index`'s pages at `place`."""
-        whole = levels_pages(whole_side) if self.levels else 0
-        return whole + (2 * index + place) * self.per_map()
+        return (2 * index + place) * map_pages(self.side)
+
+    def coarse_first(self, whole_side, index=None, place=0):
+        """The first page of a map's coarse levels: the whole map's (`index` None), else
+        fitted map `index`'s at `place`."""
+        base = 2 * self.count * map_pages(self.side)
+        if index is None:
+            return base
+        return (
+            base
+            + coarse_pages(whole_side)
+            + (2 * index + place) * coarse_pages(self.side)
+        )
+
+    def slot_first(self, whole_side, index=None, place=0):
+        """The first slot of a map's tiles: the whole map's (`index` None), else fitted
+        map `index`'s at `place`."""
+        if index is None:
+            return 0
+        return map_pages(whole_side) + (2 * index + place) * map_pages(self.side)
+
+    def level_record(self, fitted, side, slot, coarse):
+        """A record's levels' words: its levels, slots, tops and coarse pages."""
+        if not self.levels:
+            return {}
+        return {
+            "levels": level_count(side),
+            "levels_tensor": fitted["slots"].address,
+            "levels_first": slot,
+            "tops": fitted["tops"].address,
+            "coarse_tensor": fitted["maps"].address,
+            "coarse_first": coarse,
+        }
 
     def whole_record(self, lights, target, fitted):
-        """The whole map's record: in the light pages `target`, its levels first in the
-        fitted tensor `fitted`."""
+        """The whole map's record: in the light pages `target`, its levels in the
+        tensors `fitted` (maps, slots, tops)."""
         side = shadow_side(lights)
         record = {
             "tensor": target.address,
@@ -77,9 +116,8 @@ class Fits:
             "texel": lights["shadow_texel"],
             "bias": lights["shadow_bias"],
             "kind": WHOLE,
-            "levels": len(level_sides(side)) if self.levels else 0,
-            "levels_tensor": fitted.address if fitted is not None else 0,
         }
+        record |= self.level_record(fitted, side, 0, self.coarse_first(side))
         return record_words(lights["shadow_camera"], record)
 
     def fit_record(self, lights, fitted, index, camera, place):
@@ -90,10 +128,9 @@ class Fits:
         centre = (self.scene["positions"].min(0) + self.scene["positions"].max(0)) / 2
         distance = float(np.linalg.norm(lights["shadow_camera"][0:3] - centre))
         texel = np.float32(distance / camera[12])
-        first = self.first_of(whole_side, index, place)
         record = {
-            "tensor": fitted.address,
-            "first": first,
+            "tensor": fitted["maps"].address,
+            "first": self.first_of(index, place),
             "across": self.side // PAGE,
             "side": self.side,
             "texel": texel,
@@ -103,12 +140,12 @@ class Fits:
             "which": index,
             "view": self.first_view + index,
         }
-        if self.levels:
-            record |= {
-                "levels": len(level_sides(self.side)),
-                "levels_tensor": fitted.address,
-                "levels_first": first + map_pages(self.side),
-            }
+        record |= self.level_record(
+            fitted,
+            self.side,
+            self.slot_first(whole_side, index, place),
+            self.coarse_first(whole_side, index, place),
+        )
         return record_words(camera, record)
 
     def half_records(self, lights, target, fitted, cameras, places):
@@ -121,7 +158,7 @@ class Fits:
     def words(self, lights, target, fitted, grid, tiles):
         """The page of maps' words: both halves as the frames read now (no fit yet)."""
         records = self.half_records(lights, target, fitted, self.cameras, self.places)
-        pages = fitted.pages if fitted is not None else 0
+        pages = fitted["maps"].pages if fitted else 0
         return maps_words(1 + self.count, grid, tiles, pages, [records, records])
 
     def half_words(self, lights, target, fitted, cameras, places, half):

@@ -115,7 +115,7 @@ A pipeline's tile thread is its steps in order and the planes they share
 | `material_lit` | the same | as `material`, leaving the surfaces (two frames of ten planes) for the light | yes | yes |
 | `light` | `stages/direct/light/steps` | the surface and visibility planes into the colour planes; asks for light pages (the shadow map's, the field's) | yes | no |
 | `post` | `stages/post/show/steps` | pushes the colour planes as an output block, which the mover that takes it converts by SHOW's rule and writes to the tile's display page | yes | no |
-| `depth_out` | `stages/raster/steps/depth` | pushes the 1/z plane as an output block, written row-major to the tile's page of the view's target | no | yes |
+| `depth_out` | `stages/raster/steps/depth` | pushes the 1/z plane as an output block, written row-major to the tile's page of the view's target, with its levels to the tile's slot when the view has them | no | yes |
 
 A step's compute (`<name>_compute`) runs on the three compute CPUs, which split the work
 among themselves. A list pass is streamed to them by the movers after the passes of the

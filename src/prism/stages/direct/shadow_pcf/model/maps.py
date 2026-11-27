@@ -1,15 +1,21 @@
 """The page of maps as the unit's header lays it out: its words, two halves of records
-(the whole map's, then each fitted map's), a record's words; the fitted maps' pages and
-the levels' pages; the levels read back."""
+(the whole map's, then each fitted map's), a record's words; a map's levels as the
+DEPTH view and the unit leave them (a tile's slot and top, the coarse levels' pages) and
+read back."""
 
 import numpy as np
 
+from prism.core.headers import INCLUDE, defined
 from prism.core.resources import lines
 from prism.stages.direct.shadow_pcf.model.region import CAMERA_WORDS, H
 
-PAGE = H["SHADOW_PCF_PAGE"]  # a page's texels a row
+D = defined(INCLUDE / "thread" / "depth_levels.h")
+PAGE = H["SHADOW_PCF_PAGE"]  # a page's texels a row, a tile's
 PAGE_BYTES = 4 * PAGE * PAGE
-PIECE_PAGES = H["SHADOW_PCF_PIECE_PAGES"]  # a piece of a map reduced at once, a side
+SLOT_BYTES = D["DEPTH_LEVELS_SLOT_BYTES"]  # a tile's levels
+TOP_BYTES = D["DEPTH_LEVELS_TOP_BYTES"]  # a tile's top
+IN_TILE = D["DEPTH_LEVELS_IN_TILE"]
+IN_SLOT = [D[f"DEPTH_LEVELS_L{n}"] for n in range(1, IN_TILE + 1)]  # each level's word
 RECORD = H["SHADOW_PCF_RECORD_WORDS"]
 WHOLE, FIT = H["SHADOW_PCF_KIND_WHOLE"], H["SHADOW_PCF_KIND_FIT"]
 F32 = np.float32
@@ -25,37 +31,30 @@ def record_at(maps, half, index):
     return H["SHADOW_PCF_M_RECORDS"] + (half * maps + index) * RECORD
 
 
-def level_sides(side):
-    """The sides of a map's levels: side / 2 down to 1."""
-    out, s = [], side // 2
-    while s >= 1:
-        out.append(s)
-        s //= 2
-    return out
-
-
-def level_across(side):
-    """A level's pages a row."""
-    return max(1, side // PAGE)
-
-
-def levels_pages(side):
-    """The pages of every level of a map of `side`."""
-    return sum(level_across(s) ** 2 for s in level_sides(side))
-
-
 def map_pages(side):
-    """A map's pages."""
+    """A map's pages, its tiles."""
     return (side // PAGE) ** 2
 
 
+def level_count(side):
+    """A map's levels below it: side / 2 down to 1."""
+    return int(side).bit_length() - 1
+
+
+def coarse_pages(side):
+    """The pages of a map's levels coarser than a tile: a level a page."""
+    return level_count(side // PAGE)
+
+
 def levels_bytes(sides):
-    """The levels region's bytes for maps of `sides` (none: 0): a piece and the largest
-    map's levels."""
+    """The levels' work bytes for maps of `sides` (none: 0): a map's tops, a slot and
+    its coarse levels' pages, the most of them."""
     if not sides:
         return 0
-    piece = min(max(sides) // PAGE, PIECE_PAGES) ** 2
-    return PAGE_BYTES * (piece + max(levels_pages(s) for s in sides))
+    return max(
+        map_pages(s) * TOP_BYTES + SLOT_BYTES + coarse_pages(s) * PAGE_BYTES
+        for s in sides
+    )
 
 
 def record_words(camera, record):
@@ -89,17 +88,26 @@ def maps_words(maps, grid, tiles, fit_pages, halves):
 
 def of_pages(pages, side):
     """A (side, side) float32 map from its pages (row by row of pages)."""
-    across = level_across(side)
+    across = max(1, side // PAGE)
     pages = np.asarray(pages, dtype=np.uint32).reshape(across, across, PAGE, PAGE)
     full = pages.transpose(0, 2, 1, 3).reshape(across * PAGE, across * PAGE)
     return np.ascontiguousarray(full[:side, :side]).view(F32)
 
 
-def levels_of_pages(pages, side):
-    """Each level (s, s) float32 of a map of `side` from its levels' pages."""
-    out, at = [], 0
-    for s in level_sides(side):
-        count = level_across(s) ** 2
-        out.append(of_pages(pages[at : at + count], s))
-        at += count
+def levels_of(slots, coarse, side):
+    """Each level (s, s) float32 of a map of `side` from its tiles' slots (tiles, words)
+    and its coarse levels' pages (pages, words)."""
+    across = side // PAGE
+    slots = np.asarray(slots, dtype=np.uint32).reshape(across, across, -1)
+    out = []
+    for n, at in enumerate(IN_SLOT):
+        s = 16 >> n
+        blocks = slots[:, :, at : at + s * s].reshape(across, across, s, s)
+        out.append(
+            blocks.transpose(0, 2, 1, 3).reshape(across * s, across * s).view(F32)
+        )
+    g = across
+    for page in np.asarray(coarse, dtype=np.uint32):
+        g //= 2
+        out.append(np.ascontiguousarray(page.reshape(PAGE, PAGE)[:g, :g]).view(F32))
     return out

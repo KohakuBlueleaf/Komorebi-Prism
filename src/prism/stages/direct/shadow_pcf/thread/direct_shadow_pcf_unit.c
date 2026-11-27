@@ -9,14 +9,6 @@
 static uint32_t g_suns __attribute__((section(".data"))) = 0;
 static uint32_t g_half __attribute__((section(".data"))) = 0;
 
-/* A level's reduction on the four cores: from level `from` (side `side`, its pages
- * `across` a row) to `to` (side / 2), `rows` rows of `to` from row `row` */
-typedef struct {
-    const uint32_t* from;
-    uint32_t* to;
-    uint32_t side, row, rows, from_across, to_across, to_column;
-} level_t;
-
 /* The sun's words of the sun region (to the page of maps), read again from memory. */
 static const volatile uint32_t* sun_words(void) {
     const uint32_t at = DR_DIRECT_SHADOW_PCF_REGION_SUN_AT + SHADOW_PCF_SUN_AT;
@@ -55,212 +47,204 @@ static void quadrant_view(
     view->target_pages = sun[SHADOW_PCF_TARGET_PAGES];
 }
 
-/* Texel (x, y)'s word in pages of SHADOW_PCF_PAGE, `across` pages a row. */
-static inline uint32_t texel_at(uint32_t x, uint32_t y, uint32_t across) {
-    const uint32_t page = (y / SHADOW_PCF_PAGE) * across + x / SHADOW_PCF_PAGE;
-    return page * SHADOW_PCF_PAGE * SHADOW_PCF_PAGE +
-        (y % SHADOW_PCF_PAGE) * SHADOW_PCF_PAGE + x % SHADOW_PCF_PAGE;
+/* A view's levels from `record` (none when it has none), `first` the map's first page.
+ */
+static void view_levels(
+    const volatile uint32_t* record, uint32_t first, dr_view_t* view
+) {
+    const uint32_t levels = record[SHADOW_PCF_R_LEVELS];
+    view->levels = levels ? record[SHADOW_PCF_R_LEVELS_TENSOR] : 0u;
+    view->levels_shift = record[SHADOW_PCF_R_LEVELS_FIRST] - first;
+    view->tops = levels ? record[SHADOW_PCF_R_TOPS] : 0u;
 }
 
-/* A level's pages a row for its side. */
-static inline uint32_t level_across(uint32_t side) {
-    return side > SHADOW_PCF_PAGE ? side / SHADOW_PCF_PAGE : 1u;
-}
-
-/* The largest of four 1/z (none negative: their bits order as the values). */
-static inline uint32_t most_of(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
-    const uint32_t ab = a > b ? a : b;
-    const uint32_t cd = c > d ? c : d;
-    return ab > cd ? ab : cd;
-}
-
-/* A level under a page a side (level_t), texel by texel, on core 0. */
-static void small_level(const level_t* level) {
-    const uint32_t half = level->side / 2u;
-    const uint32_t a = level->from_across;
-    for (uint32_t y = 0; y < level->rows; y++) {
-        for (uint32_t x = 0; x < half; x++) {
-            const uint32_t* f = level->from;
-            level
-                ->to[texel_at(level->to_column + x, level->row + y, level->to_across)] =
-                most_of(
-                    f[texel_at(2u * x, 2u * y, a)],
-                    f[texel_at(2u * x + 1u, 2u * y, a)],
-                    f[texel_at(2u * x, 2u * y + 1u, a)],
-                    f[texel_at(2u * x + 1u, 2u * y + 1u, a)]
-                );
-        }
+/* The levels' work bytes of the sun region: tops of `tiles` tiles, a slot, then the
+ * coarse levels' pages; 0 when they pass the bytes the sun's words give. */
+static uint32_t* levels_work(
+    const volatile uint32_t* sun, uint32_t tiles, uint32_t coarse
+) {
+    const uint64_t bytes = (uint64_t)tiles * DEPTH_LEVELS_TOP_BYTES +
+        DEPTH_LEVELS_SLOT_BYTES + 4ull * SHADOW_PCF_PAGE * SHADOW_PCF_PAGE * coarse;
+    if (bytes > sun[SHADOW_PCF_LEVELS_BYTES] ||
+        sun[SHADOW_PCF_LEVELS_AT] + sun[SHADOW_PCF_LEVELS_BYTES] >
+            DR_DIRECT_SHADOW_PCF_REGION_SUN_BYTES) {
+        return 0;
     }
+    return (uint32_t*)dr_region(
+        DR_DIRECT_SHADOW_PCF_REGION_SUN,
+        DR_DIRECT_SHADOW_PCF_REGION_SUN_AT + sun[SHADOW_PCF_LEVELS_AT]
+    );
 }
 
-/* Core `core`'s quarter of a level's reduction (level_t): an output page from the 2 x 2
- * pages above it, row by row. */
-static void level_part(int core, void* arg) {
-    const level_t* level = (const level_t*)arg;
-    const uint32_t page = SHADOW_PCF_PAGE * SHADOW_PCF_PAGE;
-    const uint32_t pages = level->side / 2u / SHADOW_PCF_PAGE;
-    if (pages == 0) {
-        if (core == 0) {
-            small_level(level);
-        }
-        return;
-    }
-    const uint32_t count = pages * pages;
-    const uint32_t row = level->row / SHADOW_PCF_PAGE;
-    const uint32_t column = level->to_column / SHADOW_PCF_PAGE;
-    for (
-        uint32_t p = count * (uint32_t)core / 4u;
-        p < count * ((uint32_t)core + 1u) / 4u;
-        p++
-    ) {
-        const uint32_t py = p / pages, px = p % pages;
-        uint32_t* out = level->to +
-            ((row + py) * level->to_across + column + px) * page;
-        const uint32_t* above = level->from +
-            (2u * py * level->from_across + 2u * px) * page;
-        for (uint32_t r = 0; r < SHADOW_PCF_PAGE; r++) {
-            const uint32_t* left = above +
-                (r < SHADOW_PCF_PAGE / 2u ? 0u : level->from_across * page) +
-                (2u * r % SHADOW_PCF_PAGE) * SHADOW_PCF_PAGE;
-            const uint32_t* right = left + page;
-            uint32_t* o = out + r * SHADOW_PCF_PAGE;
-            for (uint32_t c = 0; c < SHADOW_PCF_PAGE / 2u; c++) {
-                o[c] = most_of(
-                    left[2u * c],
-                    left[2u * c + 1u],
-                    left[SHADOW_PCF_PAGE + 2u * c],
-                    left[SHADOW_PCF_PAGE + 2u * c + 1u]
-                );
-                o[SHADOW_PCF_PAGE / 2u + c] = most_of(
-                    right[2u * c],
-                    right[2u * c + 1u],
-                    right[SHADOW_PCF_PAGE + 2u * c],
-                    right[SHADOW_PCF_PAGE + 2u * c + 1u]
-                );
-            }
-        }
-    }
+/* A copy between the levels' work bytes (from byte `at`) and `pages` pages of
+ * `page_bytes` of a tensor from page `first`: 0, or SHADOW_PCF_COPY. */
+static uint32_t levels_copy(
+    const dr_frame_t* frame,
+    const volatile uint32_t* sun,
+    uint32_t at,
+    uint32_t tensor,
+    uint32_t page_bytes,
+    uint32_t first,
+    uint32_t pages,
+    int store
+) {
+    const kmx_dram dram = {tensor, KM_COPY_INTERLEAVED, page_bytes, first};
+    const uint64_t offset = DR_DIRECT_SHADOW_PCF_REGION_SUN_AT +
+        sun[SHADOW_PCF_LEVELS_AT] + at;
+    const uint64_t bytes = (uint64_t)page_bytes * pages;
+    kmx_event event;
+    const int done = store ? kmx_store(
+                                 DR_DIRECT_SHADOW_PCF_REGION_SUN,
+                                 offset,
+                                 &dram,
+                                 bytes,
+                                 0u,
+                                 frame->cores,
+                                 kmx_time() + COPY_TICKS,
+                                 &event
+                             )
+                           : kmx_fetch(
+                                 DR_DIRECT_SHADOW_PCF_REGION_SUN,
+                                 offset,
+                                 &dram,
+                                 bytes,
+                                 0u,
+                                 frame->cores,
+                                 kmx_time() + COPY_TICKS,
+                                 &event
+                             );
+    return done == KMX_OK ? 0u : SHADOW_PCF_COPY;
 }
 
-/* The pages of every level of a map of side `side` (SHADOW_PCF_PAGE x SHADOW_PCF_PAGE
- * texels a page). */
-static uint32_t levels_pages(uint32_t side) {
+/* The coarse levels' pages of a map of `side`: one a level of the tops' grid below 1.
+ */
+static uint32_t coarse_pages(uint32_t side) {
     uint32_t pages = 0;
-    for (uint32_t s = side / 2u; s >= 1u; s /= 2u) {
-        pages += level_across(s) * level_across(s);
+    for (uint32_t g = side / DEPTH_LEVELS_TILE; g > 1u; g /= 2u) {
+        pages++;
     }
     return pages;
 }
 
-/* The map of `record` reduced into its levels: in pieces of SHADOW_PCF_PIECE_PAGES
- * pages a side fetched into the levels region, each piece's first level into the levels
- * region after the piece, the rest from the first, then every level stored. 0,
- * SHADOW_PCF_BAD_FIT, DR_PARALLEL or SHADOW_PCF_COPY. */
-static uint32_t map_levels(
+/* Before a map's views: its tiles' tops zeroed (no slot whole). 0, SHADOW_PCF_BAD_FIT
+ * or SHADOW_PCF_COPY. */
+static uint32_t levels_before(
+    const dr_frame_t* frame,
+    const volatile uint32_t* sun,
+    const volatile uint32_t* record
+) {
+    const uint32_t across = record[SHADOW_PCF_R_SIDE] / DEPTH_LEVELS_TILE;
+    uint32_t* work = levels_work(
+        sun, across * across, coarse_pages(record[SHADOW_PCF_R_SIDE])
+    );
+    if (work == 0 || across == 0) {
+        return SHADOW_PCF_BAD_FIT;
+    }
+    for (uint32_t i = 0; i < across * across * DEPTH_LEVELS_TOP_BYTES / 4u; i++) {
+        work[i] = 0;
+    }
+    return levels_copy(
+        frame,
+        sun,
+        0u,
+        record[SHADOW_PCF_R_TOPS],
+        DEPTH_LEVELS_TOP_BYTES,
+        record[SHADOW_PCF_R_LEVELS_FIRST],
+        across * across,
+        1
+    );
+}
+
+/* After a map's views: each tile whose slot is not whole (drawn in bands) ended from
+ * its 16 x 16, then the tops reduced to the coarse levels and stored. `copies` the
+ * copies' ticks, `ended` the tiles ended. 0, SHADOW_PCF_BAD_FIT or SHADOW_PCF_COPY. */
+static uint32_t levels_after(
     const dr_frame_t* frame,
     const volatile uint32_t* sun,
     const volatile uint32_t* record,
-    uint32_t* copies
+    uint32_t* copies,
+    uint32_t* ended
 ) {
     const uint32_t side = record[SHADOW_PCF_R_SIDE];
-    const uint32_t across = record[SHADOW_PCF_R_ACROSS];
-    const uint32_t piece_side = SHADOW_PCF_PIECE_PAGES * SHADOW_PCF_PAGE;
-    const uint32_t pieces = side > piece_side ? side / piece_side : 1u;
-    const uint32_t piece_pages = side > piece_side ? SHADOW_PCF_PIECE_PAGES : across;
-    const uint64_t page_bytes = 4u * SHADOW_PCF_PAGE * SHADOW_PCF_PAGE;
-    const uint64_t piece_bytes = page_bytes * piece_pages * piece_pages;
-    const uint64_t out_bytes = page_bytes * levels_pages(side);
-    if (side < 2u || side % SHADOW_PCF_PAGE || across * SHADOW_PCF_PAGE != side ||
-        piece_bytes + out_bytes > sun[SHADOW_PCF_LEVELS_BYTES] ||
-        sun[SHADOW_PCF_LEVELS_AT] + sun[SHADOW_PCF_LEVELS_BYTES] >
-            DR_DIRECT_SHADOW_PCF_REGION_SUN_BYTES ||
-        record[SHADOW_PCF_R_LEVELS] == 0) {
+    const uint32_t across = side / DEPTH_LEVELS_TILE;
+    const uint32_t tiles = across * across;
+    const uint32_t coarse = coarse_pages(side);
+    uint32_t* work = levels_work(sun, tiles, coarse);
+    if (work == 0 || across == 0) {
         return SHADOW_PCF_BAD_FIT;
     }
-    const uint32_t work = DR_DIRECT_SHADOW_PCF_REGION_SUN_AT +
-        sun[SHADOW_PCF_LEVELS_AT];
-    uint32_t* piece = (uint32_t*)dr_region(DR_DIRECT_SHADOW_PCF_REGION_SUN, work);
-    uint32_t* out = piece + piece_bytes / 4u;
-    /* a piece's rows of pages one fetch when they are the map's whole rows */
-    const uint32_t rows = piece_pages == across ? 1u : piece_pages;
-    const uint32_t fetched = piece_pages * piece_pages / rows;
-    for (uint32_t py = 0; py < pieces; py++) {
-        for (uint32_t px = 0; px < pieces; px++) {
-            uint64_t mark = kmx_time();
-            for (uint32_t r = 0; r < rows; r++) {
-                const uint32_t first = (py * piece_pages + r) * across +
-                    px * piece_pages;
-                const kmx_dram from = {
-                    record[SHADOW_PCF_R_TENSOR],
-                    KM_COPY_INTERLEAVED,
-                    (uint32_t)page_bytes,
-                    record[SHADOW_PCF_R_FIRST] + first
-                };
-                kmx_event event;
-                if (kmx_fetch(
-                        DR_DIRECT_SHADOW_PCF_REGION_SUN,
-                        work + page_bytes * fetched * r,
-                        &from,
-                        page_bytes * fetched,
-                        0u,
-                        frame->cores,
-                        kmx_time() + COPY_TICKS,
-                        &event
-                    ) != KMX_OK) {
-                    return SHADOW_PCF_COPY;
-                }
-            }
-            *copies += (uint32_t)(kmx_time() - mark);
-            const uint32_t half = piece_pages * SHADOW_PCF_PAGE / 2u;
-            level_t level = {
-                piece,
-                out,
-                2u * half,
-                py * half,
-                half,
-                piece_pages,
-                level_across(side / 2u),
-                px * half
-            };
-            if (dr_parallel(level_part, &level)) {
-                return DR_PARALLEL;
-            }
+    const uint32_t slots = record[SHADOW_PCF_R_LEVELS_TENSOR];
+    const uint32_t first = record[SHADOW_PCF_R_LEVELS_FIRST];
+    const uint32_t tops = DEPTH_LEVELS_TOP_BYTES / 4u;
+    const uint32_t slot_at = tiles * DEPTH_LEVELS_TOP_BYTES;
+    uint32_t* slot = work + slot_at / 4u;
+    uint64_t mark = kmx_time();
+    uint32_t code = levels_copy(
+        frame,
+        sun,
+        0u,
+        record[SHADOW_PCF_R_TOPS],
+        DEPTH_LEVELS_TOP_BYTES,
+        first,
+        tiles,
+        0
+    );
+    for (uint32_t t = 0; code == 0 && t < tiles; t++) {
+        uint32_t* top = work + t * tops;
+        if (top[DEPTH_LEVELS_TOP_WHOLE] == 1u) {
+            continue;
         }
-    }
-    uint32_t* from = out;
-    for (uint32_t s = side / 2u; s >= 2u; s /= 2u) {
-        uint32_t* to = from +
-            level_across(s) * level_across(s) * SHADOW_PCF_PAGE * SHADOW_PCF_PAGE;
-        level_t level = {
-            from, to, s, 0u, s / 2u, level_across(s), level_across(s / 2u), 0u
-        };
-        if (dr_parallel(level_part, &level)) {
-            return DR_PARALLEL;
+        code = levels_copy(
+            frame, sun, slot_at, slots, DEPTH_LEVELS_SLOT_BYTES, first + t, 1u, 0
+        );
+        if (code == 0) {
+            depth_levels_below(slot);
+            top[DEPTH_LEVELS_TOP_VALUE] = slot[DEPTH_LEVELS_L5];
+            code = levels_copy(
+                frame, sun, slot_at, slots, DEPTH_LEVELS_SLOT_BYTES, first + t, 1u, 1
+            );
         }
-        from = to;
-    }
-    const kmx_dram to = {
-        record[SHADOW_PCF_R_LEVELS_TENSOR],
-        KM_COPY_INTERLEAVED,
-        (uint32_t)page_bytes,
-        record[SHADOW_PCF_R_LEVELS_FIRST]
-    };
-    kmx_event event;
-    const uint64_t mark = kmx_time();
-    if (kmx_store(
-            DR_DIRECT_SHADOW_PCF_REGION_SUN,
-            work + piece_bytes,
-            &to,
-            out_bytes,
-            0u,
-            frame->cores,
-            kmx_time() + COPY_TICKS,
-            &event
-        ) != KMX_OK) {
-        return SHADOW_PCF_COPY;
+        (*ended)++;
     }
     *copies += (uint32_t)(kmx_time() - mark);
-    return 0;
+    const uint32_t page_words = SHADOW_PCF_PAGE * SHADOW_PCF_PAGE;
+    const uint32_t coarse_at = slot_at + DEPTH_LEVELS_SLOT_BYTES;
+    uint32_t* pages = work + coarse_at / 4u;
+    const uint32_t* from = work;
+    uint32_t stride = tops * across, step = tops;
+    uint32_t g = across;
+    for (uint32_t level = 0; code == 0 && level < coarse; level++) {
+        const uint32_t half = g / 2u;
+        uint32_t* to = pages + level * page_words;
+        for (uint32_t y = 0; y < half; y++) {
+            for (uint32_t x = 0; x < half; x++) {
+                const uint32_t* a = from + 2u * y * stride + 2u * x * step;
+                to[y * SHADOW_PCF_PAGE + x] = depth_levels_most(
+                    depth_levels_most(a[0], a[step]),
+                    depth_levels_most(a[stride], a[stride + step])
+                );
+            }
+        }
+        from = to;
+        stride = SHADOW_PCF_PAGE;
+        step = 1u;
+        g = half;
+    }
+    if (code == 0 && coarse) {
+        mark = kmx_time();
+        code = levels_copy(
+            frame,
+            sun,
+            coarse_at,
+            record[SHADOW_PCF_R_COARSE_TENSOR],
+            4u * page_words,
+            record[SHADOW_PCF_R_COARSE_FIRST],
+            coarse,
+            1
+        );
+        *copies += (uint32_t)(kmx_time() - mark);
+    }
+    return code;
 }
 
 /* The page of maps' words (the sun's words `sun`), read again from memory; 0 when the
@@ -340,28 +324,34 @@ uint32_t direct_shadow_pcf_unit_sun(dr_frame_t* frame, const km_command_t* comma
          SHADOW_PCF_T_QUADRANT + quadrants > row_words || half > 1u)) {
         code = SHADOW_PCF_BAD_SUN;
     }
+    const uint32_t bytes = sun[SHADOW_PCF_LEVELS_AT] - sun[SHADOW_PCF_MAPS_AT];
+    const volatile uint32_t* whole = record_of(maps_words(sun), bytes, half, 0u);
+    if (code == 0 && whole == 0) {
+        code = SHADOW_PCF_BAD_SUN;
+    }
     if (code == 0) {
         dr_invalidate(
             DR_REGION_LAYERS,
             4u * DR_LAYER_WORDS * DR_LAYERS,
             4u * DR_LAYER_WORDS * DR_LAYERS * quadrants
         );
+        if (whole[SHADOW_PCF_R_LEVELS]) {
+            code = levels_before(frame, sun, whole);
+            row[SHADOW_PCF_T_LEVELS] = dr_ticks(&mark);
+        }
     }
     for (uint32_t quadrant = 0; code == 0 && quadrant < quadrants; quadrant++) {
         dr_view_t view;
         quadrant_view(sun, quadrant, &view);
+        view_levels(whole, sun[SHADOW_PCF_TARGET_FIRST], &view);
         code = dr_view(frame, &view);
         row[SHADOW_PCF_T_QUADRANT + quadrant] = dr_ticks(&mark);
     }
-    if (code == 0) {
-        const uint32_t bytes = sun[SHADOW_PCF_LEVELS_AT] - sun[SHADOW_PCF_MAPS_AT];
-        const volatile uint32_t* whole = record_of(maps_words(sun), bytes, half, 0u);
-        if (whole == 0) {
-            code = SHADOW_PCF_BAD_SUN;
-        } else if (whole[SHADOW_PCF_R_LEVELS]) {
-            code = map_levels(frame, sun, whole, &row[SHADOW_PCF_T_COPIES]);
-            row[SHADOW_PCF_T_LEVELS] = dr_ticks(&mark);
-        }
+    if (code == 0 && whole[SHADOW_PCF_R_LEVELS]) {
+        code = levels_after(
+            frame, sun, whole, &row[SHADOW_PCF_T_COPIES], &row[SHADOW_PCF_T_ENDED]
+        );
+        row[SHADOW_PCF_T_LEVELS] += dr_ticks(&mark);
     }
     if (code == 0) {
         g_half = half;
@@ -422,12 +412,21 @@ uint32_t direct_shadow_pcf_unit_fit(dr_frame_t* frame, const km_command_t* comma
         const uint32_t camera_at = sun[SHADOW_PCF_MAPS_AT] +
             (uint32_t)((const volatile uint8_t*)record - (const volatile uint8_t*)maps);
         fit_view(maps, record, camera_at, &view);
-        code = dr_view(frame, &view);
-        row[SHADOW_PCF_T_QUADRANT] = dr_ticks(&mark);
+        view_levels(record, record[SHADOW_PCF_R_FIRST], &view);
+        if (record[SHADOW_PCF_R_LEVELS]) {
+            code = levels_before(frame, sun, record);
+            row[SHADOW_PCF_T_LEVELS] = dr_ticks(&mark);
+        }
+        if (code == 0) {
+            code = dr_view(frame, &view);
+            row[SHADOW_PCF_T_QUADRANT] = dr_ticks(&mark);
+        }
     }
     if (code == 0 && record[SHADOW_PCF_R_LEVELS]) {
-        code = map_levels(frame, sun, record, &row[SHADOW_PCF_T_COPIES]);
-        row[SHADOW_PCF_T_LEVELS] = dr_ticks(&mark);
+        code = levels_after(
+            frame, sun, record, &row[SHADOW_PCF_T_COPIES], &row[SHADOW_PCF_T_ENDED]
+        );
+        row[SHADOW_PCF_T_LEVELS] += dr_ticks(&mark);
     }
     if (code == 0 && command->a2) {
         g_half = half;

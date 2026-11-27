@@ -12,5 +12,8 @@ uint32_t depth_out_frame_words(
         return DR_BAD_ARGS;
     }
     page[PRISM_TF_DEPTH_OUT_PAGES] = view->target_pages;
+    page[PRISM_TF_DEPTH_OUT_LEVELS] = view->levels;
+    page[PRISM_TF_DEPTH_OUT_LEVELS_SHIFT] = view->levels_shift;
+    page[PRISM_TF_DEPTH_OUT_TOPS] = view->tops;
     return 0;
 }

@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "director.h"
+#include "thread/depth_levels.h"
 
 /* The sun region: LIGHT's table first, then from byte SHADOW_PCF_SUN_AT (a define: the
  * table's bytes) the sun's words below, then a camera a quadrant from
@@ -25,7 +26,7 @@
 
 /* The times region: a row a SUN or FIT command (the last SHADOW_PCF_TIMES_ROWS), its
  * words the number, the code, the pass's ticks, the map (0 SUN's, 1 + the record's
- * for FIT), the levels' ticks, their fetches' and store's, then each view's */
+ * for FIT), the levels' ticks, their copies', the tiles ended here, then each view's */
 #define SHADOW_PCF_TIMES_ROWS 64u
 #define SHADOW_PCF_T_NUMBER 0u
 #define SHADOW_PCF_T_CODE 1u
@@ -33,7 +34,8 @@
 #define SHADOW_PCF_T_MAP 3u
 #define SHADOW_PCF_T_LEVELS 4u
 #define SHADOW_PCF_T_COPIES 5u
-#define SHADOW_PCF_T_QUADRANT 6u
+#define SHADOW_PCF_T_ENDED 6u
+#define SHADOW_PCF_T_QUADRANT 7u
 
 /* The page of maps (in the sun region from SHADOW_PCF_MAPS_AT; the levels' work bytes
  * after it): the words below, then from SHADOW_PCF_M_RECORDS
@@ -55,22 +57,24 @@
 #define SHADOW_PCF_R_FILTER 22u        /* its filter (the lookup's) */
 #define SHADOW_PCF_R_MARGIN 23u        /* the texels in from its edge a point needs */
 #define SHADOW_PCF_R_LEVELS 24u        /* its levels below the map (0: none) */
-#define SHADOW_PCF_R_LEVELS_TENSOR 25u /* the tensor of the levels' pages */
-#define SHADOW_PCF_R_LEVELS_FIRST 26u  /* the first level's first page there */
+#define SHADOW_PCF_R_LEVELS_TENSOR 25u /* the tensor of its tiles' levels' slots */
+#define SHADOW_PCF_R_LEVELS_FIRST 26u  /* its first tile's slot there (and top) */
 #define SHADOW_PCF_R_KIND 27u          /* SHADOW_PCF_KIND_* */
 #define SHADOW_PCF_R_WHICH 28u         /* the cascade's index, the lamp's face */
 #define SHADOW_PCF_R_VIEW 29u          /* the view that draws it */
-#define SHADOW_PCF_RECORD_WORDS 32u
+#define SHADOW_PCF_R_TOPS 30u          /* the tensor of its tiles' tops */
+#define SHADOW_PCF_R_COARSE_TENSOR 31u /* the tensor of its coarser levels */
+#define SHADOW_PCF_R_COARSE_FIRST 32u  /* their first page there: a level a page */
+#define SHADOW_PCF_RECORD_WORDS 48u
 
 #define SHADOW_PCF_KIND_WHOLE 0u /* the sun's map over the scene's box */
 #define SHADOW_PCF_KIND_FIT 1u   /* a sun map fitted to a slice of the eye's view */
 
-/* A map's levels: level l + 1's texel the largest 1/z of level l's 2 x 2, down to 1 x
- * 1, each in pages of 32 x 32 (a level under 32 texels a side in one page's corner),
- * the levels one after another; a map is reduced in pieces of SHADOW_PCF_PIECE_PAGES
- * pages a side */
+/* A map's levels: those of a tile in its slot and its top (thread/depth_levels.h),
+ * written by the DEPTH view's tiles; a tile drawn in bands ended here, then the tops
+ * reduced to the levels coarser than a tile, each in a page of SHADOW_PCF_PAGE x
+ * SHADOW_PCF_PAGE texels (row-major, from its corner) */
 #define SHADOW_PCF_PAGE 32u
-#define SHADOW_PCF_PIECE_PAGES 32u
 
 /* The unit's code: quadrants past the frame's views or its times row, or no tiles */
 #define SHADOW_PCF_BAD_SUN (DR_UNIT_CODES + 1u)

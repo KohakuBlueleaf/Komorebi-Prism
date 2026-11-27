@@ -37,13 +37,16 @@
 /* A view of the frame: its index (0 the eye's; its camera areas and layer rows are
  * index times DR_LAYERS plus the layer), its kind, its camera's words and their bank
  * address, its grid word (the commands') and tiles; a DEPTH view's target: a tensor,
- * its first page, its pages a row of tiles, its pages */
+ * its first page, its pages a row of tiles, its pages; and its levels (depth_levels.h):
+ * the slots' tensor (0: none), target page p's slot p + levels_shift, the tops' tensor
+ */
 typedef struct {
     uint32_t index, kind;
     uint32_t camera[DR_N_CAMERA_WORDS];
     uint32_t camera_at;
     uint32_t grid, tiles;
     uint32_t target, target_first, target_across, target_pages;
+    uint32_t levels, levels_shift, tops;
 } dr_view_t;
 
 /* A layer of a view: its row of the layers region (DR_LAYER_WORDS, by DR_<UNIT>_L_*) */

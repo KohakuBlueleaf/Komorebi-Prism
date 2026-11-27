@@ -79,7 +79,7 @@ The steps:
 | `material_lit` | material.texture | as `material`, writing the frame's words and the surfaces; in a DEPTH view only the masked layer's 1/z merged | as `material` | `frame.visibility` / `frame.visibility`, `frame.surface` | as `material`, the light work, the camera | layers, textures, table | the table, the camera |
 | `light` | direct.light (`stages/direct/light/steps/`) | the surface and visibility planes lit a quarter tile at a time into the first layer's colour planes; light pages asked | asks `pages` | `frame.surface`, `frame.visibility` / `frame.visibility` | table, work, pages, pass | table, pages, glass, the field's first page, units and scale | the table with the camera, the field's version |
 | `post` | post.show (`stages/post/show/steps/`) | the first layer's colour planes (a band: its rows) pushed as a block; a mover converts it by SHOW's rule and writes the tile's display page | output `display` | `frame.visibility` / - | table, scratch | table, pages | the thresholds and buckets |
-| `depth_out` | raster (`stages/raster/steps/depth/`) | a DEPTH view's 1/z plane pushed as a block, turned row-major by a mover and written to the tile's page of the view's target | output `depth` | `frame.visibility` / - | scratch | pages | no |
+| `depth_out` | raster (`stages/raster/steps/depth/`) | a DEPTH view's 1/z plane pushed as a block, turned row-major by a mover and written to the tile's page of the view's target; with levels, the block's levels to the tile's slot | output `depth` | `frame.visibility` / - | scratch | pages, levels, levels_shift, tops | no |
 
 In every step the pack CPU does the work; unpack hands the list blocks on and serves
 pack's mails (`compute_mail`, the answers of its asks); the light and post steps give the

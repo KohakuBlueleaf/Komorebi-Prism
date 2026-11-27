@@ -1,6 +1,6 @@
 """The DEPTH view's last step of the tile thread: the visibility's 1/z pushed as an
 output block, turned row-major on the data-movement CPU that takes it and written to the
-tile's page of the view's target."""
+tile's page of the view's target, with its levels when the view has them."""
 
 from pathlib import Path
 
@@ -19,7 +19,7 @@ DEPTH_OUT = Step(
     outputs=(Output("depth", PS["kDepthBlockBytes"], 2, convert="depth_out_convert"),),
     reads=("frame.visibility",),
     keeps={"scratch": PS["kPostScratchBytes"]},
-    words=("pages",),
+    words=("pages", "levels", "levels_shift", "tops"),
     thread=f"{STAGE}/thread/depth_out_frame_words.c",
     colour=False,
     depth=True,

@@ -13,9 +13,9 @@ class and no frame work; it writes `light.shadow_map` and gives its views as
 | --- | --- |
 | `__init__.py` | the declaration (`SHADOW_PCF`), registered as `direct.shadow_pcf` |
 | `unit.py` | the thread unit: serves `sun` and `fit`; regions `sun` (from the host) and `sun_times`; the column `sun_table`, shared with slot `light.shadow_map`; gives `light.shadow_maps` |
-| `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the whole map's levels, the times row; FIT: a fitted map's DEPTH view and levels, the half swapped in; the region's, the page of maps', a record's and the times row's word places |
+| `thread/direct_shadow_pcf_unit.c`, `.h` | SUN: the sun region's words, a DEPTH view a quadrant, the whole map's coarse levels, the times row; FIT: a fitted map's DEPTH view and coarse levels, the half swapped in; the region's, the page of maps', a record's and the times row's word places |
 | `host.py` | `ShadowHost`: the lights at the sun (the map's side from the option `shadow_side`, else the lights'), the quadrants (the views of its own), slot `view.depth` (their cameras), the map's tensor (the light pages, else its own), the region's own words (from `SHADOW_PCF_SUN_AT`), the column naming LIGHT's table, the SUN command asked of the loop when the sun moves, the control `sun`, the map read back, the times |
-| `model/maps.py` | the page of maps as the header lays it out: its words, the two halves of records, a record's words; the levels' sides and pages; maps and levels read from pages |
+| `model/maps.py` | the page of maps as the header lays it out: its words, the two halves of records, a record's words; the levels' slots, tops and coarse pages; maps and levels read back |
 | `model/fit.py` | `Fits`: the records of both halves, the fitted cameras kept while they hold the eye's slices (the reference's `kept_cameras`), the FIT commands of a redraw, the half the frames read |
 | `model/region.py` | the sun region as the header lays it out: LIGHT's table, the sun's words and a camera a quadrant (the light model's `quadrant_cameras`); the lights at a sun; the times rows |
 | `check/sun_map.py` | the sun set, frames, the card's map against the reference's at that sun (the light stage's `sun_check`), the passes and times |
@@ -41,15 +41,16 @@ word `SHADOW_PCF_MAPS_AT` gives (the thread's image holds 16 regions, all taken,
 page and the levels' work bytes are parts of the unit's one region, apart from LIGHT's
 table). A record is `SHADOW_PCF_RECORD_WORDS` words: the map's camera as a block of the
 director's camera words first, then its tensor, first page, pages a row, side, texel,
-bias, filter, margin, levels, the levels' tensor and first page, its kind, which
-cascade, the view that draws it. The page holds the records twice. The frames read one
+bias, filter, margin, levels, the slots' tensor and first slot, its kind, which
+cascade, the view that draws it, the tops' tensor, the coarse levels' tensor and first
+page. The page holds the records twice. The frames read one
 half, `1 + half` given as slot `light.shadow_maps`; a redraw writes the other.
 
 ## The fit kept beside the frames
 
 A fitted map covers one slice of the eye's view (the reference's practical split of the
 option `cascade_reach`, else the scene box along the view) widened on each side by the
-control `cascade_margin` (a share of the slice, 0.1 by default), its half width on steps
+option `cascade_margin` (a share of the slice, 0.25 by default), its half width on steps
 of 2^(1/8) and its centre on its own texel grid, so a fit made again nearby draws the
 same texels. Each frame the host tests the fits against the eye's slices (`fit_holds`):
 a still camera costs nothing. When one no longer holds, the host fits it again, writes
@@ -61,15 +62,35 @@ old fits takes a coarser map, never a wrong one. When the sun moves, the host wr
 other half with the whole map at the new sun and no fitted map, and `sun` swaps it in
 with the new map; the fits are then drawn again one by one.
 
+A fit's view adds to one frame's gap what its frustum takes of the scene: on
+italian_flat a fitted view's frustum holds 16 % (the near map) and 80 % (the far map) of
+the scene's triangle blocks, on lynxsdesign 38 % and 43 %. The margin trades redraws for
+edge error: with the reach of the scene box, 0.25 costs an edge error of 0.117 on sponza
+(0.111 at 0.1), 0.162 on italian_flat close and 0.105 at its camera (0.163, 0.101 at
+0.1), against about a second of walk between redraws.
+
 ## The levels
 
 With the option `shadow_levels`, each map has its levels: level `l + 1`'s texel is the
-largest 1/z of level `l`'s 2 x 2, down to 1 x 1, each level in pages of 32 x 32 (a level
-under 32 texels a side in a page's corner), one after another. The X280 reduces them:
-the map fetched in pieces of 32 x 32 pages into the region's work bytes, each piece's
-first level by the four cores, the next levels from the first, then every level stored
-to its pages. `sun` reduces the whole map's after its quadrants (and is sent once at
-load when the levels are on), `fit` a fitted map's after its view.
+largest 1/z of level `l`'s 2 x 2, down to 1 x 1 (no 1/z is negative, so the reduction
+compares bits). A level is a reduction of pages a core already holds when it writes them,
+so the tile thread makes the levels finer than a tile: the DEPTH view's depth step
+(`raster/steps/depth`, `depth_out`), on the data-movement CPU that turns a tile's block
+row-major, reduces the block to its 16 x 16 and writes them to the tile's slot (a 2,048 B
+page of the slots' tensor, `thread/depth_levels.h`). A whole tile also reduces down to
+1 x 1 and writes its 1,376 B of levels and a 64 B top (its 1 x 1 and a mark that the slot
+is whole); a band writes only its rows of the 16 x 16. The DEPTH view gives the step the
+slots' tensor, the shift from a page of the map to its slot and the tops' tensor
+(`dr_view_t`; none: no levels).
+
+The levels coarser than a tile are a reduction of one texel a tile, small enough for the
+X280: before a map's views the unit zeroes its tops, after them it fetches the tops (a
+2,048 map: 64 x 64 of them), ends each tile whose top is not marked (drawn in bands: its
+slot fetched, reduced from its 16 x 16, stored), reduces the tops' grid level by level and
+stores each coarse level as a page of the fitted tensor. `sun` does it for the whole map
+around its quadrants (and is sent once at load when the levels are on), `fit` for a fitted
+map around its view. The record names the slots' tensor and first slot, the tops' tensor,
+and the coarse levels' tensor and first page.
 
 ## The views' capacity
 
