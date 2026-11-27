@@ -57,6 +57,7 @@ namespace light_k {
     constexpr uint32_t kCurvePlain = 0;  // x / (1 + x)
     constexpr uint32_t
         kCurveFilmic = 1;  // x (2.51 x + 0.03) / (x (2.43 x + 0.59) + 0.14)
+    constexpr uint32_t kCurveView = 2;  // x itself: SHOW's view transform tones it
     constexpr uint32_t kLtCamera = 96;  // 16 words, mover A's copy of the camera
     constexpr uint32_t kLtLamp = 128;
     // a lamp: position, colour, intensity, radius, 1 / radius, size^2

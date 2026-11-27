@@ -23,6 +23,7 @@ from prism_reference.indirect.field.build import voxel_keys
 from prism_reference.indirect.field.values import FIELD_SHIFT
 from prism_reference.indirect.light import field_for
 from prism_reference.post.display import to_srgb8
+from prism_reference.post.view import view8
 from prism_reference.raster.frames import picture, rasterize_shaded, shade_setup
 from prism_reference.raster.setup import setup, world_points
 
@@ -197,7 +198,8 @@ def light_check(view, materials, lights, got, terms=TERMS):
     def crop(image):
         return picture(image, view)
 
-    want = to_srgb8(crop(lit["display"]))
+    shown = crop(lit["display"])
+    want = view8(lights["view"], shown) if "view" in lights else to_srgb8(shown)
     error = np.abs(got[..., :3].astype(np.int16) - want.astype(np.int16)).max(axis=2)
     corner = {**materials, "light": lights["visibility"][view["indices"]]}
     apart = later_pieces(view, corner, lit["tri"])

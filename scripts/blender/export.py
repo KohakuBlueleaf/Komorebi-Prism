@@ -246,7 +246,7 @@ def main():
     shown = record["render"]
     shown["display"] = source.display_settings.display_device
     shown["view_tables"], shown["view_notes"] = view_tables.write(
-        args.stem + view_tables.SUFFIX,
+        args.stem + view_tables.VIEW_SUFFIX,
         shown["display"],
         shown["view_transform"],
         shown["look"],
