@@ -6,9 +6,14 @@
 
 #include "api/dataflow/dataflow_api.h"
 #include "komorebi/device/km_worker.hpp"
+#include "view.h"
 #include "write.hpp"
 
 namespace show_k {
+
+    static_assert(
+        kViewCountsByte == kShowProfPage * kShowPageBytes + 4 * kShowProfBytes
+    );
 
     // The last writes sent, then the profile page to page me() of the profile tensor
     // at `profile_address`; false: gave up (recorded).
@@ -24,9 +29,17 @@ namespace show_k {
         }
         const uint32_t page = show.scratch + kShowProfPage * kShowPageBytes;
         volatile tt_l1_ptr uint32_t* profile = km::l1(page);
+        invalidate_l1_cache();
+        const volatile tt_l1_ptr uint32_t* counts = km::l1(
+            show.scratch + kViewCountsByte
+        );
+        const uint32_t view[3] = {counts[0], counts[1], counts[2]};
         for (uint32_t word = 0; word < kShowProfBytes / 4; ++word) {
             profile[word] = 0;
         }
+        profile[kShowProfViewItems] = view[0];
+        profile[kShowProfViewPasses] = view[1];
+        profile[kShowProfViewPages] = view[2];
         profile[kShowProfConvert] = show.convert;
         profile[kShowProfWait] = show.wait;
         profile[kShowProfWrite] = show.write;

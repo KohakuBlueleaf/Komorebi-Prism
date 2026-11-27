@@ -61,6 +61,18 @@ def sun_judged(loop, before, want):
     return {"sun_passes": passes, "map": judged(map_of(loop), want)}
 
 
+def settled(loop, camera, policy):
+    """The field's update waited for: one frame sent as the loop sends it (the sun's map
+    drawn, then the update started beside it), its picture not judged, then the update's
+    end waited for; the frames after it are drawn with the updated field."""
+    host = loop.loaded.hosts.get("indirect.field_update")
+    graph = getattr(host, "graph", None)
+    if graph is not None:
+        sun_armed(loop)
+        run_frame(loop, camera, 0, policy)
+        graph.served(wait=True)
+
+
 def ran_by(policy, slice_of, cores, first=0):
     """The rank that ran slice `slice_of`'s threads: known under `kept` only."""
     if policy != KEPT:
@@ -160,6 +172,7 @@ def check(
         loop = open_loop(threads_name, {**(options or {}), **sun, "cores": cores})
         try:
             count = cores or loop_cores(loop)
+            settled(loop, scene["camera"], policies[0])
             ran = frames(loop, scene, want["picture"], policies, count, 0, want["map"])
         finally:
             stop = closed(loop)

@@ -27,8 +27,8 @@ namespace light_k {
     }
 
     // Row k's linear colour in a's rows toned (prism_reference.post.tone): exposure,
-    // saturation s (not 1: max(0, lum + (x - lum) s)), the curve: x / (1 + x) or filmic
-    // at most 1.
+    // saturation s (not 1: max(0, lum + (x - lum) s)), the curve: x / (1 + x), filmic
+    // at most 1, or none (view).
     __attribute__((noinline)) void grade_row(uint32_t k, const uint32_t* table) {
         TTI_SFPENCC(3, 0, 0, 10);
         immediate(L7, table[kLtExposure]);
@@ -53,6 +53,9 @@ namespace light_k {
         }
         for (uint32_t channel = 0; channel < 3; ++channel) {
             store(L0 + channel, plane_vector(kLvAlbedo + channel, k));
+        }
+        if (table[kLtCurve] == kCurveView) {
+            return;
         }
         const bool filmic = table[kLtCurve] == kCurveFilmic;
         for (uint32_t channel = 0; channel < 3; ++channel) {

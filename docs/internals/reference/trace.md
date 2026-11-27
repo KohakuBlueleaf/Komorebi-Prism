@@ -3,7 +3,8 @@
 `prism_reference.trace`: `tree` (the box tree, its cut into treelets, its files),
 `tracer` (the numpy walk and the reference ray tracer's frame) and `batch` (many rays at
 once in the native library `native/trace/trace_batch.cpp`, threaded, at most 8 threads
-or `PRISM_THREADS`; it shares the walk and the triangle test of
+or `PRISM_THREADS`, over the host's own tree of the box tree's triangles,
+`native/trace/host_tree.hpp`, with the triangle test of
 `native/trace/raytrace_core.hpp`). The scenes are the generated ones
 ([the scenes page](../../concepts/scenes.md)).
 
@@ -105,9 +106,41 @@ the same hits (any-hit visibility of 4 M rays equal on both scenes measured in
 
 ## The batch tracer
 
-`trace.batch.trace(tree, origin, direction, tmax, any_hit=False)` returns what
-`trace.tracer.trace` returns for the same rays, bit for bit: on 10,000 primary rays
-(`tracer.camera_rays`) through distinct random pixels of `s10k`, closest hit and any
-hit, the two give the same `t`, triangle, `u` and `v` bit patterns. It is the tracer of
-the indirect light ([indirect](indirect.md)) and of the visibility bake
-([direct light](direct.md)).
+`trace.batch.trace(tree, origin, direction, tmax, any_hit=False)` returns the hits of
+`trace.tracer.trace` for the same rays: on 10,000 primary rays (`tracer.camera_rays`)
+through distinct random pixels of `s10k` the closest hits have the same `t`, triangle,
+`u` and `v` bit patterns, and the any-hit rays are blocked or free alike (an any-hit
+ray's triangle is the first one its walk meets, which the two walks meet in another
+order). It is the tracer of the indirect light ([indirect](indirect.md)) and of the
+visibility bake ([direct light](direct.md)).
+
+It does not walk `tree`'s nodes, and its callers give it none: the bake
+(`direct.prepare.scene_tree`) and both builds of the transport (`indirect.build.open_tree`,
+`indirect.blockwise.build.ray_tree`) pass `trace.tree.triangles(scene, keep)`, the
+triangles in the scene's order with their scene numbers. The box tree's nodes are read
+by the numpy walk (`trace.tracer`) and by its cut into treelets. The first call with a
+tree makes the host's tree of its triangles (`trace.batch.host_tree`, kept until the triangles' array is freed; the
+library's `host_tree_make`), on the CPUs the process may use:
+
+- **Cuts by the surface-area heuristic**, binned: per node, the triangles' box centres in
+  16 bins on each axis, the plane of least `n_left area_left + n_right area_right`; a
+  node of at most `LEAF_MOST` (4) triangles stays a leaf when testing them costs no more
+  than the cut (a node's test and a triangle's counted alike). The top levels are built
+  on threads.
+- **A node holds both children's boxes** (64 bytes, one cache line): a step tests the two
+  boxes of one node fetched once, and a leaf is a range of triangles named in its
+  parent, not a node of its own.
+- **Depth first**: a node's first child follows it in memory.
+- The triangles copied in the tree's order (`v0`, `e1`, `e2`, as the box tree stores
+  them), each with its leaf in `tree` (what the call returns) and its scene triangle
+  (the tie rule).
+
+The walk (`host::trace`) goes to the nearer hit child and keeps the farther one on a
+stack with its entry distance, dropping it when a closer hit is found first; it fetches
+ahead the children it will visit; an any-hit ray stops at its first hit. Closest hits
+take `raytrace_core.hpp`'s triangle test and its tie rule (the smaller scene triangle at
+an equal `t`), so the hits are the reference's except where a ray passes through an edge
+or a vertex shared by triangles. A batch is walked in the order of its rays' origins'
+cells (`host::by_cell`: 64 cells a side of the tree's box, Morton order, stable inside a
+cell), so rays walked one after another fetch the same nodes; the results are written in
+the rays' own order.

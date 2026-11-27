@@ -16,6 +16,7 @@ SETUP_NUMBERS = (
     "kAreaCostsAt",
     "kViewAt",
     "kViewGrid",
+    "kViewDepth",
     "kCamWords",
     "kCostKnots",
     "kSetupPrefix",

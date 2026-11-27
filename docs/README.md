@@ -48,6 +48,7 @@ docstring names the code and the records the figure is taken from.
 | [internals/reference/material.md](internals/reference/material.md) | the reference's texture sampling and accesses |
 | [internals/reference/direct.md](internals/reference/direct.md) | the reference's lit frame, its lights and glass |
 | [internals/reference/indirect.md](internals/reference/indirect.md) | the reference's indirect light: elements, the hierarchical matrix, the sky, the field, against a traced truth |
+| [internals/reference/near_field.md](internals/reference/near_field.md) | the near field of the indirect light: the rule that fuses the frame's depth with the field, the visibility mask in two levels, the knobs, against the truth, the artefacts and their causes |
 | [internals/reference/surface.md](internals/reference/surface.md) | the metallic-roughness model, tangents, the texture filters, the surface planes and their comparison with Cycles |
 | [internals/reference/described_light.md](internals/reference/described_light.md) | the direct light of a described scene, in units, against Cycles' passes |
 | [internals/reference/trace.md](internals/reference/trace.md) | the box tree, the walk and the batch tracer |

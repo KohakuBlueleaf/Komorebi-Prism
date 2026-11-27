@@ -292,7 +292,7 @@ It downloads the scene's environment map (the table's `environments`: one HDR ma
 entry, its page, licence and SHA-256; the file is saved in `downloads/` like the scene
 files and never committed), bakes the sky visibility per vertex (`<scene>_visibility.npz`,
 reused unless `--rebake`; traced by the compiled batch tracer (`trace.batch`, the
-reference's walk and triangle test), 16,384 vertices at a time on `--workers` threads, by
+reference's triangle test over the host's own tree), 16,384 vertices at a time on `--workers` threads, by
 default the CPUs the process may run on, at most 32), finds the lamps, renders the sun's shadow map and writes
 `<scene>_lighting.npz` (to a temporary name, then renamed). With `--visibility open` and
 no visibility file yet, every vertex's visibility is 1 and the file's `counts` say

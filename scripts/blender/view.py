@@ -1,6 +1,7 @@
-"""Run inside Blender: a view transform (and look) as the operations this Blender's
-OpenColorIO evaluates from scene linear to the display, written as `<stem>.view.npz`;
-and a linear picture through Blender's own view transform, for the check.
+"""Run inside Blender: a view transform (and look) as this Blender's OpenColorIO
+evaluates it, written as `<stem>.view.npz`: its operations up to the last 3D table
+baked into one cube on their log2 domain, the per-channel tail after it as the
+display's thresholds; and a linear picture through Blender's own view transform.
 `blender --background --python view.py -- sidecar <stem.prism.json>`
 `blender --background --python view.py -- tables <out.npz> <view> <look> [<display>]`
 `blender --background --python view.py -- pictures <linear.npy> <out_dir> <view> <look>`
@@ -11,20 +12,27 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(os.path.dirname(os.path.dirname(HERE)), "src"))
 
 import bpy
 import common
 import numpy
 import PyOpenColorIO as ocio
 
-SUFFIX = ".view.npz"
+from prism_reference.post.view import ENTRY_ONE, TABLE_WORDS, VIEW_SUFFIX, view8
+
 NO_LOOK = ("", "None")
 F = numpy.float32
+LATTICE = 65  # the cube's nodes an axis, unless the body is one table on the domain
+NEGATIVE_ZERO = 0x80000000  # the thresholds' word 0, never read
+SELF_SEED, SELF_COLOURS = 1, 1 << 18  # the file's own check: random HDR colours
+SELF_STOPS = (-12.0, 8.0)
 
 
 class Unsupported(Exception):
-    """An operation the reference does not evaluate."""
+    """A chain the form does not hold."""
 
 
 def config():
@@ -47,177 +55,164 @@ def processor(cfg, display, view, look):
     return whole.getOptimizedProcessor(ocio.OPTIMIZATION_DEFAULT)
 
 
-def forward(op):
-    """True when the operation runs forward."""
-    return op.getDirection() == ocio.TRANSFORM_DIR_FORWARD
+def cpu(cfg, operations):
+    """The CPU processor of a list of operations."""
+    group = cfg.getProcessor(ocio.GroupTransform(operations))
+    return group.getOptimizedProcessor(
+        ocio.OPTIMIZATION_DEFAULT
+    ).getDefaultCPUProcessor()
 
 
-def matrix_op(op):
-    """A matrix and offset; the alpha row and column must be the identity's."""
-    m = numpy.array(op.getMatrix(), numpy.float64).reshape(4, 4)
-    offset = numpy.array(op.getOffset(), numpy.float64)
-    alpha = numpy.array([0.0, 0.0, 0.0, 1.0])
+def applied(evaluate, x):
+    """`evaluate` (a CPU processor) on float32 RGB (..., 3)."""
+    flat = numpy.ascontiguousarray(numpy.asarray(x, F).reshape(-1, 3)).copy()
+    evaluate.applyRGB(flat)
+    return flat.reshape(numpy.shape(x))
+
+
+def domain(operations):
+    """The matrix before the first log2, the log2's range [low, high] that the scale
+    after it maps to [0, 1], and the count of these operations."""
+    names = [type(op).__name__ for op in operations]
+    matrix, k = numpy.eye(3), 0
+    while names[k] == "MatrixTransform":
+        m = numpy.array(operations[k].getMatrix()).reshape(4, 4)
+        if numpy.any(operations[k].getOffset()[:3]):
+            raise Unsupported("an offset before the logarithm")
+        matrix, k = m[:3, :3] @ matrix, k + 1
+    after = operations[k + 1] if k + 1 < len(operations) else None
+    if names[k] != "LogTransform" or operations[k].getBase() != 2 or after is None:
+        raise Unsupported("no log2 then a scale before the 3D table")
+    m = numpy.array(after.getMatrix()).reshape(4, 4)
+    offset = numpy.array(after.getOffset())
+    scale = m[0, 0]
     if not (
-        numpy.array_equal(m[3], alpha)
-        and numpy.array_equal(m[:3, 3], alpha[:3])
-        and offset[3] == 0
+        numpy.allclose(m[:3, :3], scale * numpy.eye(3)) and numpy.ptp(offset[:3]) == 0
     ):
-        raise Unsupported("a matrix that mixes alpha")
-    m, offset = m[:3, :3], offset[:3]
-    if not forward(op):
-        m = numpy.linalg.inv(m)
-        offset = -m @ offset
-    return "matrix", {"matrix": m, "offset": offset}
+        raise Unsupported("the log2's scale differs between channels")
+    return matrix, -offset[0] / scale, (1 - offset[0]) / scale, k + 2
 
 
-def log_op(op):
-    """A logarithm of a base, or its inverse."""
-    kind = "log" if forward(op) else "antilog"
-    return kind, {"base": numpy.array(op.getBase(), numpy.float64)}
+def bake(cfg, body, matrix, low, high, lattice):
+    """The body's values at the cube's `lattice`^3 nodes, as 16-bit entries."""
+    g = numpy.linspace(0.0, 1.0, lattice)
+    nodes = numpy.stack(numpy.meshgrid(g, g, g, indexing="ij"), -1).reshape(-1, 3)
+    linear = (2.0 ** (nodes * (high - low) + low)) @ numpy.linalg.inv(matrix).T
+    values = applied(cpu(cfg, body), linear)
+    entries = numpy.rint(numpy.clip(values, 0.0, 1.0) * ENTRY_ONE)
+    return entries.astype(numpy.uint16).reshape(lattice, lattice, lattice, 3)
 
 
-def exponent_op(op):
-    """A power per channel; negatives clamped to 0."""
-    if op.getNegativeStyle() != ocio.NEGATIVE_CLAMP:
-        raise Unsupported(f"an exponent with negative style {op.getNegativeStyle()}")
-    value = numpy.array(op.getValue()[:3], numpy.float64)
-    return "power", {"power": value if forward(op) else 1.0 / value}
+def thresholds(cfg, tail):
+    """Word k (1 to 255) the bits of the smallest float32 in [0, 1] whose byte by the
+    tail is k; Unsupported when the tail differs between channels or falls."""
+    evaluate = cpu(cfg, tail)
+
+    def byte(bits):
+        v = numpy.repeat(bits.astype(numpy.uint32).view(F)[:, None], 3, 1)
+        out = applied(evaluate, v)
+        if not (
+            numpy.all(out[:, 0] == out[:, 1]) and numpy.all(out[:, 0] == out[:, 2])
+        ):
+            raise Unsupported("a tail that differs between channels")
+        return numpy.rint(numpy.clip(out[:, 0], 0.0, 1.0) * 255)
+
+    one = int(F(1.0).view(numpy.uint32))
+    wanted = numpy.arange(1, TABLE_WORDS)
+    low = numpy.zeros(TABLE_WORDS - 1, numpy.int64)
+    high = numpy.full(TABLE_WORDS - 1, one, numpy.int64)
+    while (low < high).any():
+        middle = (low + high) // 2
+        reached = byte(middle) >= wanted
+        high, low = numpy.where(reached, middle, high), numpy.where(
+            reached, low, middle + 1
+        )
+    if numpy.any(numpy.diff(byte(numpy.arange(0, one, 997))) < 0):
+        raise Unsupported("a tail that falls")
+    return numpy.concatenate([[NEGATIVE_ZERO], low]).astype(numpy.uint32)
 
 
-def moncurve_op(op):
-    """A power with a linear segment (forward decodes, inverse encodes)."""
-    if op.getNegativeStyle() != ocio.NEGATIVE_LINEAR:
-        raise Unsupported(f"a moncurve with negative style {op.getNegativeStyle()}")
-    numbers = {
-        "gamma": numpy.array(op.getGamma()[:3], numpy.float64),
-        "offset": numpy.array(op.getOffset()[:3], numpy.float64),
-    }
-    return ("decode" if forward(op) else "encode"), numbers
+def form(cfg, display, view, look):
+    """{name: array} of the view's file."""
+    operations = list(processor(cfg, display, view, look).createGroupTransform())
+    names = [type(op).__name__ for op in operations]
+    tables = [i for i, name in enumerate(names) if name == "Lut3DTransform"]
+    record = {"matrix": numpy.eye(3), "low": numpy.array(0.0), "high": numpy.array(0.0)}
+    record["cube"] = numpy.zeros(0, numpy.uint16)
+    if tables:
+        body, tail = operations[: tables[-1] + 1], operations[tables[-1] + 1 :]
+        matrix, low, high, ahead = domain(operations)
+        alone = tables[-1] == ahead  # the body is the domain's operations and one table
+        lattice = operations[tables[-1]].getGridSize() if alone else LATTICE
+        record.update(matrix=matrix, low=numpy.array(low), high=numpy.array(high))
+        record["cube"] = bake(cfg, body, matrix, low, high, lattice)
+    else:
+        tail = operations
+    record["thresholds"] = thresholds(cfg, tail)
+    return record
 
 
-def lut1d_op(op):
-    """A 1D table over [0, 1], linear between entries."""
-    if not forward(op) or op.getInputHalfDomain() or op.getOutputRawHalfs():
-        raise Unsupported("a 1D table inverse or over half floats")
-    if op.getHueAdjust() != ocio.HUE_NONE:
-        raise Unsupported("a 1D table with hue adjustment")
-    if op.getInterpolation() not in (ocio.INTERP_LINEAR, ocio.INTERP_DEFAULT):
-        raise Unsupported(f"a 1D table with interpolation {op.getInterpolation()}")
-    table = numpy.array([op.getValue(i) for i in range(op.getLength())], F)
-    return "table", {"table": table}
+def own_check(cfg, display, view, look, path):
+    """The file against Blender's OpenColorIO on random HDR colours: a note of the
+    largest 8-bit difference and the share of channels over 1."""
+    rng = numpy.random.default_rng(SELF_SEED)
+    scale = 2.0 ** rng.uniform(*SELF_STOPS, (SELF_COLOURS, 1))
+    colours = (rng.random((SELF_COLOURS, 3)) * scale).astype(F)
+    truth = applied(
+        processor(cfg, display, view, look).getDefaultCPUProcessor(), colours
+    )
+    with numpy.load(path) as f:
+        cube = f["cube"]
+        made = {
+            "matrix": f["matrix"].astype(F),
+            "low": float(f["low"]),
+            "high": float(f["high"]),
+            "cube": cube if cube.size else None,
+            "thresholds": f["thresholds"],
+        }
+    ours = view8(made, colours).astype(numpy.int16)
+    theirs = numpy.rint(numpy.clip(truth, 0.0, 1.0) * 255).astype(numpy.int16)
+    d = numpy.abs(ours - theirs)
+    return (
+        f"against Blender's OpenColorIO on {SELF_COLOURS} random colours: largest "
+        f"difference {int(d.max())} in 8 bits, {100 * float(numpy.mean(d > 1)):.3f} % "
+        "of channels over 1"
+    )
 
 
-def lut3d_op(op):
-    """A 3D table over [0, 1]^3, indexed [r, g, b], tetrahedral or trilinear."""
-    if not forward(op):
-        raise Unsupported("an inverse 3D table")
-    tetrahedral = op.getInterpolation() in (ocio.INTERP_TETRAHEDRAL, ocio.INTERP_BEST)
-    if not tetrahedral and op.getInterpolation() not in (
-        ocio.INTERP_LINEAR,
-        ocio.INTERP_DEFAULT,
-    ):
-        raise Unsupported(f"a 3D table with interpolation {op.getInterpolation()}")
-    n = op.getGridSize()
-    cube = numpy.empty((n, n, n, 3), F)
-    for r in range(n):
-        for g in range(n):
-            for b in range(n):
-                cube[r, g, b] = op.getValue(r, g, b)
-    kind = "cube_tetrahedral" if tetrahedral else "cube_trilinear"
-    return kind, {"cube": cube}
-
-
-def range_op(op):
-    """A range: scale and offset, clamped to the output's bounds when set."""
-    if not forward(op) or op.getStyle() != ocio.RANGE_CLAMP:
-        raise Unsupported("an inverse or unclamped range")
-    if not (op.hasMinInValue() and op.hasMaxInValue()):
-        raise Unsupported("a range without both input bounds")
-    lo_in, hi_in = op.getMinInValue(), op.getMaxInValue()
-    lo_out, hi_out = op.getMinOutValue(), op.getMaxOutValue()
-    scale = (hi_out - lo_out) / (hi_in - lo_in)
-    numbers = {
-        "scale": numpy.array(scale),
-        "offset": numpy.array(lo_out - scale * lo_in),
-        "low": numpy.array(lo_out if op.hasMinOutValue() else -numpy.inf),
-        "high": numpy.array(hi_out if op.hasMaxOutValue() else numpy.inf),
-    }
-    return "range", numbers
-
-
-OPERATIONS = {
-    "MatrixTransform": matrix_op,
-    "LogTransform": log_op,
-    "ExponentTransform": exponent_op,
-    "ExponentWithLinearTransform": moncurve_op,
-    "Lut1DTransform": lut1d_op,
-    "Lut3DTransform": lut3d_op,
-    "RangeTransform": range_op,
-}
-
-
-def operations(cfg, display, view, look):
-    """[(kind, numbers)] of the optimized processor; Unsupported names the first
-    operation the reference does not evaluate."""
-    found = []
-    for op in processor(cfg, display, view, look).createGroupTransform():
-        name = type(op).__name__
-        if name not in OPERATIONS:
-            raise Unsupported(f"the operation {name}")
-        found.append(OPERATIONS[name](op))
-    return found
-
-
-def tables(display, view, look):
-    """{name: array} of the view's operations, the look dropped (with a note) when an
-    operation of it is unsupported; None and the note when the view itself is."""
+def write(path, display, view, look):
+    """The view's file written to `path`; its name (None when not written) and the
+    notes."""
     cfg = config()
-    notes = []
     try:
-        found = operations(cfg, display, view, look)
+        record = form(cfg, display, view, look)
     except Unsupported as error:
-        if look in NO_LOOK:
-            return None, [f"view transform {view!r}: {error} is not evaluated"]
-        notes.append(f"look {look!r}: {error} is not evaluated; the look dropped")
-        try:
-            found = operations(cfg, display, view, "")
-        except Unsupported as again:
-            notes.append(f"view transform {view!r}: {again} is not evaluated")
-            return None, notes
-        look = ""
-    record = {
-        "kinds": numpy.array([kind for kind, _ in found]),
+        return None, [f"view transform {view!r}, look {look!r}: {error}; not written"]
+    record |= {
         "view": numpy.array(view),
         "look": numpy.array(look),
         "display": numpy.array(display),
         "blender": numpy.array(bpy.app.version_string),
-        "notes": numpy.array(notes, dtype=str),
+        "notes": numpy.array([], dtype=str),
     }
-    for i, (_, numbers) in enumerate(found):
-        record.update({f"op{i}_{name}": value for name, value in numbers.items()})
-    return record, notes
-
-
-def write(path, display, view, look):
-    """The view's tables written to `path`; the file's name (None when not written)
-    and the notes."""
-    record, notes = tables(display, view, look)
-    if record is None:
-        return None, notes
+    with open(path, "wb") as f:
+        numpy.savez_compressed(f, **record)
+    notes = [own_check(cfg, display, view, look, path)]
+    record["notes"] = numpy.array(notes, dtype=str)
     with open(path, "wb") as f:
         numpy.savez_compressed(f, **record)
     return os.path.basename(path), notes
 
 
 def for_sidecar(path):
-    """The tables of a sidecar's view written beside it and named in its `render`."""
+    """The view's file of a sidecar written beside it and named in its `render`."""
     with open(path) as f:
         record = json.load(f)
     render = record["render"]
     stem = path[: -len(".prism.json")]
     display = render.get("display") or bpy.context.scene.display_settings.display_device
     name, notes = write(
-        stem + SUFFIX, display, render["view_transform"], render["look"]
+        stem + VIEW_SUFFIX, display, render["view_transform"], render["look"]
     )
     render["display"], render["view_tables"], render["view_notes"] = (
         display,
@@ -256,10 +251,8 @@ def pictures(source, folder, view, look):
         os.path.join(folder, "blender.npy"), numpy.rint(shown * 255).astype("u1")
     )
     display = scene.display_settings.display_device
-    cpu = processor(config(), display, view, look).getDefaultCPUProcessor()
-    flat = numpy.ascontiguousarray(pixels.reshape(-1, 3)).copy()
-    cpu.applyRGB(flat)
-    numpy.save(os.path.join(folder, "ocio.npy"), flat.reshape(h, w, 3))
+    evaluate = processor(config(), display, view, look).getDefaultCPUProcessor()
+    numpy.save(os.path.join(folder, "ocio.npy"), applied(evaluate, pixels))
     return {"display": display, "size": [w, h]}
 
 
