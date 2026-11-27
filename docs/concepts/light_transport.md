@@ -22,6 +22,13 @@ parts are and where each runs.
 
 ## The matrix as blocks
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/transport-dark.svg">
+  <img src="../images/transport-light.svg" width="830" alt="Sponza's transport matrix as stored, dense near blocks and low-rank far blocks of 32 x 32 tiles; three blocks drawn as tiles; the apply as one command, the receivers dealt in ranges to the cores, a core's movers streaming x and the weights while its compute CPUs multiply tile by tile onto the sums in L1; the bounce passes.">
+</picture>
+
+*Sponza's matrix drawn from its transport set; the apply's time from [measurements/apply](../../measurements/apply/README.md).*
+
 The cluster tree cuts the elements into boxes; a pair of boxes far enough apart (their
 gap at least the larger diagonal) is an admissible block. A block is dropped when it is
 zero, stored low rank (`U V^T`) when the rank at 1e-2 of its largest singular value stores
@@ -64,6 +71,13 @@ command space the other stages share
 ([indirect.transport](../../src/prism/stages/indirect/transport/README.md)).
 
 ## The update, by preset
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/field-dark.svg">
+  <img src="../images/field-light.svg" width="830" alt="A section with the field's voxels, one voxel gathering the elements it sees within 2h, its 32-bit texel, a pixel's lookup of 8 voxel centres; then the update in time: the job thread's commands and the applies on the lowest ranks while the frames go on with the old field, half B of the field's pages handed over by job_wants.">
+</picture>
+
+*The field and its update in `gi_threads`, Sponza; the time axis is schematic, the numbers from [gi_threads](../performance/gi_threads.md).*
 
 The update is the sources, one pass a bounce (an apply, then the pass on the X280:
 `y` fetched and added, the next `x` stored), and the finish (the field's values by row,

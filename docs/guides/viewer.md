@@ -126,7 +126,7 @@ frame; the bounces of `gi` likewise send the field's update again.
 
 ## What the page shows
 
-![lit, light, 1600 x 900: the left column, the frame, the right column](viewer/lit_light_1600.png)
+![gi_threads on the Bistro interior, light, 1600 x 900: the left column, the frame, the right column](viewer/gi_threads_page_light_1600.jpg)
 
 From 1,280 px wide the page is the window's height and does not scroll: a left column
 (what is chosen and how to steer: the pipeline, scene and view, the frame's size, the
@@ -222,6 +222,7 @@ capacity and age; coral a refusal or failure; sage a healthy state.
 
 | | |
 | --- | --- |
+| gi_threads, dark, 1600 x 900, the Bistro interior | ![](viewer/gi_threads_page_dark_1600.jpg) |
 | lit, light, 1280 x 800 (the narrowest with the columns) | ![](viewer/lit_light_1280.png) |
 | gi, dark, 1600 x 900 (the bounces a stepper) | ![](viewer/gi_dark_1600.png) |
 | gi, dark, 1280 x 800 | ![](viewer/gi_dark_1280.png) |
@@ -283,21 +284,21 @@ few degrees it is a few texels magnified.
 
 | | |
 | --- | --- |
-| lit, sponza, the default sun | ![](viewer/lit_sponza_default.png) |
-| lit, the sun moved (azimuth +60, elevation 30) | ![](viewer/lit_sponza_sun_moved.png) |
-| lit, the shadow term off | ![](viewer/lit_sponza_shadow_off.png) |
-| textured, bistro_interior | ![](viewer/textured_bistro_interior.png) |
+| gi_threads, sponza, the overview, 1,920 x 1,080 | ![](viewer/gi_threads_sponza.jpg) |
+| gi_threads, bistro_interior, the overview | ![](viewer/gi_threads_bistro_interior.jpg) |
+| gi_threads, breakfast_room, the overview | ![](viewer/gi_threads_breakfast_room.jpg) |
 
 ## Credits
 
-The pictures on this page show two public scenes, credited as their sources ask (all the
-scenes and their licences: [Scenes and attribution](../concepts/scenes.md#scenes-and-attribution)):
+The pictures on this page show three public scenes, credited as their sources ask (all the scenes and their licences: [Scenes and attribution](../concepts/scenes.md#scenes-and-attribution)):
 
 - Sponza: Crytek Sponza by Frank Meinl, Crytek (2010), from Morgan McGuire's Computer
   Graphics Archive (https://casual-effects.com/data), CC BY 3.0.
 - Bistro interior: Amazon Lumberyard Bistro, Open Research Content Archive (ORCA), (c) 2017
   Amazon Lumberyard; OBJ version from Morgan McGuire's Computer Graphics Archive
   (https://casual-effects.com/data), CC BY 4.0.
+- Breakfast Room by Wig42 (Blend Swap), OBJ version by Morgan McGuire, from Morgan
+  McGuire's Computer Graphics Archive (https://casual-effects.com/data), CC BY 3.0.
 
 ## Checking it
 

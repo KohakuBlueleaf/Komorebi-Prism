@@ -10,6 +10,13 @@ every time), 1,920 x 1,080, 16 frames on the scene's view, four scenes of the ar
 table exported by the Blender workbench ([artists' scenes](../guides/artist_scenes.md)).
 Seconds.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/results-dark.svg">
+  <img src="../images/results-light.svg" width="830" alt="Bar charts: gi_threads against gi less its push on ten scenes, ms; a glTF file's load to its first picture, cold and warm, on three artists' scenes, s.">
+</picture>
+
+*The frame (above) from [measurements/gi_threads](../../measurements/gi_threads/README.md); the load (below) from [measurements/open](../../measurements/open/README.md), the waste cut, 2026-11-27.*
+
 ## The first picture, 2026-11-26
 
 Komorebi at e908d6d16, 8 host CPUs. Cold: the data root empty of the scene and the build
