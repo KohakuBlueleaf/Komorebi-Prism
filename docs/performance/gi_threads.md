@@ -13,6 +13,13 @@ options. 64 frames a load, no sun moved; a run's number is the median over frame
 64, the number given the median of three interleaved runs. Every frame's code 0 and every
 `gi_threads` picture equal to `gi`'s, byte for byte, in all 1,920 frames. ms.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/results-dark.svg">
+  <img src="../images/results-light.svg" width="880" alt="Bar charts: gi_threads against gi less its push on ten scenes, ms; a glTF file's load to its first picture, cold and warm, on three artists' scenes, s.">
+</picture>
+
+*The frame (above) from [measurements/gi_threads](../../measurements/gi_threads/README.md); the load (below) from [measurements/open](../../measurements/open/README.md), the waste cut, 2026-11-27.*
+
 ## The frame
 
 `gi` pushes its picture into the host's memory inside its frame (its option `push`

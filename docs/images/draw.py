@@ -154,7 +154,7 @@ class Svg:
         return left + w
 
 
-W = 1280  # the teaser's width
+W = 1280  # a wide figure's width
 
 
 def box(s, x, y, w, h, title, tag, colour, fill_key="box"):

@@ -6,6 +6,13 @@ scenes opened from glTF files, which take the public scenes' files and entries
 ([glTF scenes](../guides/gltf_scenes.md)). Every preset, of either form, opens a scene by
 its name and a view: a generated scene by its name alone, any other by `<scene>_<view>`.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../images/scene-dark.svg">
+  <img src="../images/scene-light.svg" width="880" alt="A glTF file: what the importer reads, the conversion into the data root, the hosts' tables written to the card as tensors with their sizes; the far field built on the host afterwards and found by the next load.">
+</picture>
+
+*A glTF file opened ([glTF scenes](../guides/gltf_scenes.md)); the sizes and seconds from [load](../performance/load.md) and [the transport's build](../performance/transport_build.md).*
+
 ## Generated scenes
 
 `python scripts/data/generated_scenes.py <folder>` writes four scenes as `.npz`;

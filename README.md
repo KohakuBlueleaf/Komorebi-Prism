@@ -184,16 +184,52 @@ each ask is answered from its port on X280 1; the tile pull's policy chooses the
 list too small is grown while the run stays loaded. Tile pull times: Sponza's overview,
 textured ([threads_account](measurements/threads_account/README.md)).*
 
+## The light
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/transport-dark.svg">
+  <img src="docs/images/transport-light.svg" width="880" alt="The indirect light is one matrix product y = M x applied as 32 x 32 tiles on the cores' matrix engines. First, Sponza's transport matrix as it is stored, 1,151 x 1,151 tiles of 32 elements: dense near blocks along the diagonal (13,024 blocks, 265,798 tiles), low-rank far blocks U V^T (8,406 blocks, 155,628 tiles) and dropped zero blocks; three blocks picked out: a dense 5 x 5 block as 25 tile products, a 9 x 9 low-rank block of rank 19 as t = V^T x then U t in 18 tile products instead of 81, and a 72 x 72 far block of rank 94 stored as 432 tiles instead of 5,184. Second, the apply as one command on every core: y's receiver tiles dealt in contiguous ranges, one a core, 3 to 16 tiles each at about 4,500 weight tiles to read; inside one core, mover A reads the table pages and streams x and the bfp8_b weights from DRAM, the compute CPUs unpack, multiply tile by tile with matmul_block and pack onto the core's own sums in L1, mover B writes y's tiles; one apply takes 2,609.3 us on Sponza. Third, the bounces: the sources L0, E1 = M L0, E2 = M (albedo / pi E1), their sum with the sky into the field.">
+</picture>
+
+*The light transport. Sponza's matrix is drawn from its transport set on 128 x 128
+cells, each cell the kind holding most of its tiles; the ranges are the deal of its
+receivers over 120 cores. The apply's time: one P150A, 120 cores, AICLK 1,350 MHz,
+32 calls ([measurements/apply](measurements/apply/README.md)).*
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/field-dark.svg">
+  <img src="docs/images/field-light.svg" width="880" alt="The field turns the elements' light into voxels a pixel reads, and the card makes it again beside the frames. First, a section of a room's corner: voxels of side h, the element spacing; one voxel near the corner gathers, for each of its six directions, the elements within 2h that its centre sees, one hidden behind a box left out; its texel is 32 bits, a has-data bit and red, green and blue square-root codes of 11, 11 and 9 bits; a pixel P with normal n reads the 8 voxel centres around Q = P + n h / 2. Second, after the sun is set: the frame's thread draws the sun's pass and then three frames with the old field on the ranks above the update's, while the job thread on X280 clusters 2 and 3 runs field_sources, an apply on the lowest ranks (30 or more) and field_pass for each bounce, then field_finish and field_scale, writing half B of the field's pages; job_wants hands half B and its scale to the frame's thread and the next frame reads it. The stage-wise gi draws no frame until its update is done. Sponza: 3 frames during the update at 23.6 to 23.7 ms against 18.60 steady, the new field's first frame ending 138.5 ms after the sun was set, against gi's stop of 174.5 ms.">
+</picture>
+
+*The field and its update. Sponza's field: 72,367 voxels of side 50.3, 1.08 million
+weights ([the indirect reference](docs/internals/reference/indirect.md)). The update's
+numbers: one P150A, 1,920 x 1,080, the sun set to (120, 40) once
+([gi_threads](docs/performance/gi_threads.md)); the time axis is schematic.*
+
+How the light is computed, part by part, is in
+[light transport](docs/concepts/light_transport.md).
+
 ## Results
 
-<img src="docs/guides/viewer/lit_sponza_default.png" width="49%" alt="The viewer with the preset lit on Sponza's overview at the default sun, 1,024 x 1,024"> <img src="docs/guides/viewer/textured_bistro_interior.png" width="49%" alt="The viewer with the preset textured on the Bistro interior's overview">
-<img src="docs/guides/viewer/lit_sponza_sun_moved.png" width="49%" alt="The viewer with the preset lit on Sponza, the sun moved by 60 degrees of azimuth and to 30 degrees of elevation"> <img src="docs/guides/viewer/lit_sponza_shadow_off.png" width="49%" alt="The viewer with the preset lit on Sponza, the shadow term off">
+<img src="docs/guides/viewer/gi_threads_sponza.jpg" width="49%" alt="gi_threads on Sponza's overview, 1,920 x 1,080, from the viewer"> <img src="docs/guides/viewer/gi_threads_bistro_interior.jpg" width="49%" alt="gi_threads on the Bistro interior's overview, 1,920 x 1,080, from the viewer">
+<img src="docs/guides/viewer/gi_threads_breakfast_room.jpg" width="49%" alt="gi_threads on the Breakfast Room's overview, 1,920 x 1,080, from the viewer"> <img src="docs/guides/viewer/gi_threads_page_light_1600.jpg" width="49%" alt="The viewer's page with gi_threads on the Bistro interior: the pipeline, scene and camera on the left, the frame, the controls on the right">
 
-*The viewer's pictures from [its guide](docs/guides/viewer.md): `lit` on Sponza at the
-default sun; `textured` on the Bistro interior; `lit` with the sun moved; `lit` with the
-shadow term off. Crytek Sponza, (c) 2010 Frank Meinl, Crytek, CC BY 3.0; Amazon
-Lumberyard Bistro, (c) 2017 Amazon Lumberyard, CC BY 4.0 (Open Research Content
-Archive); both from Morgan McGuire's Computer Graphics Archive.*
+*Frames of `gi_threads` from [the viewer](docs/guides/viewer.md), 1,920 x 1,080 on one
+P150A, at each view's own pose and the default sun: Sponza, the Bistro interior, the
+Breakfast Room, and the viewer's page on the Bistro interior. Crytek Sponza, (c) 2010
+Frank Meinl, Crytek, CC BY 3.0; Amazon Lumberyard Bistro, (c) 2017 Amazon Lumberyard,
+CC BY 4.0 (Open Research Content Archive); Breakfast Room by Wig42 (Blend Swap),
+CC BY 3.0; all three from Morgan McGuire's Computer Graphics Archive.*
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/results-dark.svg">
+  <img src="docs/images/results-light.svg" width="880" alt="Two bar charts. First, the frame in ms on ten scenes at 1,920 x 1,080: gi_threads is faster than gi less its push on nine of them, from 0.71 of it on modern_living_room (18.2 against 25.6 ms) to 0.92 on lynxsdesign_411c9daef8 (49.5 against 53.8), and slower on lynxsdesign_a01894bbb8 (102.1 against 94.2). Second, a glTF file's load in seconds to the first picture, cold and warm: classroom (1.25 million triangles) 62.4 and 7.1, hidden_alley (9.0 million) 104.1 and 16.2, lynxsdesign (29.8 million) 133.7 and 21.3.">
+</picture>
+
+*The frame and the load. The frame: the table below. The load: `prism_cli open` with
+`lit`, the host part and the card part added, cold (the file converted, the caches empty,
+the program built) and warm
+([measurements/open](measurements/open/README.md), the waste cut).*
 
 **The renderer's frame.** `gi_threads` against its stage-wise form `gi`: one Blackhole
 P150A, 120 cores, AICLK 1,350 MHz, Komorebi 0.6.0, 2026-11-27, 1,920 x 1,080, 64 frames at
@@ -269,6 +305,15 @@ file's load, cold and warm, in [load](docs/performance/load.md); the card's pict
 against Cycles reading the same glTF file in [glTF truth](docs/performance/gltf_truth.md).
 
 ## The scenes
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/scene-dark.svg">
+  <img src="docs/images/scene-light.svg" width="880" alt="A glTF file into the renderer's tables and tensors. First, prism_cli open reads the file's triangle primitives, materials and textures, lights, cameras and nodes (Draco, meshopt and BasisU are refused), converts it once on the host into the data root (digest, import, flatten, materials, textures, writing, shared_vertices, uv, entry; the mesh, materials and lighting files), and the stages' hosts make their tables, written to the card at the load: raster's mesh blocks of 32 triangles and list pages (4,788 MB for Italian Flat with lit), material.texture's texture pages of 32 x 32 texels (487 MB), direct.light's table and light pages (69 MB), post.show's display pages (9 MB), and with the far field the transport's bfp8_b weights and the field's pages. Second, the far field: the open draws gi_threads without the indirect light and says so; public_scenes.py indirect builds the indirect file and the transport set on the host (Sponza 78 s, an artists' scene of 8.8 million triangles 163 s); the next load finds them and draws with the indirect light.">
+</picture>
+
+*A glTF file opened. The seconds and megabytes: one P150A, 8 or 24 CPUs of the host,
+2026-11-26 and 27 ([measurements/open](measurements/open/README.md),
+[measurements/transport_build](measurements/transport_build/README.md)).*
 
 | kind | which | how they come |
 |---|---|---|
