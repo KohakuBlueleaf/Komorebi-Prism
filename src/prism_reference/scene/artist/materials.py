@@ -2,6 +2,10 @@
 textures decoded and packed as the public scenes' materials file packs them."""
 
 import concurrent.futures
+import hashlib
+import json
+import os
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -20,6 +24,13 @@ from prism_reference.scene.public.textures import (
     texture_levels,
 )
 
+try:
+    from PIL import __version__ as DECODER
+except ImportError:
+    DECODER = None
+
+LEVELS_VERSION = 1  # of a kept mip chain: raised when decoding or the levels change
+NAME_DIGITS = 16  # of an image's digest, naming its folder
 TRANSMISSION = "KHR_materials_transmission"
 DIELECTRIC = 0.04  # the specular colour of a non-metal
 WHITE = np.full((1, 1, 4), 255, dtype=np.uint8)  # the texture of a scene without any
@@ -154,12 +165,52 @@ def map_material(material, scene, texture_number, has_uv=True):
     return record, dropped_of(material, kind, scene)
 
 
+def image_view(image):
+    """The bytes of a description Image as a buffer: its `data`, else its file's."""
+    return image.data if image.data is not None else image_bytes(image)
+
+
+def chain_key(data, role):
+    """The digest a mip chain is kept by: its image's bytes, its role, the decoder's
+    version and LEVELS_VERSION."""
+    hasher = hashlib.blake2b(f"{LEVELS_VERSION} {DECODER} {role}\0".encode())
+    hasher.update(memoryview(data).cast("B"))
+    return hasher.hexdigest()
+
+
+def kept_chain(folder, key):
+    """The mip chain kept in `folder` for `key`; None when absent or another key's."""
+    named = folder / "key.json"
+    if not named.is_file():
+        return None
+    entry = json.loads(named.read_text())
+    if entry.get("key") != key:
+        return None
+    return [np.load(folder / f"level_{n}.npy") for n in range(entry["levels"])]
+
+
+def keep_chain(folder, key, chain):
+    """`chain` kept in `folder`: each level, then the key file, each to a temporary
+    name, then renamed."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for n, level in enumerate(chain):
+        part = folder / f"level_{n}.npy.{os.getpid()}.{threading.get_native_id()}.part"
+        with open(part, "wb") as out:
+            np.save(out, level)
+        part.replace(folder / f"level_{n}.npy")
+    part = folder / f"key.json.{os.getpid()}.{threading.get_native_id()}.part"
+    part.write_text(json.dumps({"key": key, "levels": len(chain)}))
+    part.replace(folder / "key.json")
+
+
 class Textures:
     """The textures of a conversion: numbered once per (image, role) on first use,
-    decoded once, packed into `texels`, `mip`, `levels`."""
+    decoded once, packed into `texels`, `mip`, `levels`; each mip chain kept under
+    `kept` (a folder, or None) by its image's bytes and role."""
 
-    def __init__(self, scene):
+    def __init__(self, scene, kept=None):
         self.scene = scene
+        self.kept = None if kept is None else Path(kept)
         self.jobs, self.numbers, self.chains = [], {}, {}
 
     def number(self, image, role):
@@ -170,15 +221,26 @@ class Textures:
             self.jobs.append(key)
         return self.numbers[key]
 
+    def made(self, image, role):
+        """The mip chain of (image, role): found under `kept`, else decoded (and kept)."""
+        data = image_view(self.scene.images[image])
+        if self.kept is None:
+            return texture_levels(decode_image(bytes(data)), role)
+        key = chain_key(data, role)
+        folder = self.kept / key[:NAME_DIGITS]
+        chain = kept_chain(folder, key)
+        if chain is None:
+            chain = texture_levels(decode_image(bytes(data)), role)
+            keep_chain(folder, key, chain)
+        return chain
+
     def decode(self, extra, workers=4):
         """Decodes every numbered job and the (image, role) keys of `extra` once."""
         keys = list(dict.fromkeys(self.jobs + list(extra)))
         keys = [k for k in keys if k not in self.chains]
 
         def one(key):
-            image, role = key
-            pixels = decode_image(image_bytes(self.scene.images[image]))
-            return texture_levels(pixels, role)
+            return self.made(*key)
 
         if workers > 1 and len(keys) > 1:
             with concurrent.futures.ThreadPoolExecutor(workers) as pool:

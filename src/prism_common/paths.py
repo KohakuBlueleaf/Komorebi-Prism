@@ -27,9 +27,10 @@ def build_root():
     return path
 
 
-def cache_root():
-    """Where caches go: $PRISM_CACHE, else <data root>/cache; made if missing."""
+def cache_root(data=None):
+    """Where caches go: $PRISM_CACHE, else <data>/cache (`data` the data root when
+    None); made if missing."""
     value = os.environ.get(CACHE_VARIABLE)
-    path = Path(value) if value else data_root() / "cache"
+    path = Path(value) if value else Path(data or data_root()) / "cache"
     path.mkdir(parents=True, exist_ok=True)
     return path
