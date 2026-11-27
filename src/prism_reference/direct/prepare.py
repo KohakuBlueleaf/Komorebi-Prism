@@ -4,7 +4,6 @@ and the shadow map, from the scene's `lighting` entry."""
 import json
 import os
 import time
-from pathlib import Path
 
 import numpy as np
 
@@ -25,21 +24,14 @@ from prism_reference.scene.public.materials import load_materials
 from prism_reference.scene.public.mesh import load_mesh
 from prism_reference.scene.public.table import public_dir, table
 from prism_reference.scene.public.views import EPS_SCALE
-from prism_reference.trace.tree import build, load_tree
+from prism_reference.trace.tree import triangles
 
 F = np.float32
 
 
 def scene_tree(name, data, mesh):
-    """The ray tracer's tree of a scene: a view's saved tree when there is one with
-    the scene's triangle count, else built here (median split)."""
-    for view in table()[name]["views"]:
-        path = Path(data) / f"{name}_{view}_tree.npz"
-        if path.exists():
-            tree = load_tree(path)
-            if len(tree["leaf_tri"]) == len(mesh["indices"]):
-                return tree
-    return build(mesh, split="median")
+    """The ray tracer's tree of a scene: its triangles (`trace.tree.triangles`)."""
+    return triangles(mesh)
 
 
 def scene_lamps(entry, scene, materials):

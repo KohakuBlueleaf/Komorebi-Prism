@@ -114,8 +114,12 @@ ray's triangle is the first one its walk meets, which the two walks meet in anot
 order). It is the tracer of the indirect light ([indirect](indirect.md)) and of the
 visibility bake ([direct light](direct.md)).
 
-It does not walk `tree`'s nodes. The first call with a tree makes the host's tree of its
-triangles (`trace.batch.host_tree`, kept until the triangles' array is freed; the
+It does not walk `tree`'s nodes, and its callers give it none: the bake
+(`direct.prepare.scene_tree`) and both builds of the transport (`indirect.build.open_tree`,
+`indirect.blockwise.build.ray_tree`) pass `trace.tree.triangles(scene, keep)`, the
+triangles in the scene's order with their scene numbers. The box tree's nodes are read
+by the numpy walk (`trace.tracer`) and by its cut into treelets. The first call with a
+tree makes the host's tree of its triangles (`trace.batch.host_tree`, kept until the triangles' array is freed; the
 library's `host_tree_make`), on the CPUs the process may use:
 
 - **Cuts by the surface-area heuristic**, binned: per node, the triangles' box centres in
