@@ -178,7 +178,8 @@ class FieldJobHost(FieldUpdateHost):
 
     def commands(self, loaded):
         """None: an update that ended taken; when the loop's sun or the bounces are
-        not the field's and none runs, the graph started for the lights at the sun."""
+        not the field's and none runs, the graph started for the lights at the sun
+        (waited for when there is no valid field yet: the first frame comes after)."""
         self.graph.served()
         if self.graph.handle is not None:
             return []
@@ -191,4 +192,6 @@ class FieldJobHost(FieldUpdateHost):
             lights = sun_lights(self.own_lights, self.box, *sun)
         self.lights = lights
         self.graph.start(lights, sun, self.bounces)
+        if self.made is None:  # no valid field yet: no frame is drawn before it
+            self.graph.served(wait=True)
         return []

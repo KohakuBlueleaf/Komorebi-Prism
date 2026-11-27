@@ -124,6 +124,13 @@ The sun is a control, `direct.shadow_pcf.sun` (azimuth and elevation). When it m
 Until the new field is in, a `gi_tile` or `gi_threads` frame shows the new sun's direct
 light with the old field.
 
+A scene whose sun map the card draws (a file opened without a baked map: its lights hold
+a placeholder) has no valid field when it is loaded: the field its lights were prepared
+with was made before any map existed, the sun unshadowed. For such a scene, with the sun
+up, the first update is not beside the frames: the first frame is drawn after the sun's
+pass and that update, in every form, so no frame shows that field. Later updates run
+beside the frames as above.
+
 ## Measured
 
 On Sponza at 1,024 x 1,024 the first `sun` pass of a run takes 19.18 ms

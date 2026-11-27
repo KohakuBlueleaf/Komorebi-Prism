@@ -32,7 +32,7 @@ from prism.stages.indirect.field_update.model.regions import (
 from prism.stages.indirect.transport.host import scene_name
 from prism.stages.indirect.transport.plan.emulate import x_tiles
 from prism_common.paths import data_root
-from prism_reference.direct.lights import BOUNCES, bounce_count, moved
+from prism_reference.direct.lights import BOUNCES, bounce_count, moved, placeholder
 from prism_reference.direct.lights import load as load_lights
 from prism_reference.indirect.files import load_model
 from prism_reference.indirect.hmatrix.apply import apply
@@ -91,7 +91,10 @@ class FieldUpdateHost:
         """The lights at the sun, the model, the regions' contents, the light pages'
         layout."""
         self.own_lights = sun_moved(self.scene, None)
-        self.made = (None, bounce_count(self.own_lights.get("bounces", BOUNCES)))
+        bounces = bounce_count(self.own_lights.get("bounces", BOUNCES))
+        self.made = (None, bounces)
+        if placeholder(self.own_lights) and self.own_lights["sun_direction"][1] > 0:
+            self.made = None  # no valid field: the first update comes before a frame
         self.lights = self.own_lights
         if self.sun is not None:
             self.lights = sun_moved(self.scene, self.sun)
@@ -194,8 +197,9 @@ class FieldUpdateHost:
         loaded.write("field_header", sun_words(lights, self.bounces), 4 * SUN_FIRST)
         loaded.number("update_field_first", self.field_first(self.written()))
         self.sent_at = time.perf_counter()
-        self.running = self.beside
-        return [Command(COMMAND, (STEPS["all"],), row=False, beside=self.beside)]
+        beside = self.beside and self.made is not None  # no field yet: the frame waits
+        self.running = beside
+        return [Command(COMMAND, (STEPS["all"],), row=False, beside=beside)]
 
     def served(self, loaded, command, code):
         """An update that came back 0: its sun and bounces kept, its round trip, the
@@ -243,7 +247,7 @@ class FieldUpdateHost:
             "title": "Field update",
             "values": [
                 {"name": "updates", "value": self.given["updates"], "unit": ""},
-                {"name": "passes", "value": self.made[1], "unit": ""},
+                {"name": "passes", "value": (self.made or (None, 0))[1], "unit": ""},
                 {"name": "host ms", "value": self.last_ms, "unit": "ms"},
             ],
             "missing": "the card's time of an update is read when the run stops",
