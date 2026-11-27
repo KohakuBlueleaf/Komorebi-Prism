@@ -89,6 +89,23 @@ the tensors (22.1 GB in 16.4 s; an upper bound, the link's speed during the runs
 recorded and it was found slow later that day), the files' digest (2.7, every open), the conversion's
 writing (5.5).
 
+## The warm open without the files' digest, 2026-11-27
+
+A warm open no longer digests the scene file: the entry of `opened_scenes.json` is found by
+the files' resolved paths, sizes, modification and change times (ns), devices and inodes,
+and the digest is computed only when none matches ([glTF scenes](../guides/gltf_scenes.md#1-open-the-file)
+says what this trusts). The mip chains of the conversion are kept by each image's bytes and
+role. Card 0 (link 16.0 GT/s), 10 host CPUs on a shared host, `gi_threads --bake none`,
+1,920 x 1,080, 16 frames, one run each; seconds to the first picture, the digest part in
+brackets:
+
+| scene | warm before | warm after |
+|---|---:|---:|
+| lynxsdesign (29,756,735 triangles) | 15.3 (2.7) | 12.6 (0.00) |
+| italian_flat (4,821,520 triangles) | 7.9 (1.9) | 5.8 (0.00) |
+
+Every converted file and every picture is equal byte for byte before and after.
+
 ## The sky's visibility bake
 
 `open --bake background` starts it as a process of its own; 64 rays a vertex, 24

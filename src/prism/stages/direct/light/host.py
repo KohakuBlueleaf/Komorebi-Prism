@@ -24,7 +24,7 @@ from prism_reference.direct import lights as reference_lights
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.lights import shadow_side
 from prism_reference.material.kinds import TRANSPARENT
-from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN
+from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN, CURVE_VIEW
 from prism_reference.scene.frame import frame_size
 
 LH, SURFACE = numbers.LH, numbers.SURFACE
@@ -38,10 +38,11 @@ SHOW_TABLE = "show_table"  # the display stage's thresholds' region
 SWITCHED = ("shadow", "lamps", "specular", "background")  # the terms a control turns
 EXPOSURE = (1e-3, 1e3)  # the tone's limits: exposure, saturation
 SATURATION = (0.0, 4.0)
-CURVES = ((CURVE_PLAIN, "plain"), (CURVE_FILMIC, "filmic"))  # the tone curves, named
+CURVES = ((CURVE_PLAIN, "plain"), (CURVE_FILMIC, "filmic"), (CURVE_VIEW, "none (view)"))
 CURVE_HELP = (
     "of x = exposure x colour: plain x / (1 + x); filmic x (2.51 x + 0.03) / "
-    "(x (2.43 x + 0.59) + 0.14), clipped to 0 to 1"
+    "(x (2.43 x + 0.59) + 0.14), clipped to 0 to 1; none: x itself, for the file's "
+    "view transform in the display transfer"
 )
 
 
@@ -317,11 +318,11 @@ class LightHost(Host):
         return f"no control {name!r}"
 
     def set_tone(self, exposure, saturation, curve):
-        """The tone step's numbers (exposure > 0, saturation >= 0, curve 0 plain or 1
-        filmic) into LIGHT's table, for the next frame."""
+        """The tone step's numbers (exposure > 0, saturation >= 0, curve 0 plain, 1
+        filmic, 2 view) into LIGHT's table, for the next frame."""
         exposure, saturation, curve = float(exposure), float(saturation), int(curve)
-        if not (exposure > 0 and saturation >= 0) or curve not in (0, 1):
-            raise ValueError("a tone is exposure > 0, saturation >= 0, curve 0 or 1")
+        if not (exposure > 0 and saturation >= 0) or curve not in (0, 1, 2):
+            raise ValueError("a tone is exposure > 0, saturation >= 0, curve 0 to 2")
         self.tone = {"exposure": exposure, "saturation": saturation, "curve": curve}
         self.write_region()
 

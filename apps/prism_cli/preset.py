@@ -10,9 +10,11 @@ from pathlib import Path
 from prism.core.implementation import IMPLEMENTATIONS
 from prism.core.pipeline import Pipeline
 from prism.loop import Loop
+from prism_cli import far_field
 from prism_common.build import build
 from prism_common.paths import data_root
 from prism_reference.direct.lights import load as load_lights
+from prism_reference.post.view import with_view
 from prism_reference.scene.frame import frame_size
 from prism_reference.scene.generated import make_preset
 from prism_reference.scene.public import files
@@ -28,7 +30,7 @@ FAR_FIELD = ("indirect", "transport")  # a scene's files of the far field (SCENE
 INPUTS = {
     "materials": lambda view: load_materials(view, data_root())[0],
     "name": lambda view: view,
-    "lights": lambda view: load_lights(view, data_root()),
+    "lights": lambda view: with_view(load_lights(view, data_root()), view),
 }
 
 
@@ -110,6 +112,7 @@ class Opened:
     size: tuple
     globals: dict = field(repr=False)
     lacking: tuple = ()
+    building: dict | None = None
 
     @property
     def far_field(self):
@@ -142,12 +145,14 @@ class Opened:
         return None if made is None else made(loop, scene)
 
 
-def opened(name, scene, view=None, size=None, options=None, display=True):
+def opened(name, scene, view=None, size=None, options=None, display=True, build=False):
     """The preset `name` for the generated scene `scene` or a public scene's `view`, at
     `size` (the view's own when None), its OPTIONS updated by `options`, the scene's
     inputs given; without the far field (its implementations, its term) when the view
-    lacks its files; without the implementations that fill post when not `display`.
-    ValueError with the reason when the preset or the scene cannot be opened."""
+    lacks its files, their build started beside the frames when `build`
+    (`far_field.start`); without the implementations that fill post when not
+    `display`. ValueError with the reason when the preset or the scene cannot be opened.
+    """
     globals_ = globals_of(name)
     pipeline = globals_["PIPELINE"]
     out = dict(globals_["OPTIONS"])
@@ -164,4 +169,5 @@ def opened(name, scene, view=None, size=None, options=None, display=True):
     size = tuple(int(n) for n in (size or frame_size(made)))
     out |= {"size": size} | scene_inputs(name, globals_, scene, view)
     out |= dict(options or {})
-    return Opened(name, pipeline, out, made, size, globals_, lacking)
+    building = far_field.start(scene, data_root()) if lacking and build else None
+    return Opened(name, pipeline, out, made, size, globals_, lacking, building)

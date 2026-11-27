@@ -81,3 +81,8 @@ def opening(commands):
     one.add_argument(
         "--most-triangles", type=int, default=None, help="none refused if none"
     )
+    one.add_argument(
+        "--wait-far-field",
+        action="store_true",
+        help="when the far field is being built: wait for it, then draw again with it",
+    )

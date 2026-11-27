@@ -30,7 +30,7 @@ namespace light_k {
         numbers.graded = table[kLtSaturation] != kOneBits ||
             table[kLtCurve] != kCurvePlain;
         if (numbers.lamps > kLampsMax || numbers.bits > 11 ||
-            table[kLtCurve] > kCurveFilmic || mode > kLightGlass ||
+            table[kLtCurve] > kCurveView || mode > kLightGlass ||
             (mode == kLightGlass &&
              kTabMaterial + kMaterialWords * shade_table[kTabMaterials] >
                  kLightShadeTableBytes / 4)) {

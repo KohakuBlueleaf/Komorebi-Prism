@@ -1,7 +1,7 @@
-// The post step on the data-movement CPUs: the thresholds and their buckets kept once
-// a command (the loop's begin, before the command's first tile thread), and a block's
-// colour converted in place by SHOW's rule (kernels/convert.hpp) on the CPU that took
-// it.
+// The post step on the data-movement CPUs: the thresholds and their buckets, and the
+// view's words after them in their region (kernels/view.h), kept once a command (the
+// loop's begin, before the command's first tile thread), and a block's colour converted
+// in place by SHOW's rule (kernels/convert.hpp) on the CPU that took it.
 #pragma once
 
 #include <stdint.h>
@@ -10,6 +10,7 @@
 #include "api/dataflow/dataflow_api.h"
 #include "komorebi/device/km_worker.hpp"
 #include "../../kernels/convert.hpp"
+#include "../../kernels/view.h"
 #include "out_block.hpp"
 
 namespace post_step {
@@ -45,6 +46,11 @@ namespace post_step {
             get_noc_addr_from_bank_id<true>(ctx.bank, table),
             staging,
             4 * show_k::kShowTableWords
+        );
+        noc_async_read(
+            get_noc_addr_from_bank_id<true>(ctx.bank, table + show_k::kShowPageBytes),
+            ctx.kept(prism_frame::kKeptPostView),
+            kViewRegionBytes
         );
         const bool arrived = ctx.movement.wait(
             [] {

@@ -47,6 +47,9 @@ def parse():
     parser.add_argument(
         "--heavy", type=int, default=None, help="the threads' option heavy (a weight)"
     )
+    parser.add_argument(
+        "--sun", type=float, nargs=2, default=None, help="the sun set at load: AZ EL"
+    )
     return parser.parse_args()
 
 
@@ -86,6 +89,7 @@ def main():
         given = {"account": args.account} if args.account else {}
         given |= {"trace": args.trace} if args.trace else {}
         given |= {} if args.heavy is None else {"heavy": args.heavy}
+        given |= {} if args.sun is None else {"sun": tuple(args.sun)}
         preset = opened(name, args.scene, args.view, args.size, given)
     except ValueError as error:
         raise SystemExit(str(error)) from error
@@ -101,6 +105,7 @@ def main():
         "account": args.account,
         "trace": args.trace,
         "heavy": args.heavy,
+        "sun": args.sun,
         "date": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "komorebi": km.__version__,
         "tree": commit(),

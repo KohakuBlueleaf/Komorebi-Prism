@@ -96,7 +96,8 @@ constexpr uint32_t kMaxFillCores = 248;
 constexpr uint32_t kItemsRegionBytes = kCoreWordsAt + kCoreWords * 4 * kMaxFillCores;
 // A camera area in the regions (the areas one after another, kAreaPages pages each):
 // page 0 the view's page, the camera's kCamWords numbers at word 0 and the view's words
-// at kViewAt (its grid word at kViewGrid, grid.h's a8 bits 4 to 31); then one page a
+// at kViewAt (its grid word at kViewGrid, grid.h's a8 bits 4 to 31; at kViewDepth 1 for
+// a DEPTH view, else 0); then one page a
 // core (kMaxFillCores), its block range (first, end) at words 0 and 1 and its costs
 // (COUNT's 128 bytes) at kAreaCostsAt.
 constexpr uint32_t kAreaPageBytes = 4096;
@@ -105,6 +106,7 @@ static_assert(kAreaPages == 1 + kMaxFillCores);
 constexpr uint32_t kAreaCostsAt = 64;
 constexpr uint32_t kViewAt = 64;
 constexpr uint32_t kViewGrid = 0;
+constexpr uint32_t kViewDepth = 1;
 // The list and directory words PLACE writes, as raster.h's.
 constexpr uint32_t kLayDirIds = 3;
 constexpr uint32_t kLayDirFrame = 1000;

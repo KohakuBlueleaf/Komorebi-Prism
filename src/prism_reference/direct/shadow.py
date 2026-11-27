@@ -15,12 +15,12 @@ FILL_SIDE = WIDTH
 SUN_DISTANCE = 1000.0
 
 
-def sun_camera(positions, sun, side=SHADOW_SIDE):
-    """A camera (16,) float32 SUN_DISTANCE radii along the sun's direction looking at
+def sun_camera(positions, sun, side=SHADOW_SIDE, radii=SUN_DISTANCE):
+    """A camera (16,) float32 `radii` scene radii along the sun's direction looking at
     the scene box's centre, its side x side frame covering the box (right = y x fwd)."""
     lo, hi = positions.min(0).astype(np.float64), positions.max(0).astype(np.float64)
     centre, radius = (lo + hi) / 2, np.linalg.norm(hi - lo) / 2
-    distance = SUN_DISTANCE * radius
+    distance = radii * radius
     fwd = -np.asarray(sun, np.float64)
     helper = np.array([0.0, 1.0, 0.0]) if abs(fwd[1]) < 0.99 else np.array([1, 0, 0])
     right = np.cross(helper, fwd)
@@ -44,10 +44,10 @@ def quadrant_camera(camera, i, j):
     return out
 
 
-def sun_view(scene, sun, side=SHADOW_SIDE):
+def sun_view(scene, sun, side=SHADOW_SIDE, radii=SUN_DISTANCE):
     """The shadow map's camera (sun_camera) and a shadow texel's world size at the
     scene's centre, without the map."""
-    camera = sun_camera(scene["positions"], sun, side)
+    camera = sun_camera(scene["positions"], sun, side, radii)
     distance = np.linalg.norm(
         camera[0:3].astype(np.float64)
         - (scene["positions"].min(0) + scene["positions"].max(0)) / 2
@@ -55,13 +55,21 @@ def sun_view(scene, sun, side=SHADOW_SIDE):
     return camera, F(distance / camera[12])
 
 
-def shadow_map(scene, sun, materials=None, side=SHADOW_SIDE):
+def shadow_map(scene, sun, materials=None, side=SHADOW_SIDE, radii=SUN_DISTANCE):
     """The 1/z (side, side) of the scene from the sun's camera, the camera and a shadow
     texel's world size at the scene's centre; with materials `rasterize_shaded`'s 1/z.
     """
     if side % FILL_SIDE:
         raise ValueError(f"a shadow map's side {side} is not a multiple of {FILL_SIDE}")
-    camera, texel = sun_view(scene, sun, side)
+    camera, texel = sun_view(scene, sun, side, radii)
+    return map_at(scene, camera, materials, side), camera, texel
+
+
+def map_at(scene, camera, materials=None, side=SHADOW_SIDE):
+    """The 1/z (side, side) of the scene from a sun `camera` of that side, rendered in
+    quadrants of FILL's frame; with materials `rasterize_shaded`'s 1/z."""
+    if side % FILL_SIDE:
+        raise ValueError(f"a shadow map's side {side} is not a multiple of {FILL_SIDE}")
     depth = np.empty((side, side), dtype=np.float32)
     for j in range(side // FILL_SIDE):
         for i in range(side // FILL_SIDE):
@@ -71,6 +79,7 @@ def shadow_map(scene, sun, materials=None, side=SHADOW_SIDE):
                 "colors": np.zeros((len(scene["positions"]), 3), dtype=np.float32),
                 "camera": quadrant_camera(camera, i, j),
                 "light": np.zeros(3, dtype=np.float32),
+                "depth_view": True,
             }
             if materials is None:
                 part = rasterize(view)["depth"]
@@ -78,19 +87,26 @@ def shadow_map(scene, sun, materials=None, side=SHADOW_SIDE):
                 part = rasterize_shaded(view, materials)["depth"]
             rows, columns = (slice(FILL_SIDE * k, FILL_SIDE * (k + 1)) for k in (j, i))
             depth[rows, columns] = part
-    return depth, camera, texel
+    return depth
+
+
+def sun_screen(cam, texel, points, normals):
+    """Map x, y and 1/z (n,) in a sun camera of points (n, 3) moved one shadow texel
+    (`texel`, its world size) along their normals (n, 3)."""
+    d = (points + normals * texel) - cam[0:3]
+    xc = (d[:, 0] * cam[3] + d[:, 1] * cam[4]) + d[:, 2] * cam[5]
+    yc = (d[:, 0] * cam[6] + d[:, 1] * cam[7]) + d[:, 2] * cam[8]
+    zc = (d[:, 0] * cam[9] + d[:, 1] * cam[10]) + d[:, 2] * cam[11]
+    return to_screen(cam, xc, yc, zc)
 
 
 def sun_shadow(lights, points, normals, pcf=True):
     """Sun light (n,) float32 in [0, 1] at points (n, 3) with normals (n, 3), each moved
     one shadow texel along its normal; pcf: four texels, bilinear; else the nearest."""
-    cam, depth = lights["shadow_camera"], lights["shadow_map"]
-    q = points + normals * lights["shadow_texel"]
-    d = q - cam[0:3]
-    xc = (d[:, 0] * cam[3] + d[:, 1] * cam[4]) + d[:, 2] * cam[5]
-    yc = (d[:, 0] * cam[6] + d[:, 1] * cam[7]) + d[:, 2] * cam[8]
-    zc = (d[:, 0] * cam[9] + d[:, 1] * cam[10]) + d[:, 2] * cam[11]
-    sx, sy, w = to_screen(cam, xc, yc, zc)
+    depth = lights["shadow_map"]
+    sx, sy, w = sun_screen(
+        lights["shadow_camera"], lights["shadow_texel"], points, normals
+    )
     side = depth.shape[0]
 
     def lit_at(ix, iy):

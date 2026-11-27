@@ -2,6 +2,7 @@
 vertex for the sky's visibility first, the bake after), a preset's frames on its view,
 the last picture as a PNG and one JSON record with the account of the load."""
 
+import argparse
 import json
 import os
 import subprocess
@@ -13,9 +14,10 @@ import komorebi as km
 import numpy as np
 from komorebi.device import native
 
+from prism_cli import far_field
 from prism_cli import preset as preset_module
 from prism_cli.account import Account
-from prism_cli.preset import ROOT, globals_of, opened
+from prism_cli.preset import ROOT, far_field_lacking, globals_of, opened
 from prism_common.paths import data_root
 from prism_reference.direct.prepare import prepare
 from prism_reference.io.png import write_png
@@ -110,6 +112,30 @@ def frames(args, preset, loop, account, stem):
     return codes, path
 
 
+def with_far_field(args, preset, name, data):
+    """When the open started or found the far field's build: waits for it, then the
+    preset opened again on a new session with the far field and its frames (the last
+    picture `<name>_camera_far_field_<pipeline>.png`); what was waited and drawn."""
+    if preset.building is None or preset.building["state"] == "present":
+        return None
+    record, there, seconds = far_field.wait(name, data)
+    out = {"build": record, "present": there, "seconds": seconds}
+    if not there:
+        return out
+    began = time.perf_counter()
+    again = opened(args.pipeline, name, VIEW, args.size, {"frames": args.frames})
+    with km.Session(card=args.card) as session:
+        loop = again.open(session)
+        try:
+            stem = f"{name}_{VIEW}_far_field"
+            codes, picture = frames(args, again, loop, Account(), stem)
+        finally:
+            loop.stop()
+    out |= {"far_field": again.far_field, "codes": codes}
+    out["picture"] = None if picture is None else picture.name
+    return out | {"reload_seconds": round(time.perf_counter() - began, 3)}
+
+
 def open_command(args):
     """The command `open`: 0, 1 on a frame code that is not 0, 2 when the card refused
     the load (its text in the record)."""
@@ -122,19 +148,24 @@ def open_command(args):
     report = scene.pop("report", None)
     for step, seconds in (report or {}).get("steps", {}).items():
         account.add(f"convert.{step}", seconds)
-    wanted = globals_of(args.pipeline).get("SCENE_INPUTS", ())
-    made = lights(args, name, data, account) if "lights" in wanted else {"made": None}
+    globals_ = globals_of(args.pipeline)
+    wanted = globals_.get("SCENE_INPUTS", ())
+    builds = bool(far_field_lacking(globals_, name, VIEW))
+    asked = vars(args) | ({"bake": "none"} if builds else {})
+    made = {"made": None}
+    if "lights" in wanted:
+        made = lights(argparse.Namespace(**asked), name, data, account)
     with account.part("module"):
         native.load_module()
     read_back(account)
     options = {"frames": args.frames}
     try:
-        preset = opened(args.pipeline, name, VIEW, args.size, options)
+        preset = opened(args.pipeline, name, VIEW, args.size, options, build=True)
     except ValueError as error:
         raise SystemExit(str(error)) from error
     finally:
         account.restore()
-    codes, picture, refused = [], None, None
+    codes, picture, refused, waited = [], None, None, None
     with ExitStack() as stack:
         with account.part("session.start"):
             session = stack.enter_context(km.Session(card=args.card))
@@ -152,11 +183,14 @@ def open_command(args):
                 codes, picture = frames(args, preset, loop, account, f"{name}_{VIEW}")
             finally:
                 loop.stop()
+    if refused is None and args.wait_far_field:
+        waited = with_far_field(args, preset, name, data)
     record = {"name": name, "file": args.file.name, "pipeline": args.pipeline}
     record |= {"converted": scene["converted"], "key": scene["key"]}
     record |= {"size": list(preset.size), "frames": len(codes), "codes": codes}
     record |= {"refused": refused, "lights": lights_state(name, data)}
-    record |= {"far_field": preset.far_field}
+    record |= {"far_field": preset.far_field, "far_field_build": preset.building}
+    record |= {"far_field_wait": waited}
     record |= {"lights_made": made}
     record |= {"picture": None if picture is None else picture.name}
     if report is not None:

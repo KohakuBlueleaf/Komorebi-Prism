@@ -12,8 +12,9 @@ The optional term `indirect` of `rasterize_lighted` (`terms=direct.frame.TERMS +
 ("indirect",)`; left out by default, so every lit frame without it is unchanged, bit for bit)
 replaces `ambient` and `sky x visibility` by the light bounced between surfaces and the
 sky with its visibility, from precomputed data. Defined in `prism_reference.indirect`, numpy
-with one native routine: `native/trace/trace_batch.cpp` traces many rays at once with the
-reference tree walk and triangle test (`native/trace/raytrace_core.hpp`), threaded (at most 8 or
+with one native routine: `native/trace/trace_batch.cpp` traces many rays at once over the
+host's own tree of the triangles with the reference triangle test
+([trace](trace.md#the-batch-tracer)), threaded (at most 8 or
 `PRISM_THREADS`), built by `native.build` as a shared library. Its rays see glass as open (a
 tree over the triangles that are not `transparent`); masked triangles are opaque.
 
