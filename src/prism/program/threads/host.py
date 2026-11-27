@@ -19,6 +19,7 @@ from prism.stages.material.texture.host import with_table
 from prism.stages.raster.model.counts import kept_counts
 from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS
 from prism.stages.raster.threads import layout
+from prism_reference.raster import cull
 from prism_reference.scene.frame import frame_grid, frame_size
 
 VISIBILITY = "frame.visibility"  # the planes: on the cores, no tensor of the frame
@@ -28,6 +29,7 @@ DISPLAY = "display.picture"  # the target a COLOUR view's post step writes
 CAMERAS = "view.depth"  # another host's DEPTH views: indices, cameras, frame size
 DEPTH_LAYERS = raster_host.DEPTH_LAYERS  # the layers a DEPTH view draws
 BALANCE = 5  # the pull's end imbalance over a range's own cost, in blocks walked
+BOX_WORDS = 16  # a count range's box: a 64-byte page
 POLICY = "prefer"  # the tile pull's choice, unless given
 NEAR = 1  # the slices a near answer may be away, unless given
 HEAVY = 0  # the weight past which a tile is cut into bands (0: never), unless given
@@ -88,7 +90,7 @@ class ThreadsHost(Host):
     the cores), policy, near, heavy, list_slots_least
     (a number or a dict by layer name), account (the records a core's page of the
     account holds; 0: no account, the build without it), keep_lists (False: every
-    frame counts and places)."""
+    frame counts and places), cull (False: every count range walked)."""
 
     threads = True  # the frame's host of the threads' form
 
@@ -108,6 +110,7 @@ class ThreadsHost(Host):
         self.least = options.get("list_slots_least") or 0
         self.account = int(options.get("account") or 0)
         self.keep_lists = bool(options.get("keep_lists", True))
+        self.cull = bool(options.get("cull", True))
         self.account_pages = None
         self.layers = {}  # by name: its tensors and numbers
         self.depth_views = ()  # another host's DEPTH views
@@ -137,6 +140,18 @@ class ThreadsHost(Host):
         if not self.range_blocks:
             blocks = sum(one["blocks"] for one in self.layers.values())
             self.range_blocks = range_blocks_of(blocks, self.cores)
+        for name, one in self.layers.items():
+            one["boxes"] = self.boxes_of(self.scenes[name]) if self.cull else None
+
+    def boxes_of(self, scene):
+        """A layer's count ranges' boxes as a tensor: a 64-byte page a range, its
+        least corner then its most (float32)."""
+        positions = np.asarray(scene["positions"], dtype=np.float32)
+        blocks = cull.block_boxes(positions, np.asarray(scene["indices"]))
+        groups = cull.group_boxes(blocks, self.range_blocks).reshape(-1, 6)
+        rows = np.zeros((len(groups), BOX_WORDS), dtype=np.uint32)
+        rows[:, :6] = groups.view(np.uint32)
+        return self.tensor(rows)
 
     def lists_for(self, name, slots):
         """The layer `name`'s lists holding at least `slots` and LIST_MARGIN more (and
@@ -265,6 +280,7 @@ class ThreadsHost(Host):
             one["counts"].address,
             one["rows"].address,
             one["positions"].address,
+            0 if one["boxes"] is None else one["boxes"].address,
         )
         return row | {"depth": int(name in DEPTH_LAYERS)}
 

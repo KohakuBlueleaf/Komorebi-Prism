@@ -27,7 +27,6 @@ OPTIONS = {
     "recount": False,
     "push": True,
     "terms": (*TERMS, "indirect"),
-    "bounces": 2,
     "compute": FRAME_COMPUTE,  # the program's: Apply joins the frame's classes with it
 }
 # the options a runner takes from the scene's files: its materials, its name (also the

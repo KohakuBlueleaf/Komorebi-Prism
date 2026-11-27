@@ -10,8 +10,9 @@ from prism_reference.scene.public.lighting import lighting_path
 from prism_reference.scene.public.table import is_view, public_dir, table, views
 
 F = np.float32
-# Indirect light: the bounce passes summed (a `lighting` entry's `bounces`).
-BOUNCES = 2
+# Indirect light: the bounce passes summed (a `lighting` entry's `bounces`); None: the
+# scene's own (prism_reference.indirect.bounces)
+BOUNCES = None
 LIGHT_KEYS = (
     "visibility",
     "sh",
@@ -125,7 +126,8 @@ def load(name, data):
     numbers["reflection"] = entry.get("reflection", 0.0)
     numbers["saturation"] = entry.get("saturation", 1.0)
     numbers["curve"] = int(entry.get("curve", CURVE_PLAIN))
-    numbers["bounces"] = bounce_count(entry.get("bounces", BOUNCES))
+    given = entry.get("bounces", BOUNCES)
+    numbers["bounces"] = None if given is None else bounce_count(given)
     found = public_dir(data) / f"{name}_indirect.npz"
     if found.exists():
         numbers["indirect"] = str(found)

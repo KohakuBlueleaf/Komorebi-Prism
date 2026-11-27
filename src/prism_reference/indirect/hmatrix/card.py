@@ -6,6 +6,8 @@ import numpy as np
 from prism_reference.indirect.hmatrix.apply import apply
 
 F = np.float32
+SHIFT = 24 - 7  # a bfp8_b magnitude: 7 of the 24 bits
+SHIFTED, TIE = (1 << SHIFT) - 1, 1 << (SHIFT - 1)
 
 
 def round_bits(a, bits):
@@ -16,13 +18,19 @@ def round_bits(a, bits):
 
 def bfp8_b(a):
     """a (size a multiple of 16) in bfp8_b by the host encode: each 16 consecutive
-    numbers share their largest exponent, magnitudes rounded half to even to 7 bits."""
-    g = np.asarray(a, F).reshape(-1, 16).astype(np.float64)
-    top = np.abs(g).max(1, keepdims=True)
-    _, e = np.frexp(np.where(top > 0, top, 1.0))
-    unit = np.ldexp(1.0, e.astype(np.int64) - 1 - 6)
-    q = np.minimum(np.rint(np.abs(g) / unit), 127)
-    return np.where(top > 0, np.sign(g) * q * unit, 0.0).astype(F).reshape(np.shape(a))
+    numbers share their largest exponent; a magnitude's 24 bits shifted to it (the bits
+    shifted out dropped), then rounded to 7 bits, ties to even; subnormals 0."""
+    w = np.ascontiguousarray(a, F).reshape(-1, 16).view(np.uint32).astype(np.int64)
+    exp, man = (w >> 23) & 0xFF, w & 0x7FFFFF
+    zero = exp == 0
+    shared = np.where(zero, 0, exp).max(1, keepdims=True)
+    man = ((1 << 23) | man) >> np.minimum(shared - exp, 31)
+    rest, man = man & SHIFTED, man >> SHIFT
+    man = man + ((rest > TIE) | ((rest == TIE) & ((man & 1) == 1)))
+    man = np.where(zero, 0, np.minimum(man, 127))
+    value = np.ldexp(man.astype(np.float64), shared - 127 - 6)
+    value = np.where((w >> 31) == 1, -value, value)
+    return value.astype(F).reshape(np.shape(a))
 
 
 def card_apply(blocks, weights, x, chunk=1 << 24):

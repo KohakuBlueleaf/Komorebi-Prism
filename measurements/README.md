@@ -23,6 +23,7 @@ A folder's README opens with its conditions; its card line, from the records'
 | [threads_account](threads_account/README.md) | the account of the threads' frame: four ways of handing out, bytes by path, a core's time, the CPUs by step, the X280's choice, a record a thread |
 | [gi_threads](gi_threads/README.md) | the renderer's frame: `gi_threads` against `gi` on the ten scenes of the viewer's data at 1,920 x 1,080, by phase, pictures equal; the field's update after one sun move |
 | [lists_kept](lists_kept/README.md) | the eye's lists kept while its view stands: the standing frame (the tile pull alone) against the whole frame on four scenes at three poses, pictures equal |
+| [walk_cull](walk_cull/README.md) | the walk culled by the view: whole frames with and without the count ranges' box test on four scenes at three poses, pictures equal; the account of the 29.8 M triangle scene |
 | [threads_ranges](threads_ranges/README.md) | the size of a count range: 4 blocks against the size chosen from the scene, on four scenes at three poses, by phase, pictures equal |
 | [lookup_model](lookup_model/README.md) | the pages a frame's lookups read, modelled on the host and checked against the account: today's passes, an item's pages, the pages a core would keep |
 | [update_beside](update_beside/README.md) | the field's update on the cluster beside the frames' (`gi_tile`): the frames drawn during it, the swap, against `gi`'s blocking update |

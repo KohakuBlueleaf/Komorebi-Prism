@@ -21,6 +21,7 @@ from prism.stages.indirect.field_update.model.regions import (
 )
 from prism_reference.indirect.field.pack import pack_field
 from prism_reference.indirect.field.values import field_values
+from prism_reference.indirect.hmatrix.apply import apply
 from prism_reference.indirect.light import element_light, field_source
 
 TICKS_MS = 1e3 / 50e6  # a thread timer tick's milliseconds
@@ -86,11 +87,11 @@ def field_texels(pages, model):
     return np.asarray(pages, np.uint32).ravel()[places]
 
 
-def expected(lights, model, bounces):
+def expected(lights, model, bounces, product=apply):
     """The reference's numbers for `lights` (its shadow map: the card's when checking
-    the card): sky, L0, the passes (E_p), the field's values (rows, 3), its texels
-    (rows,), scale and pages."""
-    lit = element_light(lights, model, bounces)
+    the card) with the passes by `product`: sky, L0, the passes (E_p), the field's
+    values (rows, 3), its texels (rows,), scale and pages."""
+    lit = element_light(lights, model, bounces, product)
     values = field_values(model, field_source(lit))
     texels, scale = pack_field(values, model["field_has"])
     return {

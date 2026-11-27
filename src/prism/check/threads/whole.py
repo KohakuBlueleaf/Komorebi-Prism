@@ -159,7 +159,7 @@ def check(
 ):
     """The whole frame of `scene` by `threads_name` against `stage_name` at each count
     of cores (None: every core) and each policy, both given the sun options `sun`, the
-    threads' loop sending the hosts' commands: the record."""
+    threads' loop sending the hosts' commands, every frame whole: the record."""
     sun = dict(sun or {})
     want = stagewise_picture(open_loop, stage_name, scene, sun)
     out = {"stagewise": {"preset": stage_name, "code": want["code"]}, "runs": {}}
@@ -169,7 +169,8 @@ def check(
     if want["picture"] is None:
         return out | {"equal": False}
     for cores in cores_list:
-        loop = open_loop(threads_name, {**(options or {}), **sun, "cores": cores})
+        given = {**(options or {}), **sun, "cores": cores, "keep_lists": False}
+        loop = open_loop(threads_name, given)
         try:
             count = cores or loop_cores(loop)
             settled(loop, scene["camera"], policies[0])
