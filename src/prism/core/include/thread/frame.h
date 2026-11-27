@@ -31,7 +31,7 @@
 
 /* A layer's words, TF_LAYER_WORDS a layer from TF_LAYER_AT */
 #define TF_LAYER_AT 16u
-#define TF_LAYER_WORDS 8u
+#define TF_LAYER_WORDS 9u
 #define TF_L_MESH 0u        /* its triangle blocks' address */
 #define TF_L_RANGE_FIRST 1u /* its first range in the count and place pulls */
 #define TF_L_BLOCKS 2u      /* its blocks */
@@ -46,6 +46,9 @@
    first band entry; then 2 words a band entry (TR_SLICE_RECORDS a slice): rows first |
    end << 8, and its first position */
 #define TF_L_POSITIONS 7u
+/* its count ranges' boxes: a 64-byte page a range, the least corner's x, y, z then the
+   most corner's (float32); 0: none, every range walked */
+#define TF_L_BOXES 8u
 
 /* A step's own words follow, one a name of its `words`, assigned by prism.core as the
  * defines PRISM_TF_<STEP>_<WORD> from TF_STEP_AT, filled a view by the step's function
