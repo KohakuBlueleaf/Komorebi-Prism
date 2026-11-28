@@ -306,7 +306,16 @@ table lookup or a texel fetch.
    as `shadow_transmit` (`with_map(..., transmit=True)`), and the sun's share
    (`sun_shares`) weights each of the four taps that is lit by its texel's `T` before
    the bilinear sum, per channel; with `shadow_transmit` the `glass_light` glass map is
-   not made (it would count the glass twice). Why this rule: Cycles' direct passes show
+   not made (it would count the glass twice). The lights keep `T` as the card does
+   (`kept`, `map_kept`): 8 bits, each texel the mean of a `T_SCALE` x `T_SCALE` block of
+   the map's texels (half resolution by default, a parameter of the map), one grey
+   channel when every glass material's tau is grey and an RGB word (the fourth byte
+   unused) when any is tinted, chosen once from the scene's materials (`t_channels`); a
+   4 KiB page whose texels are all 255 is absent and reads 1, so a map keeps pages only
+   where glass lies over its opaque surface. Against the full form (float, RGB, the map's
+   resolution) the frame by this rule moved under 0.04 dB from Cycles on both scenes, and
+   half resolution is 44.6 dB from the full form at most 27 codes apart (quarter: 39.9 dB,
+   39). Why this rule: Cycles' direct passes show
    glass blocking because light that crossed glass is filed under its caustic paths,
    while its whole frame keeps that light; rendering Cycles with each glass material
    replaced by a rule (ignored, black, a straight pass of tau `(1 - F0)^2`) against its
