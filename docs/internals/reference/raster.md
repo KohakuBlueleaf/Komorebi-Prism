@@ -36,6 +36,10 @@ multiply-add.
    corners' `1/z` sums terms of corners projected far off the frame (a triangle cut by,
    or close to, the near plane: 1e5 to 1e6 px) and lost up to 9 % of `1/z`; the cut
    decides coverage only, a piece keeps its triangle's plane.
+   The plane's normal `(a f, -b f, c')` is as good as float32's `e1 x e2`: on a needle
+   (area under 3e-4 of its longest edge squared) it tilts by up to 0.02 rad. On Sponza's
+   overview at 1,080p, 21 of 137,029 records tilt by over 1e-3 rad, the card's as the
+   reference's; the 18 needles among them win no pixel, the other 3 at most one each.
 2. **Binning.** A triangle goes to every tile its pixel box touches, in triangle order.
    The sizes of the tile lists are an output.
 3. **Fill**, one tile at a time. A pixel centre `(x + 0.5, y + 0.5)` is inside when
