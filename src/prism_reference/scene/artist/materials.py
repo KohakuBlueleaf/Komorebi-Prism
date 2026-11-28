@@ -30,7 +30,7 @@ try:
 except ImportError:
     DECODER = None
 
-LEVELS_VERSION = 1  # of a kept mip chain: raised when decoding or the levels change
+LEVELS_VERSION = 2  # of a kept mip chain: raised when decoding or the levels change
 NAME_DIGITS = 16  # of an image's digest, naming its folder
 TRANSMISSION = "KHR_materials_transmission"
 DIELECTRIC = 0.04  # the specular colour of a non-metal

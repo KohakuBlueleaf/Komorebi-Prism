@@ -16,6 +16,7 @@ except ImportError:
 TEXTURE_SIDE = 1024
 MIP_LEVELS = 11
 HEIGHT_GAIN = 2.0  # slope scale when a bump map holds heights, not normals
+NORMAL_LEAST_Z = 0.5**0.5  # a normal map's vector turned up to this z when below it
 
 
 def decode_image(data):
@@ -62,9 +63,29 @@ def heights_to_normals(height):
     return np.concatenate([rgb, np.full(height.shape + (1,), 255, np.uint8)], -1)
 
 
+def unit_normals(image):
+    """A normal map (H, W, 4) uint8 with each vector made unit and, where its z is under
+    NORMAL_LEAST_Z, turned about its own azimuth up to it; a zero vector up."""
+    vector = image[:, :, :3].astype(np.float64) * (2.0 / 255.0) - 1.0
+    length = np.sqrt((vector * vector).sum(axis=-1, keepdims=True))
+    up = np.zeros_like(vector)
+    up[:, :, 2] = 1.0
+    vector = np.where(length > 1e-6, vector / np.maximum(length, 1e-6), up)
+    side = np.sqrt((vector[:, :, :2] ** 2).sum(axis=-1, keepdims=True))
+    z = NORMAL_LEAST_Z
+    scale = np.sqrt(1.0 - z * z) / np.maximum(side, 1e-6)
+    turned = np.concatenate([vector[:, :, :2] * scale, np.full_like(side, z)], -1)
+    turned = np.where(side > 1e-6, turned, up)
+    vector = np.where(vector[:, :, 2:3] < z, turned, vector)
+    rgb = np.rint((vector * 0.5 + 0.5) * 255).astype(np.uint8)
+    return np.concatenate([rgb, image[:, :, 3:4]], axis=-1)
+
+
 def texture_levels(pixels, role):
     """The mip chain (list of (h, w, 4) uint8, largest first) of decoded pixels in a
-    role: "colour", "mask" or "normal"; larger than TEXTURE_SIDE is halved first."""
+    role: "colour", "mask" or "normal"; larger than TEXTURE_SIDE is halved first; a
+    normal map's vectors made unit and turned up first (unit_normals), its levels their
+    averages."""
     channels = pixels.shape[2]
     grey = channels <= 2 or (
         (pixels[:, :, 0] == pixels[:, :, 1]).all()
@@ -84,6 +105,8 @@ def texture_levels(pixels, role):
         image = np.concatenate([pixels, alpha], axis=2)
     else:
         image = pixels
+    if role == "normal" and not grey:
+        image = unit_normals(image)
     while max(image.shape[:2]) > TEXTURE_SIDE:
         image = halve(image)
     if role == "normal" and grey:

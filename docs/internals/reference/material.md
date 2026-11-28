@@ -17,6 +17,19 @@ reads). SHADE itself, the stage that colours a pixel from its material, is in
   (`TEXEL_UNIT`) and a normal's `2 b / 255 - 1` (`TEXEL_SIGNED`). Lookup tables, so numpy
   and C++ read the same float32 values.
 
+- **A slot's own uv.** The triangles store one uv, their material's base-colour texture's
+  (its UV set through its transform). Each slot reads `(a u + b v + c, d u + e v + f)` of
+  it, the materials file's `uv_maps` (`texture.mapped_uv`; the identity, untouched, for
+  the base colour and a slot without a transform of its own); the slot's level-0 texel
+  area is scaled by the map's `|a e - b d|` (`texture.map_area`).
+- **Normal scale.** A normal texel's x and y are multiplied by the material's
+  `normal_scale` before the tangent frame turns it (`texture.normal_scales`), as glTF's
+  `normalTexture.scale`.
+
+- **Normal filter.** A normal texel's length r, before the scale, dims the albedo and
+  widens the specular lobe (`texture.normal_length`, `texture.filtered_exponent`,
+  applied in `direct.frame`): [the normal filter](../material/normal_filter.md).
+
 No bilinear filtering and no level per pixel: one level a triangle, nearest texel.
 
 ## Texture accesses
