@@ -13,7 +13,7 @@ from prism_reference.material.kinds import (
     SPECULAR,
     TRANSPARENT,
 )
-from prism_reference.material.texture import texel_xy
+from prism_reference.material.texture import mapped_uv, texel_xy, uv_maps
 from prism_reference.raster.frames import pixel_values
 
 PAGE = 32  # a texture page: 32 x 32 texels of one level, 4 KB
@@ -49,10 +49,9 @@ def shade_pixels(layers):
 
 
 def layer_pages(materials, prepared, layer, where, firsts, merging):
-    """Pages (H, W, 4) a layer's pixels `where` read (albedo, normal, specular, mask) and
-    their texels (H, W, 4, 3: texture x levels + level, column, row); albedo with a
-    texture, normal where framed and not glass, specular where the material has the
-    term, the mask's (`merging`) for a masked material; NONE else."""
+    """Pages (H, W, 4) a layer's pixels `where` read and their texels (H, W, 4, 3: group,
+    column, row) at each slot's mapped uv: albedo, normal (framed, not glass), specular
+    (with the term), mask (`merging`, masked); NONE else."""
     out = np.full(where.shape + (KEYS,), NONE, dtype=np.int64)
     texels = np.full(where.shape + (KEYS, 3), NONE, dtype=np.int32)
     ys, xs = np.nonzero(where)
@@ -61,6 +60,7 @@ def layer_pages(materials, prepared, layer, where, firsts, merging):
     kind = materials["kind"][m]
     _, _, _, u, v, _ = pixel_values(layer, prepared, ys, xs)
     texture = materials["textures"][m]
+    maps = uv_maps(materials)[m]
     framed = prepared["frame_ok"][t] & (kind != TRANSPARENT)
     shiny = ((kind == LIT) | (kind == TRANSPARENT)) & (
         materials["specular"][m].max(axis=1) > 0
@@ -77,7 +77,8 @@ def layer_pages(materials, prepared, layer, where, firsts, merging):
             continue
         tex = texture[take, slot]
         level = prepared["level"][t[take], level_slot]
-        x, y, _ = texel_xy(materials, tex, level, u[take], v[take])
+        su, sv = mapped_uv(maps[take, slot], u[take], v[take])
+        x, y, _ = texel_xy(materials, tex, level, su, sv)
         first, across = firsts[tex, level, 0], firsts[tex, level, 1]
         out[ys[take], xs[take], column] = first + (y // PAGE) * across + x // PAGE
         group = tex * firsts.shape[1] + level
