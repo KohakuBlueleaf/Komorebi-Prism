@@ -3,6 +3,8 @@ apron (SIDE x SIDE from its corner) put into row blocks of 32 that read at most 
 tiles' operands, each block's W a bfp8_b tile per operand; and a table page a tile. A
 half pixel reading more tiles is split into pieces, its E the sum of theirs."""
 
+from functools import cache
+
 import numpy as np
 
 from prism_common.formats import TILE
@@ -92,33 +94,57 @@ def region_records(w, owners, size, form):
     return blocks, tables
 
 
+@cache
+def piece_table(most):
+    """pieces(mask, most) of every 9-bit mask (512,), each a tuple."""
+    return tuple(tuple(pieces(mask, most)) for mask in range(512))
+
+
 def tile_blocks(w, owners, at, plane, most):
     """One tile's W blocks (n, 32, WIDTH) and its row blocks [(operands [(dy, dx)],
     first block, places (32,) as SIDE x y + x or SKIP)]."""
     ys, xs, mask = plane
     side = mask.shape[0]
-    by_piece = {}  # piece mask: the plane places holding it, in order
-    for p_y, p_x in zip(*np.nonzero(mask)):
-        for piece in pieces(int(mask[p_y, p_x]), most):
-            by_piece.setdefault(piece, []).append((p_y, p_x))
+    p_y, p_x = np.nonzero(mask)
+    masks = mask[p_y, p_x]
+    table = piece_table(most)
+    # piece mask: the plane places holding it (indices into p_y), in order
+    by_piece = {}
+    for m in np.unique(masks):
+        for piece in table[int(m)]:
+            by_piece.setdefault(piece, []).append(np.flatnonzero(masks == m))
+    by_piece = {k: np.sort(np.concatenate(v)) for k, v in by_piece.items()}
+    # each place's owners' offsets (dy + 1) x 3 + dx + 1 by class (places, classes)
+    y_all, x_all = ys[p_y, p_x], xs[p_y, p_x]
+    offset = np.stack(
+        [
+            (owners[c][0][y_all, x_all] - at[0] + 1) * 3
+            + owners[c][1][y_all, x_all]
+            - at[1]
+            + 1
+            for c in range(len(owners))
+        ],
+        1,
+    )
     taken = dict.fromkeys(by_piece, 0)
     out, rows = [], []
     for union, parts in packed({k: len(v) for k, v in by_piece.items()}, most):
         offsets = [b for b in range(9) if union >> b & 1]
+        where = np.full(9, -1, np.int64)
+        where[offsets] = np.arange(len(offsets))
         places = np.full(TILE, SKIP, np.int64)
         block = np.zeros((len(offsets), TILE, w.shape[-1]), np.float32)
         r = 0
         for piece, n in parts:
-            for p_y, p_x in by_piece[piece][taken[piece] : taken[piece] + n]:
-                y, x = ys[p_y, p_x], xs[p_y, p_x]
-                places[r] = side * p_y + p_x
-                for c in range(len(owners)):
-                    dy = owners[c][0][y, x] - at[0]
-                    dx = owners[c][1][y, x] - at[1]
-                    b = (dy + 1) * 3 + dx + 1
-                    if piece >> b & 1:
-                        block[offsets.index(b), r] += w[y, x, c]
-                r += 1
+            at_places = by_piece[piece][taken[piece] : taken[piece] + n]
+            r_of = np.arange(r, r + len(at_places))
+            places[r_of] = side * p_y[at_places] + p_x[at_places]
+            y, x = y_all[at_places], x_all[at_places]
+            for c in range(len(owners)):
+                b = offset[at_places, c]
+                sel = (piece >> b & 1).astype(bool)
+                block[where[b[sel]], r_of[sel]] += w[y[sel], x[sel], c]
+            r += len(at_places)
             taken[piece] += n
         rows.append(([(b // 3 - 1, b % 3 - 1) for b in offsets], len(out), places))
         out.extend(block)

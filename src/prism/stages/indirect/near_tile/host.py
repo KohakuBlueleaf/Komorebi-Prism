@@ -19,7 +19,6 @@ from prism.stages.indirect.near_tile.model.weights import (
     SIDE,
     TABLE_WORDS,
     decode,
-    encode,
 )
 from prism.stages.indirect.near_tile.steps.step import NS
 from prism_common.formats import TILE, format_of
@@ -150,7 +149,7 @@ class NearTileHost:
             self.furnace,
             self.terms,
         )
-        raw = encode(out["values"])
+        raw = out["bytes"]
         s = operands(
             out["operator"],
             out["frame"]["colour"] * out["frame"]["covered"][..., None],
