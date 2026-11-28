@@ -1,12 +1,17 @@
 """The elements' light for the current lights (sources and bounce passes), what the
 field holds, and the indirect irradiance a pixel receives."""
 
+import json
+import os
+
 import numpy as np
 
+from prism_common.digest import Digest
+from prism_common.paths import cache_root
 from prism_reference.direct.lamps import lamp_irradiance_at, lamp_shapes
 from prism_reference.direct.lights import bounce_count
 from prism_reference.direct.shadow import sun_shadow
-from prism_reference.indirect.bounces import bounces_of
+from prism_reference.indirect.bounces import bounces_of, far_field_key
 from prism_reference.indirect.field.pack import pack_field, unpack_field
 from prism_reference.indirect.field.values import field_values, lookup
 from prism_reference.indirect.files import load_model
@@ -15,6 +20,8 @@ from prism_reference.indirect.sky import sky_coefficients
 from prism_reference.raster.vector import dot3
 
 F = np.float32
+FOLDER = "field_values"  # the field's values kept across loads, under the cache root
+VERSION = 1  # of kept values: raised when the element light or the field changes
 
 
 def lamp_irradiance(lights, position, normal):
@@ -92,12 +99,50 @@ def field_for(lights):
         if entry[0] == key and entry[1] is lights["shadow_map"]:
             values = entry[2]
     if values is None:
-        light = element_light(lights, model, bounces)
-        values = field_values(model, field_source(light))
+        values = kept_values(lights, model, bounces)
         cache[:] = cache[-3:] + [(key, lights["shadow_map"], values)]
     if lights.get("indirect_packed"):
         values, _ = unpack_field(*pack_field(values, model["field_has"]))
     return model, values
+
+
+def values_key(lights, bounces):
+    """The key of the field's values for `lights`: every entry of the lights (the
+    indirect file by far_field_key), the bounces and VERSION (32 hex); None when an
+    entry is neither an array nor plain JSON."""
+    digest = Digest(f"{VERSION} {int(bounces)}")
+    for name in sorted(lights):
+        value = lights[name]
+        if name == "indirect":
+            value = far_field_key(value)
+        if isinstance(value, np.ndarray | np.generic):
+            a = np.ascontiguousarray(value)
+            digest.update(f"{name}{a.dtype}{a.shape}".encode())
+            digest.update(a.reshape(-1).view(np.uint8))
+        else:
+            try:
+                digest.update(f"{name}{json.dumps(value)}".encode())
+            except TypeError:
+                return None
+    return digest.hexdigest()[:32]
+
+
+def kept_values(lights, model, bounces):
+    """The field's values (nv, 6, 3) of element_light: read when kept under
+    values_key, else made and kept (a temporary name, then renamed); made each time
+    when the lights have no key."""
+    key = values_key(lights, bounces)
+    path = None if key is None else cache_root() / FOLDER / f"{key}.npy"
+    if path is not None and path.exists():
+        return np.load(path)
+    values = field_values(model, field_source(element_light(lights, model, bounces)))
+    if path is not None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        part = path.with_name(f"{path.name}.{os.getpid()}.part")
+        with open(part, "wb") as handle:
+            np.save(handle, values)
+        part.replace(path)
+    return values
 
 
 def irradiance(lights, position, normal):
