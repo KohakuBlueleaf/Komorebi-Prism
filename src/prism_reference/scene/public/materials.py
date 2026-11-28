@@ -23,6 +23,7 @@ from prism_reference.scene.public.table import (
     views,
 )
 from prism_reference.scene.public.textures import (
+    LEVELS_VERSION,
     MIP_LEVELS,
     TextureFiles,
     decode_levels,
@@ -217,42 +218,73 @@ def convert_materials(name, data, workers=4):
         "triangles_by_kind": {k: int(n) for k, n in zip(KINDS, used)},
     }
     out = public_dir(data) / f"{name}_materials.npz"
-    np.savez(
-        out,
-        uv=uv,
-        material=material,
-        light=light.astype(np.float32),
-        kind=kinds,
-        base_colour=np.array(bases, dtype=np.float32),
-        textures=np.array(slots, dtype=np.int32),
-        exponent=np.array(exponents, dtype=np.int32),
-        specular=np.array(speculars, dtype=np.float32),
-        transmission=np.array(taus, dtype=np.float32),
-        texels=np.concatenate(blocks) if blocks else np.zeros(0, np.uint8),
-        mip=mip,
-        levels=level_count,
-        names=json.dumps(names),
-        texture_names=json.dumps([f"{Path(a).name}:{m} ({r})" for a, m, r in jobs]),
-        counts=json.dumps(counts),
-    )
+    part = out.with_name(f"{out.name}.part")
+    with open(part, "wb") as handle:
+        np.savez(
+            handle,
+            uv=uv,
+            material=material,
+            light=light.astype(np.float32),
+            kind=kinds,
+            base_colour=np.array(bases, dtype=np.float32),
+            textures=np.array(slots, dtype=np.int32),
+            exponent=np.array(exponents, dtype=np.int32),
+            specular=np.array(speculars, dtype=np.float32),
+            transmission=np.array(taus, dtype=np.float32),
+            texels=np.concatenate(blocks) if blocks else np.zeros(0, np.uint8),
+            mip=mip,
+            levels=level_count,
+            names=json.dumps(names),
+            texture_names=json.dumps([f"{Path(a).name}:{m} ({r})" for a, m, r in jobs]),
+            counts=json.dumps(counts),
+            versions=json.dumps(versions()),
+        )
+    part.replace(out)
     return out
 
 
 def load_materials(name, data):
     """The materials of a converted scene (or of a view's scene): the arrays of
-    MATERIAL_KEYS and the counts; missing, an error naming the command."""
+    MATERIAL_KEYS and the counts; missing or made at other versions, an error naming
+    the command that writes it."""
     if is_view(name):
         name = views()[name][0]
     path = public_dir(data) / f"{name}_materials.npz"
     if not path.exists():
         raise FileNotFoundError(
-            f"{path} is missing; write it with: "
-            f"python scripts/data/public_scenes.py materials {name}"
+            f"{path} is missing; write it with: {rebuild_command(name)}"
         )
     with np.load(path) as f:
+        made = json.loads(str(f["versions"])) if "versions" in f.files else None
+        if made != versions():
+            raise ValueError(
+                f"{path} was made at {made}, today's is {versions()}; "
+                f"write it again with: {rebuild_command(name)}"
+            )
         found = {k: f[k] for k in MATERIAL_KEYS if k in f.files}
         counts = json.loads(str(f["counts"]))
     return with_defaults(found), counts
+
+
+def versions():
+    """The versions a materials file's content is made at (kept in it as `versions`)."""
+    return {"levels": LEVELS_VERSION}
+
+
+def made_now(path):
+    """True when the materials file at `path` was made at today's versions."""
+    with np.load(path) as f:
+        made = json.loads(str(f["versions"])) if "versions" in f.files else None
+    return made == versions()
+
+
+def rebuild_command(name):
+    """The command that writes scene `name`'s materials file: an opened scene's open
+    of its source file, else the public scenes' materials."""
+    source = table().get(name, {}).get("source", {}).get("file")
+    if "opened" in table().get(name, {}) and source:
+        return f"python -m prism_cli open {source}"
+    return f"python scripts/data/public_scenes.py materials {name}"
 
 
 def with_defaults(materials):

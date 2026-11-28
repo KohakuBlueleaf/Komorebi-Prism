@@ -20,6 +20,7 @@ from prism_reference.post.display import (
 from prism_reference.scene.artist.slots import slot_maps
 from prism_reference.scene.public.materials import EMISSIVE_MIN, EXPONENT_RANGE, KINDS
 from prism_reference.scene.public.textures import (
+    LEVELS_VERSION,
     MIP_LEVELS,
     decode_image,
     texture_levels,
@@ -30,7 +31,6 @@ try:
 except ImportError:
     DECODER = None
 
-LEVELS_VERSION = 2  # of a kept mip chain: raised when decoding or the levels change
 NAME_DIGITS = 16  # of an image's digest, naming its folder
 TRANSMISSION = "KHR_materials_transmission"
 DIELECTRIC = 0.04  # the specular colour of a non-metal

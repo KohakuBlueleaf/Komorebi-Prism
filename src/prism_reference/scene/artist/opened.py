@@ -10,6 +10,7 @@ from pathlib import Path
 
 from prism_reference.scene.artist.convert import convert
 from prism_reference.scene.importers.gltf.sidecar import sidecar_path
+from prism_reference.scene.public.materials import made_now
 from prism_reference.scene.public.table import OPENED_TABLE, public_dir
 
 CONVERTER = 7  # raised when the conversion's output changes
@@ -87,14 +88,17 @@ def opened_table(data):
 
 
 def kept(name, key, data):
-    """True when the table holds `name` with `key` and its mesh and materials exist."""
+    """True when the table holds `name` with `key` and its mesh and materials exist,
+    the materials made at today's versions."""
     entry = opened_table(data).get(name)
     folder = public_dir(data)
+    materials = folder / f"{name}_materials.npz"
     return (
         entry is not None
         and entry.get("opened", {}).get("key") == key
         and (folder / f"{name}.npz").is_file()
-        and (folder / f"{name}_materials.npz").is_file()
+        and materials.is_file()
+        and made_now(materials)
     )
 
 

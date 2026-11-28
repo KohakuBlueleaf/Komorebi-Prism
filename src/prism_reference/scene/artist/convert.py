@@ -15,7 +15,7 @@ from prism_reference.scene.description.flatten import draws, flatten
 from prism_reference.scene.description.report import coverage
 from prism_reference.scene.description.types import Note
 from prism_reference.scene.importers import gltf, meshio
-from prism_reference.scene.public.materials import KINDS
+from prism_reference.scene.public.materials import KINDS, versions
 from prism_reference.scene.public.mesh import shared_vertices, vertex_shade
 from prism_reference.scene.public.table import public_dir
 
@@ -243,6 +243,7 @@ def convert(
         names=json.dumps(names),
         texture_names=json.dumps(textures.names()),
         counts=json.dumps(material_counts),
+        versions=json.dumps(versions()),
     )
     steps.mark("writing")
     entry, view, view_notes = entry_of(

@@ -13,6 +13,7 @@ try:
 except ImportError:
     Image = None
 
+LEVELS_VERSION = 2  # of a mip chain: raised when decoding or the levels change
 TEXTURE_SIDE = 1024
 MIP_LEVELS = 11
 HEIGHT_GAIN = 2.0  # slope scale when a bump map holds heights, not normals
