@@ -12,6 +12,7 @@ from prism_reference.direct.glass import (
 from prism_reference.direct.lamps import lamp_irradiance_at
 from prism_reference.direct.shadow import sun_shadow
 from prism_reference.direct.sky import background, sky_irradiance
+from prism_reference.direct.transmit import sun_shares
 from prism_reference.direct.visibility import vertex_normals
 from prism_reference.indirect.light import field_for, irradiance
 from prism_reference.material.kinds import (
@@ -146,13 +147,13 @@ def light_layer(scene, materials, prepared, layer, lights, variant):
     sun_dir = lights["sun_direction"]
     sun_e = zero
     if "sun" in terms:
-        shadow = np.ones(len(position), dtype=np.float32)
-        if "shadow" in terms:
-            shadow = sun_shadow(lights, position, normal, variant["pcf"])
-        sun_e = (
-            lights["sun_irradiance"]
-            * (np.maximum(dot3(normal, sun_dir[None, :]), F(0)) * shadow)[:, None]
-        )
+        shadow = np.ones((len(position), 1), dtype=np.float32)
+        if "shadow" in terms and "shadow_transmit" in lights:
+            shadow = sun_shares(lights, position, normal)
+        elif "shadow" in terms:
+            shadow = sun_shadow(lights, position, normal, variant["pcf"])[:, None]
+        facing = np.maximum(dot3(normal, sun_dir[None, :]), F(0))[:, None]
+        sun_e = lights["sun_irradiance"] * (facing * shadow)
         if variant.get("sun_glass") is not None:
             through = sun_through(lights, variant["sun_glass"], position, normal)
             sun_e = sun_e * np.where(glass[:, None], F(1), through)
@@ -217,6 +218,7 @@ def rasterize_lighted(scene, materials, lights, smooth=False, pcf=True, terms=TE
         variant["indirect"] = lambda p, n: irradiance(lights, p, n)
     through = {"sun", "shadow", "glass", GLASS_LIGHT} <= variant["terms"]
     through = through and bool((glass["tri"] >= 0).any())
+    through = through and "shadow_transmit" not in lights  # the map's T carries it
     variant["sun_glass"] = sun_glass_map(scene, materials, lights) if through else None
     opaque_colour, _, opaque_parts = light_layer(
         scene, materials, prepared, opaque, lights, variant

@@ -5,6 +5,7 @@ with a guard band, and the map (1/z) of a face drawn as the sun's is."""
 import numpy as np
 
 from prism_reference.direct.lamps import lamp_shapes
+from prism_reference.direct.transmit import transmittance
 from prism_reference.raster.frames import rasterize, rasterize_shaded
 from prism_reference.scene.frame import TILE
 
@@ -156,3 +157,8 @@ def face_map(scene, face, materials=None):
     if materials is None:
         return rasterize(view)["depth"]
     return rasterize_shaded(view, materials)["depth"]
+
+
+def face_transmit(scene, face, materials, depth):
+    """A face's T (H, W, 3) beside its map `depth` (transmittance)."""
+    return transmittance(face_view(scene, face), materials, depth)[0]

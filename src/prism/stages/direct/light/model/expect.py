@@ -19,6 +19,7 @@ from prism.stages.material.texture.model.layers import later_pieces
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.lights import placeholder, shadow_side
 from prism_reference.direct.shadow import FILL_SIDE, map_at
+from prism_reference.direct.transmit import map_transmittance
 from prism_reference.indirect.field.build import voxel_keys
 from prism_reference.indirect.field.values import FIELD_SHIFT
 from prism_reference.indirect.light import field_for
@@ -28,14 +29,19 @@ from prism_reference.raster.frames import picture, rasterize_shaded, shade_setup
 from prism_reference.raster.setup import setup, world_points
 
 
-def with_map(view, materials, lights):
+def with_map(view, materials, lights, transmit=False):
     """`lights` with their shadow map: a stand-in (the sun above the horizon) made by
-    map_at at their sun's camera and side now; else (a map drawn so) as they are."""
+    map_at at their sun's camera and side now, with `transmit` its glass's T beside it
+    ("shadow_transmit"); else (a map drawn so) as they are."""
     if not placeholder(lights) or lights["sun_direction"][1] <= 0:
         return lights
     side = shadow_side(lights)
-    depth = map_at(view, lights["shadow_camera"], materials, side)
-    return {**lights, "shadow_map": depth}
+    camera = lights["shadow_camera"]
+    depth = map_at(view, camera, materials, side)
+    out = {**lights, "shadow_map": depth}
+    if transmit:
+        out["shadow_transmit"] = map_transmittance(view, camera, materials, depth)
+    return out
 
 
 def frame_check(name, scene, materials, samples, seed=1):
