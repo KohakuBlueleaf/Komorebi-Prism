@@ -1,7 +1,8 @@
 """The glass a DEPTH view lets light through (prism_reference.direct.transmit), no card:
 on a written scene (a floor, two panes over it in part overlapping, one under it) seen
-by the sun from above, T against the panes' product texel for texel and the sun's share
-on the floor against T (and, T 1 everywhere, against sun_shadow bit for bit); on each
+by the sun from above, tinted and grey, T against the panes' product texel for texel, its
+kept form against the product's, the sun's share on the floor against the kept product
+(and, T 1 everywhere, against sun_shadow bit for bit); on each
 public scene of --scenes, T of the sun's map at sampled texels against the product along
 each texel's ray through every glass triangle it meets nearer than the map's 1/z (exact
 intersections; a texel within MARGIN of a glass triangle's edge, or whose glass lies
@@ -22,9 +23,14 @@ from prism_reference.direct.lights import shadow_side
 from prism_reference.direct.shadow import FILL_SIDE, map_at, sun_camera, sun_shadow
 from prism_reference.direct.transmit import (
     LOSS,
+    kept,
+    kept_at,
+    map_kept,
     map_transmittance,
+    page_side,
     pane_factors,
     sun_shares,
+    t_channels,
 )
 from prism_reference.material.kinds import FLAT, TRANSPARENT
 from prism_reference.raster.frames import layer_scene
@@ -37,18 +43,22 @@ TOLERANCE = 1e-6  # T apart, relative
 MARGIN = 1e-3  # a texel's ray this close (barycentric) to a glass edge is left out
 TIE = 1e-5  # glass this close (relative 1/z) to the map's opaque 1/z is left out
 TAU = np.array([[0.9, 0.7, 0.5], [0.5, 0.5, 0.5], [0.2, 0.2, 0.2]], dtype=F)
+Z1 = 0.25  # the panes' far side (z): the floor beyond lies under no glass
+GREY = np.array([0.7, 0.7, 0.7], dtype=F)  # pane A's tau in the grey scene
 
 
-def quad(x0, x1, y):
-    """Two triangles of the rectangle x0..x1 by -1..1 (z) at height y."""
-    corners = np.array([[x0, y, -1], [x1, y, -1], [x1, y, 1], [x0, y, 1]], dtype=F)
+def quad(x0, x1, y, z1=1.0):
+    """Two triangles of the rectangle x0..x1 by -1..z1 (z) at height y."""
+    corners = np.array([[x0, y, -1], [x1, y, -1], [x1, y, z1], [x0, y, z1]], dtype=F)
     return corners, np.array([[0, 1, 2], [0, 2, 3]])
 
 
-def written_scene():
+def written_scene(tau):
     """The floor (row 0, opaque), pane A at 1 over x < 0.25, pane B at 1.5 over x >
-    -0.25, pane C at -0.5 under the floor; their rows 1, 2, 3."""
-    parts = [quad(-1, 1, 0), quad(-1, 0.25, 1), quad(-0.25, 1, 1.5), quad(-1, 1, -0.5)]
+    -0.25 (both over z < Z1), pane C at -0.5 under the floor; their rows 1, 2, 3, their tau `tau`.
+    """
+    parts = [quad(-1, 1, 0), quad(-1, 0.25, 1, Z1), quad(-0.25, 1, 1.5, Z1)]
+    parts.append(quad(-1, 1, -0.5))
     positions, indices, rows = [], [], []
     for row, (p, i) in enumerate(parts):
         indices.append(i + sum(len(q) for q in positions))
@@ -58,15 +68,26 @@ def written_scene():
     materials = {
         "kind": np.array([FLAT, TRANSPARENT, TRANSPARENT, TRANSPARENT]),
         "material": np.array(rows),
-        "transmission": np.concatenate([np.ones((1, 3), dtype=F), TAU]),
+        "transmission": np.concatenate([np.ones((1, 3), dtype=F), tau]),
     }
     return scene, materials
 
 
-def written_report():
-    """T of the written scene against the panes' product, the sun's share on the floor
-    against T, and against sun_shadow with T 1."""
-    scene, materials = written_scene()
+def grown(mask):
+    """`mask` with every neighbour (3 x 3) of a set element set."""
+    padded = np.pad(mask, 1)
+    out = np.zeros_like(mask)
+    for dy in range(3):
+        for dx in range(3):
+            out |= padded[dy : dy + mask.shape[0], dx : dx + mask.shape[1]]
+    return out
+
+
+def written_report(tau, channels):
+    """T of the written scene with panes `tau` against the panes' product, full and
+    kept (its channels resolved to `channels`), the sun's share on the floor against the
+    kept product, and against sun_shadow with T 1."""
+    scene, materials = written_scene(tau)
     clear = materials["kind"][materials["material"]] == TRANSPARENT
     sun = np.array([0.0, 1.0, 0.0], dtype=F)
     camera = sun_camera(scene["positions"], sun, FILL_SIDE)
@@ -91,8 +112,8 @@ def written_report():
             wx * (eye_height - height) / eye_height,
             wz * (eye_height - height) / eye_height,
         )
-        cover = (px > x0) & (px < x1) & (np.abs(pz) < 1)
-        want = np.where(cover[..., None], want * TAU[row] * float(LOSS), want)
+        cover = (px > x0) & (px < x1) & (pz > -1) & (pz < Z1)
+        want = np.where(cover[..., None], want * tau[row] * float(LOSS), want)
     edge = np.zeros((side, side), dtype=bool)
     for x0, x1, height in ((-1, 0.25, 1.0), (-0.25, 1, 1.5), (-1, 1, 0.0)):
         k = (eye_height - height) / eye_height
@@ -100,12 +121,36 @@ def written_report():
         for bound in (x0 * 1.0, x1 * 1.0):
             edge |= np.abs(wx * k - bound) < 2 * texel
         edge |= np.abs(np.abs(wz * k) - 1) < 2 * texel
+        edge |= np.abs(wz * k - Z1) < 2 * texel
     judged = on_floor & ~edge
     apart = np.abs(through - want) > TOLERANCE * np.maximum(want, 1e-12)
+    form = map_kept(scene, camera, materials, depth)
+    wanted = kept(want, channels)
+    k = form["scale"]
+    block_edge = (~judged).reshape(side // k, k, side // k, k).any(axis=(1, 3))
+    block_edge = grown(block_edge)
+    codes_apart = np.abs(form["codes"].astype(int) - wanted["codes"]).max(axis=2) > 1
     out = {
+        "channels": form["channels"],
+        "channels_apart": int(form["channels"] != channels),
         "texels_judged": int(judged.sum()),
         "texels_apart": int((apart.any(axis=2) & judged).sum()),
         "texels_crossing": int(((want < 1).any(axis=2) & judged).sum()),
+        "kept_judged": int((~block_edge).sum()),
+        "kept_apart": int((codes_apart & ~block_edge).sum()),
+        "pages_present": int(form["present"].sum()),
+        "pages": int(form["present"].size),
+        "absent_not_one": int(
+            (form["codes"] != 255)
+            .any(axis=2)[
+                np.repeat(
+                    np.repeat(~form["present"], page_side(channels), 0),
+                    page_side(channels),
+                    1,
+                )[: side // k, : side // k]
+            ]
+            .sum()
+        ),
     }
     rng = np.random.default_rng(1)
     points = np.stack(
@@ -117,21 +162,20 @@ def written_report():
         "shadow_camera": camera,
         "shadow_texel": F(eye_height / focal),
         "shadow_bias": F(0),
-        "shadow_transmit": through,
+        "shadow_transmit": form,
     }
     shares = sun_shares(lights, points, normals)
     px = ((points.astype(np.float64) @ right) / eye_height * focal + cx).astype(int)
     py = (cy - (points.astype(np.float64) @ up) / eye_height * focal).astype(int)
     inside = (px >= 1) & (px < side - 1) & (py >= 1) & (py < side - 1)
-    steady = inside & ~edge[np.clip(py, 0, side - 1), np.clip(px, 0, side - 1)]
-    expected = want[py[steady], px[steady]]
+    cy, cx = np.clip(py, 0, side - 1), np.clip(px, 0, side - 1)
+    steady = inside & ~block_edge[cy // k, cx // k]
+    expected = kept_at(wanted, py[steady], px[steady])
     out["share_points"] = int(steady.sum())
     out["share_apart"] = int(
-        (np.abs(shares[steady] - expected) > 1e-5 * np.maximum(expected, 1e-12))
-        .any(axis=1)
-        .sum()
+        (np.abs(shares[steady] - expected) > 1.5 / 255).any(axis=1).sum()
     )
-    plain = lights | {"shadow_transmit": np.ones_like(through)}
+    plain = lights | {"shadow_transmit": kept(np.ones_like(through), channels)}
     one = sun_shares(plain, points, normals)
     alone = sun_shadow(plain, points, normals)
     out["one_apart_from_sun_shadow"] = int((one != alone[:, None]).any(axis=1).sum())
@@ -204,8 +248,12 @@ def public_report(name, samples, rng):
     got = through[iy, ix].astype(np.float64)
     judged = ~near_edge & ~tie
     apart = (np.abs(got - want) > 1e-5 * np.maximum(want, 1e-12)).any(axis=1) & judged
+    form = kept(through, t_channels(materials, np.arange(len(scene["indices"]))))
     return {
         "glass_triangles": int(clear.sum()),
+        "channels": form["channels"],
+        "pages_present": int(form["present"].sum()),
+        "pages": int(form["present"].size),
         "texels_judged": int(judged.sum()),
         "texels_at_an_edge": int(near_edge.sum()),
         "texels_tied": int(tie.sum()),
@@ -225,12 +273,15 @@ def parse():
 def main():
     args = parse()
     rng = np.random.default_rng(args.seed)
-    record = {"written": written_report()}
+    record = {
+        "written_tinted": written_report(TAU, 3),
+        "written_grey": written_report(np.concatenate([GREY[None], TAU[1:]]), 1),
+    }
     for name in args.scenes:
         record[name] = public_report(name, args.samples, rng)
-    w = record["written"]
-    apart = w["texels_apart"] + w["share_apart"] + w["one_apart_from_sun_shadow"]
-    apart += sum(r.get("texels_apart", 0) for k, r in record.items() if k != "written")
+    keys = ("texels_apart", "share_apart", "one_apart_from_sun_shadow")
+    keys += ("channels_apart", "kept_apart", "absent_not_one")
+    apart = sum(r.get(key, 0) for r in record.values() for key in keys)
     print(json.dumps({"ok": apart == 0, **record}))
     return 0 if apart == 0 else 1
 

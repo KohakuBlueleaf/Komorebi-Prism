@@ -93,10 +93,11 @@ def near_radiance(op, frame, radiance, behind=None, previous=None):
     return np.stack(out, -1).reshape(h, w, 3)
 
 
-def smooth(images, frame, radius, tile=0):
+def smooth(images, frame, radius, tile=0, label=None):
     """Each image (H, W, ...) averaged over the (2 radius + 1)^2 window with weights from
     depth (relative difference) and normal agreement; uncovered pixels take no part, nor
-    (tile > 0) pixels of another tile."""
+    (tile > 0) pixels of another tile, nor pixels of another `label` (H, W) when given.
+    """
     if radius <= 0:
         return images
     z, n = frame["depth"], frame["normal"]
@@ -104,6 +105,7 @@ def smooth(images, frame, radius, tile=0):
     h, w = z.shape
     gy, gx = np.mgrid[0:h, 0:w]
     tile_of = (gy // tile) * w + gx // tile if tile > 0 else np.zeros((h, w), int)
+    tile_of = tile_of if label is None else label
     zc = np.where(covered, z, 1.0)
     pad = radius
     zp = np.pad(zc, pad, mode="edge")

@@ -19,15 +19,17 @@ namespace light_step {
     using near_tile_step::kNearQuarterRows;
     using near_tile_step::kNearQuarters;
     using near_tile_step::kNearRows;
+    using near_tile_step::kNearSide;
     using near_tile_step::kNearTaps;
     using near_tile_step::kNearUpsample;
     using near_tile_step::kNearWeightsAt;
     using near_tile_step::kNearWeightsBytes;
     static_assert(kNearQuarterRows == kLightRows);
 
-    // The plane near.light as the upsample reads it: E (a channel's 256 half pixels
-    // after another), the quarter's taps' weights (a tap's 8 rows after another), the
-    // tile's last half row and half column inside the frame, the weights' tensor.
+    // The plane near.light as the upsample reads it: E (a channel's kNearSide x
+    // kNearSide half pixels after another), the quarter's taps' weights (a tap's 8 rows
+    // after another), the plane's last half row and half column inside the frame, the
+    // weights' tensor.
     struct NearPlanes {
         const float* e;
         const float* weights;
@@ -67,7 +69,7 @@ namespace light_step {
     // Row r's I, channel `channel`, into Dst vector `vector`, its 32 lanes in two
     // halves of 16 (each 4 vector registers): the sum over the taps (dy, dx) of
     // weight x E at half row min(r / 2 + dy, last row), half column min(x / 2 + dx,
-    // last column).
+    // last column) of the plane (the tile and one more half row and column).
     inline void near_channel(
         const NearPlanes& p, uint32_t r, uint32_t channel, uint32_t vector
     ) {
@@ -77,18 +79,22 @@ namespace light_step {
             for (uint32_t tap = 0; tap < kNearTaps; ++tap) {
                 const uint32_t dy = tap >> 1, dx = tap & 1;
                 const uint32_t y = (r >> 1) + dy, yy = y < p.last_row ? y : p.last_row;
+                // the half's 16 half columns from 8 h on: its taps' within them
+                const uint32_t left = 8 * h;
+                const uint32_t limit = p.last_col > left ? p.last_col - left : 0;
                 const vuint32m4_t xx = __riscv_vminu_vx_u32m4(
                     __riscv_vadd_vx_u32m4(
                         __riscv_vsrl_vx_u32m4(__riscv_vid_v_u32m4(kHalf), 1, kHalf),
-                        8 * h + dx,
+                        dx,
                         kHalf
                     ),
-                    p.last_col,
+                    limit,
                     kHalf
                 );
                 const vfloat32m4_t e = __riscv_vrgather_vv_f32m4(
                     __riscv_vle32_v_f32m4(
-                        p.e + kHalfTile * kHalfTile * channel + kHalfTile * yy, kHalf
+                        p.e + kNearSide * kNearSide * channel + kNearSide * yy + left,
+                        kHalf
                     ),
                     xx,
                     kHalf

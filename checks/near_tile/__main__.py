@@ -14,7 +14,6 @@ from checks.near_field import scene as written
 from checks.near_field.one_tile import field_model
 from prism.stages.indirect.near_tile.model.build import built
 from prism.stages.indirect.near_tile.model.weights import (
-    RECORD_TILES,
     WEIGHT_FORMAT,
     decode,
     encode,
@@ -45,7 +44,7 @@ def written_records():
     )
     t_op = tile_operator(op, frame, covered, view["point"], n, model, furnace)
     size = (2 * covered.shape[1], 2 * covered.shape[0])
-    return records(t_op["w"], size), {"seconds": 0.0}
+    return records(t_op, size)[0], {"seconds": 0.0}
 
 
 def view_records(scene, view, size, workers):
@@ -60,10 +59,8 @@ def view_records(scene, view, size, workers):
 
 def through_card(session, values):
     """`values` written into a bfp8_b tensor and read back: bytes and values equal."""
-    tensor = session.empty(
-        (len(values) * RECORD_TILES, TILE, TILE), WEIGHT_FORMAT.komorebi, "tile"
-    )
-    tensor.write(values.reshape(-1, TILE, TILE))
+    tensor = session.empty((len(values), TILE, TILE), WEIGHT_FORMAT.komorebi, "tile")
+    tensor.write(values)
     got = np.asarray(tensor.read_bytes()).reshape(len(values), -1)
     want = encode(values)
     back = tensor.read().reshape(values.shape)

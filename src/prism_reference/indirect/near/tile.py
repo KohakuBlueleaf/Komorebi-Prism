@@ -57,16 +57,20 @@ def sample_places(op, shape):
     return np.stack([x, y], 1), behind
 
 
-def near_weights(op, shape, tile, pattern=None):
-    """W_near (H, W, columns) of every receiver on its tile's pattern cells: the weight of
-    the entries whose sample lies in a cell (samples outside the pattern set no bits);
-    backface 2 adds the cells' behind columns after the front ones, 1 drops them."""
+def near_weights(op, shape, tile, pattern=None, owner=None):
+    """W_near (H, W, columns) of every receiver on its tile's pattern cells (or on those
+    of the tile `owner` (ty, tx; (H, W) each) names): the weight of the entries whose
+    sample lies in a cell; backface 2 adds the behind columns, 1 drops them."""
     pattern = {**PATTERN, **(pattern or {})}
     h, w = shape
     cells = pattern_cells(tile, pattern["split"], pattern["rings"])
     place, behind = sample_places(op, shape)
     pixel = op["pixel"].astype(np.int64)
-    corner = np.stack([pixel % w // tile * tile, pixel // w // tile * tile], 1)
+    if owner is None:
+        corner = np.stack([pixel % w // tile * tile, pixel // w // tile * tile], 1)
+    else:
+        ty, tx = (o.reshape(-1)[pixel] for o in owner)
+        corner = np.stack([tx * tile, ty * tile], 1)
     rel = place - corner
     cell = cell_of(cells, rel[:, 0], rel[:, 1])
     weight = op["weight"]
