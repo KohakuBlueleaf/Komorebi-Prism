@@ -2,8 +2,14 @@
 chosen from its transport so that the estimated rest of the converged bounce light is
 at most LEFT."""
 
+import hashlib
+import json
+import os
+from pathlib import Path
+
 import numpy as np
 
+from prism_common.paths import cache_root
 from prism_reference.direct.lights import bounce_count
 from prism_reference.indirect.hmatrix.apply import apply
 
@@ -11,6 +17,8 @@ F = np.float32
 LEFT = 0.05  # the share of the converged bounce light the passes may leave out
 LUMINANCE = np.array([0.2126, 0.7152, 0.0722], F)
 CHOSEN = "chosen_bounces"  # the model's key of the count chosen for it
+FOLDER = "bounces"  # the counts chosen for far fields without one, under the cache root
+VERSION = 1  # of a kept count: raised when the choice changes
 
 
 def rest(powers):
@@ -53,7 +61,41 @@ def scene_bounces(model, left=LEFT):
     return model[CHOSEN]
 
 
+def far_field_key(path):
+    """The key of the far field in the indirect file `path`: its and its matrix files'
+    paths, sizes and modification times, LEFT and VERSION (24 hex)."""
+    path = Path(path)
+    folder = path.with_name(path.name.replace("_indirect.npz", "_transport"))
+    stats = []
+    for file in (path, folder / "blocks.npz", folder / "weights.f32"):
+        st = file.stat()
+        stats.append([str(file.resolve()), st.st_size, st.st_mtime_ns])
+    text = json.dumps(stats + [LEFT, VERSION])
+    return hashlib.sha256(text.encode()).hexdigest()[:24]
+
+
+def kept_bounces(path, model):
+    """scene_bounces of the far field in the indirect file `path`: the model's own
+    count, else the one kept under its key, else chosen and kept."""
+    if CHOSEN in model:
+        return int(model[CHOSEN])
+    kept = cache_root() / FOLDER / f"{far_field_key(path)}.json"
+    if kept.exists():
+        model[CHOSEN] = int(json.loads(kept.read_text())["bounces"])
+        return model[CHOSEN]
+    count = scene_bounces(model)
+    kept.parent.mkdir(parents=True, exist_ok=True)
+    part = kept.with_name(f"{kept.name}.{os.getpid()}.part")
+    part.write_text(json.dumps({"bounces": int(count)}))
+    part.replace(kept)
+    return count
+
+
 def bounces_of(lights, model):
-    """The lights' `bounces` when given (not None), else the scene's (scene_bounces)."""
+    """The lights' `bounces` when given (not None), else the scene's (kept_bounces, or
+    scene_bounces without the indirect file's path)."""
     given = lights.get("bounces")
-    return scene_bounces(model) if given is None else bounce_count(given)
+    if given is not None:
+        return bounce_count(given)
+    path = lights.get("indirect")
+    return scene_bounces(model) if path is None else kept_bounces(path, model)
