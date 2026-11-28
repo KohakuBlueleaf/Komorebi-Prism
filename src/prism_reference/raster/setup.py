@@ -172,19 +172,38 @@ def boxes(scene):
         return np.concatenate(list(pool.map(run, cuts[:-1], cuts[1:])))
 
 
-def depth_origin(scene):
-    """The 1/z a view's 1/z planes are set up from: a DEPTH view's (`depth_view` true) that
-    of its near distance, else 0."""
-    return F(1) / scene["camera"][15] if scene.get("depth_view", False) else F(0)
+def depth_planes(scene, triangles):
+    """The 1/z planes [x, y, 1] (T, 3) float32 of `triangles` from their own
+    camera-space planes n . p = n . v0 (n = (v1 - v0) x (v2 - v0)): along a pixel's ray
+    r = ((px - cx) / f, (cy - py) / f, 1), 1/z = (n . r) / (n . v0); a plane through
+    the eye (n . v0 = 0) gives 0, which the drawn 1/z's bounds lift to the corners'."""
+    cam = scene["camera"]
+    xc, yc, zc = camera_space(scene)
+    corner = scene["indices"][triangles]
+    v = [
+        np.stack([xc[corner[:, k]], yc[corner[:, k]], zc[corner[:, k]]])
+        for k in range(3)
+    ]
+    e1, e2 = v[1] - v[0], v[2] - v[0]
+    n = [
+        e1[(i + 1) % 3] * e2[(i + 2) % 3] - e1[(i + 2) % 3] * e2[(i + 1) % 3]
+        for i in range(3)
+    ]
+    d = (n[0] * v[0][0] + n[1] * v[0][1]) + n[2] * v[0][2]
+    with np.errstate(divide="ignore"):
+        t = np.where(d == 0, F(0), F(1) / d)
+    u = t * (F(1) / cam[12])
+    a, b = n[0] * u, -(n[1] * u)
+    c = n[2] * t - (a * cam[13] + b * cam[14])
+    return np.stack([a, b, c], axis=1).astype(F)
 
 
 def setup(scene, extra=None):
     """Per-triangle records of the triangles that can cover a pixel (dict of arrays;
-    "w_range": the least and most 1/z of its corners times HELD_LEAST and HELD_MOST,
-    which its drawn 1/z is held between);
-    with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2".
-    The 1/z planes are set up from 1/z less `depth_origin`, added back to their
-    constant."""
+    "w_planes": the 1/z plane of the piece's triangle (depth_planes), not of the
+    piece's corners; "w_range": the least and most 1/z of its corners times HELD_LEAST
+    and HELD_MOST, which its drawn 1/z is held between);
+    with extra (T, 3, k) also "extra", "extra_planes" (value times 1/z) and "area2"."""
     x, y, ww, col, src = corners(scene, extra)
     cand = np.ones(len(src), dtype=bool)
     area2 = doubled_area(x, y)
@@ -209,15 +228,7 @@ def setup(scene, extra=None):
         c_coef[:, i] = -(a_coef[:, i] * x[:, p] + b_coef[:, i] * y[:, p])
     top_left = (a_coef > 0) | ((a_coef == 0) & (b_coef > 0))
     inv_area = F(1.0) / area2
-    origin = depth_origin(scene)
-    if origin == 0:
-        wp = np.stack([planes(ww, c, inv_area) for c in (a_coef, b_coef, c_coef)], 1)
-    else:
-        shifted = ww - origin
-        wp = np.stack(
-            [planes(shifted, c, inv_area) for c in (a_coef, b_coef, c_coef)], 1
-        )
-        wp[:, 2] += origin
+    wp = depth_planes(scene, src[keep])
     cp = np.empty((len(keep), 3, 3), dtype=np.float32)
     for ch in range(3):
         for k, c in enumerate((a_coef, b_coef, c_coef)):

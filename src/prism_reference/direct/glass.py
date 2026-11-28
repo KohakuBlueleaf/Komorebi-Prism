@@ -80,7 +80,6 @@ def sun_glass_map(scene, materials, lights):
                 "colors": np.zeros((len(scene["positions"]), 3), dtype=np.float32),
                 "camera": quadrant_camera(camera, i, j),
                 "light": np.zeros(3, dtype=np.float32),
-                "depth_view": True,
             }
             layer = rasterize(layer_scene(view, clear))
             rows, columns = (slice(FILL_SIDE * k, FILL_SIDE * (k + 1)) for k in (j, i))

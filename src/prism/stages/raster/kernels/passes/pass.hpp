@@ -136,9 +136,7 @@ namespace setup_k {
         bool succeeded = true;
         bool weighted = false;  // SETUP on a shaded frame: a shade block a block
         Grid grid = {kGridDefault, kGridDefault};  // the frame's (a8, grid.h)
-        bool depth_view = false;    // a DEPTH view: its 1/z planes from depth_origin
-        uint32_t depth_origin = 0;  // 1 / the camera's near distance (bits), else 0
-        uint32_t kept_count = 0, clipped = 0;  // the profile's counts
+        uint32_t kept_count = 0, clipped = 0;      // the profile's counts
         uint32_t
             block_cost = 0;  // COUNT: the block's predicted cost (setup.h kCostBlock)
         // COUNT with ranges: the costs summed after j x blocks / kCostKnots blocks
@@ -218,10 +216,12 @@ namespace setup_k {
         }
 
         // Clips a crossing triangle and sends its pieces (one or two) through the
-        // vector unit; their records go out as the triangle's. `records`: free space.
-        // `poly`: room for 6 corners (at most 4; 6 so the check below comes first).
+        // vector unit; their records go out as the triangle's, with its own 1/z plane
+        // (`plane`, record words 12 to 14). `records`: free space. `poly`: room for 6
+        // corners (at most 4; 6 so the check below comes first).
         void pieces(
             const Corner* corners,
+            const uint32_t* plane,
             float near,
             uint32_t* records,
             Corner* poly,
@@ -258,13 +258,14 @@ namespace setup_k {
             setup_pass::order(
                 setup_pass::word(setup_pass::kSlotColour + 8) + 2 * (piece_count - 1)
             );
-            setup_pass::triangles(
-                handler == kHandlerSetup, grid, weighted, depth_origin
-            );
+            setup_pass::triangles(handler == kHandlerSetup, grid, weighted);
             ckernel::tensix_sync();
             setup_pass::records_out(records);
             for (uint32_t j = 0; j < piece_count; ++j) {
                 piece_depths(records + 32 * j, j);
+                for (uint32_t word = 12; word < 15; ++word) {
+                    records[32 * j + word] = plane[word];
+                }
             }
             const volatile uint32_t* areas =
                 (setup_pass::window() + setup_pass::word(setup_pass::kSlotArea));
@@ -383,6 +384,11 @@ namespace setup_k {
             Corner* corners = reinterpret_cast<Corner*>(work + 2048);
             for (uint32_t left = crossing; left != 0; left &= left - 1) {
                 const uint32_t lane = __builtin_ctz(left);
+                // the triangle's 1/z plane, in its own (unused) record's words
+                for (uint32_t word = 12; word < 15; ++word) {
+                    work[32 * lane + word] = setup_pass::window()
+                        [setup_pass::word(setup_pass::kSlotRecords + word) + 2 * lane];
+                }
                 for (uint32_t vertex = 0; vertex < 3; ++vertex) {
                     Corner& corner = corners[3 * lane + vertex];
                     for (uint32_t i = 0; i < 3; ++i) {
@@ -409,6 +415,7 @@ namespace setup_k {
                 if (crossing >> lane & 1) {
                     pieces(
                         corners + 3 * lane,
+                        work + 32 * lane,
                         value(near),
                         work + 1024,
                         reinterpret_cast<Corner*>(work + kWorkPolygonAt / 4),

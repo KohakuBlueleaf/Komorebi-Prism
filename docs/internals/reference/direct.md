@@ -52,8 +52,7 @@ writes `$PRISM_DATA/public/<scene>_lighting.npz`; the visibility bake is also ke
    (`sun_camera(..., side)`: focal and principal point scale with the side). A side of
    2,048 is four renders at FILL's 1,024 x 1,024: quadrant (i, j) uses that camera with
    its principal point moved by (-1024 i, -1024 j) (`quadrant_camera`), so its pixel
-   (x, y) is texel (x + 1024 i, y + 1024 j). The renders are DEPTH views (`depth_view`:
-   their 1/z planes set up from the near distance's 1/z, [raster](raster.md)). Each render has SHADE's two FILLs and holes: a texel takes the masked layer's 1/z where
+   (x, y) is texel (x + 1024 i, y + 1024 j). Each render has SHADE's two FILLs and holes: a texel takes the masked layer's 1/z where
    it is nearer and not a hole, else the other layer's, so plants and chains cast the
    shadow of their leaves, not of their quads. A pixel's point, moved along its
    lighting normal `n` (step 5: the normal map's where there is one, else the
@@ -176,7 +175,7 @@ edges there are still steps. Turning Sponza's sun by 0.01 / 0.05 / 0.2 degrees c
 both frames 2.2 / 1.6 / 2.1 % against 3.1 / 2.2 / 2.7 % (host, 2026-11-23 16:04). The
 larger map sharpens the edges but does not settle them: most of the change is at the
 edges and in the speckle of the bias's comparisons, which a turn re-rolls.
-Without the DEPTH view's shifted planes, the map's own 1/z was off by a median of 141
+With 1/z planes from the corners' raw 1/z, the map's own 1/z was off by a median of 141
 units at the texels behind Sponza's wrongly shadowed pixels. The lookup was not the
 cause: in float32 against float64, the moved point's offset from the camera is off by
 0.01 units, the texel by 0.005, and the receiver's depth by 0.1. As a share of the

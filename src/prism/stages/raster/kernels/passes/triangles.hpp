@@ -110,36 +110,68 @@ namespace setup_k {
             }
         }
 
-        // As plane, of the values less `origin_bits` (L5), added back to the constant.
-        inline void plane_from(
-            uint32_t first_slot,
-            uint32_t step,
-            uint32_t first_word,
-            uint32_t origin_bits
-        ) {
-            immediate(L5, origin_bits);
-            for (uint32_t coefficient = 0; coefficient < 3; ++coefficient) {
-                load(L0, kSlotRecords + 3 * coefficient);
-                load(L1, first_slot);
-                sub(L1, L5, L1);
-                mul(L0, L1, L2);
-                load(L0, kSlotRecords + 3 * coefficient + 1);
-                load(L1, first_slot + step);
-                sub(L1, L5, L1);
-                mul(L0, L1, L3);
-                add(L2, L3, L2);
-                load(L0, kSlotRecords + 3 * coefficient + 2);
-                load(L1, first_slot + 2 * step);
-                sub(L1, L5, L1);
-                mul(L0, L1, L3);
-                add(L2, L3, L2);
-                load(L4, kSlotInverseArea);
-                mul(L2, L4, L2);
-                if (coefficient == 2) {
-                    add(L2, L5, L2);
-                }
-                store(L2, kSlotRecords + first_word + coefficient);
+        // The 1/z plane of the corners' own camera-space plane to record words 12 to
+        // 14 (prism_reference.raster.setup depth_planes): e1 = v1 - v0 (L0 to L2), e2 =
+        // v2 - v0 (L3 to L5), n = e1 x e2, d = n . v0, t = 1 / d (the sign of d times 1
+        // / |d|; 0 where d is 0), u = t / f; a = n0 u, b = -(n1 u), c = n2 t - (a cx +
+        // b cy).
+        inline void depth_plane() {
+            constexpr uint32_t n = kSlotRecords + 12;
+            for (uint32_t i = 0; i < 3; ++i) {
+                load(L7, kSlotCameraSpace + i);
+                load(L0 + i, kSlotCameraSpace + 3 + i);
+                sub(L0 + i, L7, L0 + i);
+                load(L3 + i, kSlotCameraSpace + 6 + i);
+                sub(L3 + i, L7, L3 + i);
             }
+            for (uint32_t i = 0; i < 3; ++i) {
+                mul(L0 + (i + 1) % 3, L3 + (i + 2) % 3, L6);
+                mul(L0 + (i + 2) % 3, L3 + (i + 1) % 3, L7);
+                sub(L6, L7, L6);
+                store(L6, n + i);
+            }
+            for (uint32_t i = 0; i < 3; ++i) {
+                load(L1, n + i);
+                load(L2, kSlotCameraSpace + i);
+                mul(L1, L2, i == 0 ? L0 : L3);
+                if (i != 0) {
+                    add(L0, L3, L0);
+                }
+            }
+            TTI_SFPNOP;
+            TTI_SFPABS(0, L0, L6, kFloatAbs);
+            TTI_SFPNOP;
+            recip(L6, L1, L2, L3, L4, L5);
+            TTI_SFPNOP;
+            TTI_SFPPUSHC(0, 0, 0, 0);
+            TT_SFPSETCC(0, L0, 0, kLt0);
+            neg(L1, L1);
+            TTI_SFPPOPC(0, 0, 0, 0);
+            TTI_SFPPUSHC(0, 0, 0, 0);
+            TT_SFPSETCC(0, L6, 0, kEq0);
+            TT_SFPMOV(0, ZERO, L1, 0);
+            TTI_SFPPOPC(0, 0, 0, 0);
+            load(L0, kSlotCamera + 12);
+            recip(L0, L2, L3, L4, L5, L6);
+            TTI_SFPNOP;
+            mul(L1, L2, L2);
+            load(L0, n);
+            mul(L0, L2, L3);
+            load(L0, n + 1);
+            mul(L0, L2, L4);
+            TTI_SFPNOP;
+            neg(L4, L4);
+            load(L0, n + 2);
+            mul(L0, L1, L5);
+            load(L0, kSlotCamera + 13);
+            mul(L3, L0, L6);
+            load(L0, kSlotCamera + 14);
+            mul(L4, L0, L7);
+            add(L6, L7, L6);
+            sub(L5, L6, L5);
+            store(L3, n);
+            store(L4, n + 1);
+            store(L5, n + 2);
         }
 
         // The float32 bits of an integer n in [1, 2^24).
@@ -149,13 +181,10 @@ namespace setup_k {
         }
 
         // A block's screen, area, box (in `grid`'s padded frame), distances, `planes`
-        // edges and planes; `weighted` (shaded) first multiplies corner values by 1/z;
-        // the 1/z plane from 1/z less `depth_origin` (bits, 0: none).
+        // edges and planes (1/z's from the corners' camera-space plane); `weighted`
+        // (shaded) first multiplies corner values by 1/z.
         inline void triangles(
-            bool planes,
-            Grid grid = {kGridDefault, kGridDefault},
-            bool weighted = false,
-            uint32_t depth_origin = 0
+            bool planes, Grid grid = {kGridDefault, kGridDefault}, bool weighted = false
         ) {
             screen();
             area_and_order();
@@ -173,11 +202,7 @@ namespace setup_k {
             load(L0, kSlotArea);
             recip(L0, L1, L2, L3, L4, L5);
             store(L1, kSlotInverseArea);
-            if (depth_origin != 0) {
-                plane_from(kSlotScreen + 2, 3, 12, depth_origin);
-            } else {
-                plane(kSlotScreen + 2, 3, 12);
-            }
+            depth_plane();
             if (weighted) {
                 for (uint32_t corner = 0; corner < 3; ++corner) {
                     load(L1, kSlotScreen + 3 * corner + 2);

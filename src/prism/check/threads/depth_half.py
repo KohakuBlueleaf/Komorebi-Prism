@@ -70,7 +70,7 @@ def depth_model(loop, scene, view):
     layers = [
         (
             name,
-            {**one, "camera": view["camera"], "size": view["size"], "depth_view": True},
+            {**one, "camera": view["camera"], "size": view["size"]},
             shade,
         )
         for name, one, shade in tile_half.layers_of(loop, scene)

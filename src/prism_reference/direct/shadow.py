@@ -79,7 +79,6 @@ def map_at(scene, camera, materials=None, side=SHADOW_SIDE):
                 "colors": np.zeros((len(scene["positions"]), 3), dtype=np.float32),
                 "camera": quadrant_camera(camera, i, j),
                 "light": np.zeros(3, dtype=np.float32),
-                "depth_view": True,
             }
             if materials is None:
                 part = rasterize(view)["depth"]

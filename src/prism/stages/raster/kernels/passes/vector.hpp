@@ -31,6 +31,8 @@ namespace setup_k {
         constexpr uint32_t kSign = 1;             // SFPMOV: the sign inverted
         constexpr uint32_t kCcNone = 4;           // SFPIADD
         constexpr uint32_t kLt0 = 0;              // SFPSETCC
+        constexpr uint32_t kEq0 = 6;              // SFPSETCC
+        constexpr uint32_t kFloatAbs = 1;         // SFPABS
         constexpr uint32_t kWallClock = 0xFFB121F0;
         constexpr uint32_t kDstWindow = 0xFFBD8000;
 

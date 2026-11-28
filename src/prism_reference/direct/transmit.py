@@ -95,7 +95,6 @@ def map_transmittance(scene, camera, materials, depth):
                 "colors": np.zeros((len(scene["positions"]), 3), dtype=F),
                 "camera": quadrant_camera(camera, i, j),
                 "light": np.zeros(3, dtype=F),
-                "depth_view": True,
             }
             rows, columns = (slice(FILL_SIDE * k, FILL_SIDE * (k + 1)) for k in (j, i))
             out[rows, columns] = transmittance(view, materials, depth[rows, columns])[0]

@@ -22,9 +22,8 @@ namespace setup_k {
         }
 
         // The command's pass: its handler, buffers (COUNT's costs: `costs`, put by
-        // mover B after the last page), range [first, end), grid (a8), whether a
-        // shade block comes with each block (SETUP on a shaded frame) and whether the
-        // view is a DEPTH view.
+        // mover B after the last page), range [first, end), grid (a8) and whether a
+        // shade block comes with each block (SETUP on a shaded frame).
         void start(
             uint32_t handler,
             uint32_t out,
@@ -33,12 +32,10 @@ namespace setup_k {
             uint32_t first,
             uint32_t end,
             uint32_t grid,
-            bool weighted = false,
-            bool depth_view = false
+            bool weighted = false
         ) {
             setup_pass::setup();
             pass.weighted = weighted;
-            pass.depth_view = depth_view;
             pass.handler = handler;
             pass.out.cb = out;
             work = cb_ptr(work_buffer);
@@ -58,7 +55,7 @@ namespace setup_k {
         }
 
         // The camera's page (L1): each number to every lane of its slot, each lane's
-        // number as an integer for finish_lanes; a DEPTH view's depth origin.
+        // number as an integer for finish_lanes.
         void camera(uint32_t camera_page) {
             mail += km::wall() - last;
             const uint32_t* camera_words = reinterpret_cast<const uint32_t*>(
@@ -68,9 +65,6 @@ namespace setup_k {
             for (uint32_t i = 0; i < kCamWords; ++i) {
                 setup_pass::fill_slot(setup_pass::kSlotCamera + i, camera_words[i]);
             }
-            pass.depth_origin = pass.depth_view
-                ? bits(fdiv(1.0f, value(camera_words[kCamWords - 1])))
-                : 0;
             setup_pass::order(
                 setup_pass::word(setup_pass::kSlotCamera + kCamWords - 1) + 62
             );
@@ -84,7 +78,9 @@ namespace setup_k {
 
         // One mesh block (L1) through the vector unit and the pass; weighted, its
         // shade block (L1) too.
-        void block(uint32_t block_page, uint32_t shade_page = 0) {
+        __attribute__((noinline)) void block(
+            uint32_t block_page, uint32_t shade_page = 0
+        ) {
             const uint32_t vector_started = km::wall();
             mail += vector_started - last;
             if (pass.succeeded) {
@@ -95,10 +91,7 @@ namespace setup_k {
                 setup_pass::block_in(mesh_words);
                 setup_pass::camera_space();
                 setup_pass::triangles(
-                    pass.handler != kHandlerCount,
-                    pass.grid,
-                    pass.weighted,
-                    pass.depth_origin
+                    pass.handler != kHandlerCount, pass.grid, pass.weighted
                 );
                 const uint32_t first_triangle = 32 * (first_block + page);
                 setup_pass::finish_lanes(
