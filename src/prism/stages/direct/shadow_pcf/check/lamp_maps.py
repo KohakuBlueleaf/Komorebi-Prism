@@ -1,14 +1,21 @@
 """The lamps' maps of a pipeline by a Loop: frames until every face is drawn (LAMPS
 commands before them), each lamp face's map on the card against the reference's at every
 texel, its levels against the reference's of the card's map (exact), the LAMPS commands'
-codes and each face's time; `failed` on a face apart, a code or a face not drawn."""
+codes and each face's time; `failed` on a face apart, a code or a face not drawn. Each
+face's reference is kept in the cache by what it is made of (`kept_references`: made with
+no card, before the card is held)."""
 
+import json
+import os
 import time
 
 import numpy as np
 
 from prism.stages.material.texture.model.layers import later_pieces
-from prism_reference.direct.lamp_maps import face_view
+from prism_common.digest import Digest
+from prism_common.paths import cache_root, data_root
+from prism_reference.direct import lights as reference_lights
+from prism_reference.direct.lamp_maps import face_view, lamp_faces
 from prism_reference.direct.shadow_filter import nearest_levels
 from prism_reference.raster.frames import rasterize_shaded
 from prism_reference.raster.setup import setup
@@ -18,13 +25,36 @@ NAME = "direct.shadow_pcf"
 FRAMES = 2  # frames a check runs, unless the options say
 MOST_FRAMES = 256  # frames run at most while lamp faces are not drawn
 RELATIVE = 1e-5  # texels further apart than this share differ
+FOLDER = "lamp_faces"  # the faces' kept references, under the cache root
+VERSION = 1  # of a kept face: raised when its reference's drawing changes
 
 
-def face_report(scene, materials, lights, one):
-    """One face's map against rasterize_shaded at its camera and size: texels covered,
-    over RELATIVE apart and empty on one side only (later pieces of cut triangles
-    apart, as the sun's check); its levels' texels apart."""
-    face, got = one["face"], one["map"]
+def made_of(scene, materials, lights):
+    """The digest of what every face's reference is drawn from: the mesh, the
+    materials' arrays, the lights' visibility and VERSION."""
+    digest = Digest(f"{VERSION}")
+    named = [("positions", scene["positions"]), ("indices", scene["indices"])]
+    named += sorted(materials.items()) + [("visibility", lights["visibility"])]
+    for name, value in named:
+        a = np.ascontiguousarray(value)
+        digest.update(f"{name}{a.dtype}{a.shape}".encode())
+        digest.update(a)
+    return digest.hexdigest()
+
+
+def face_key(base, face):
+    """The key of one face's reference: `base` (made_of), its lamp, face, size and
+    camera."""
+    digest = Digest(base)
+    named = [int(face["lamp"]), face["face"], [int(v) for v in face["size"]]]
+    digest.update(json.dumps(named).encode())
+    digest.update(np.ascontiguousarray(face["camera"]))
+    return digest.hexdigest()[:32]
+
+
+def drawn(scene, materials, lights, face):
+    """A face's reference: rasterize_shaded's 1/z at its camera and size, and the
+    later pieces of cut triangles (as the sun's check)."""
     view = face_view(scene, face)
     shaded = rasterize_shaded(view, materials)
     want, tri = shaded["depth"], shaded["tri"]
@@ -33,6 +63,46 @@ def face_report(scene, materials, lights, one):
     if (owner[1:] == owner[:-1]).any():
         corner = {**materials, "light": lights["visibility"][view["indices"]]}
         later = later_pieces(view, corner, tri)
+    return want, later
+
+
+def kept_face(base, scene, materials, lights, face):
+    """drawn() of a face: read when kept under its key, else drawn and kept (a
+    temporary name, then renamed)."""
+    path = cache_root() / FOLDER / f"{face_key(base, face)}.npz"
+    if path.exists():
+        with np.load(path) as f:
+            return f["depth"], f["later"]
+    want, later = drawn(scene, materials, lights, face)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    part = path.with_name(f"{path.name}.{os.getpid()}.part")
+    with open(part, "wb") as handle:
+        np.savez(handle, depth=want, later=later)
+    part.replace(path)
+    return want, later
+
+
+def kept_references(preset):
+    """Every lamp face's reference of an opened preset made and kept, with no card:
+    the faces of the preset's lights (else the scene's lights file)."""
+    options = preset.options
+    lights = options.get("lights") or reference_lights.load(
+        options["name"], data_root()
+    )
+    faces = lamp_faces(lights) if options.get("lamp_maps", True) else []
+    scene, materials = preset.scene, options["materials"]
+    base = made_of(scene, materials, lights)
+    for face in faces:
+        kept_face(base, scene, materials, lights, face)
+    return len(faces)
+
+
+def face_report(base, scene, materials, lights, one):
+    """One face's map against its kept reference (kept_face): texels covered, over
+    RELATIVE apart and empty on one side only (later pieces of cut triangles apart);
+    its levels' texels apart."""
+    face, got = one["face"], one["map"]
+    want, later = kept_face(base, scene, materials, lights, face)
     with np.errstate(all="ignore"):
         relative = np.abs(got.astype(np.float64) - want) / np.abs(
             want.astype(np.float64)
@@ -61,7 +131,8 @@ def face_report(scene, materials, lights, one):
 
 def compared(scene, materials, lights, maps):
     """Every face's report and their sums."""
-    reports = [face_report(scene, materials, lights, one) for one in maps]
+    base = made_of(scene, materials, lights) if maps else None
+    reports = [face_report(base, scene, materials, lights, one) for one in maps]
     return {
         "differ": sum(f["differ"] for f in reports),
         "one_empty": sum(f["one_empty"] for f in reports),

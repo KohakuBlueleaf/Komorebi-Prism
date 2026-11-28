@@ -2,7 +2,9 @@
 checked by its last implementation's check; one JSON line, and the record written to
 <out>/<scene>[_<view>]_<W>_<H>.json (out: measurements/<preset>_frame); exit 1 when the
 check's numbers say `failed`. --no-display: the preset without its display (the
-implementations that fill `post`). Example: python
+implementations that fill `post`). --reference: no card; the check's references made
+and kept (its module's `kept_references(preset)`), run before the card's lock is taken.
+Example: python
 scripts/run/preset.py --pipeline textured --scene sponza --view overview --size 1024 1024
 """
 
@@ -65,6 +67,11 @@ def parse():
         metavar="MODULE.FUNCTION",
         help="the check run on the loop; the last implementation's if none",
     )
+    parser.add_argument(
+        "--reference",
+        action="store_true",
+        help="no card: the check's references made and kept",
+    )
     parser.add_argument("--out", type=Path, default=None)
     return parser.parse_args()
 
@@ -95,6 +102,15 @@ def main():
     except ValueError as error:
         raise SystemExit(str(error)) from error
     pipeline, size = preset.pipeline, preset.size
+    if args.reference:
+        check = checked(args.check) or pipeline.implementations[-1].check
+        made = getattr(
+            importlib.import_module(check.__module__), "kept_references", None
+        )
+        if made is None:
+            raise SystemExit(f"{check.__module__} keeps no references")
+        print(json.dumps({"reference": check.__module__, "made": made(preset)}))
+        return 0
     name = "_".join([args.scene, *([args.view] if args.view else []), *map(str, size)])
     with km.Session(card=args.card) as session:
         loop = preset.open(session)
