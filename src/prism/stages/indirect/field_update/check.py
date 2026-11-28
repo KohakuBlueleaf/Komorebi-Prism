@@ -134,6 +134,7 @@ def check(loaded):
     each one's scale word asked for (field_scale); after the stop, the last field
     against the reference's, each command's code, the times rows, the scale words
     against the rows'."""
+    loaded = getattr(loaded, "loaded", loaded)  # a loop's run, or the run itself
     host = loaded.hosts[NAME]
     options = loaded.options
     stepped = bool(options.get("stepped"))
