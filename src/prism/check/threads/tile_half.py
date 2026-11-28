@@ -1,7 +1,8 @@
-"""The tile half: the model's records, slices' words and lists of a view written into
-the card's tensors, only the tile pull's phase of the view run, and the picture read
-back against the stage-wise preset's of the same frame, byte for byte; at each count
-of cores and each hand-out policy."""
+"""The tile half: a frame sent whole first (the sun's map drawn, the field updated),
+then the model's records, slices' words and lists of a view written into the card's
+tensors, only the tile pull's phase of the view run, and the picture read back against
+the stage-wise preset's of the same frame, byte for byte; at each count of cores and
+each hand-out policy."""
 
 from prism.check.threads import names, whole
 from prism.check.threads.card import closed, write_words
@@ -77,6 +78,7 @@ def check(
         loop = open_loop(threads_name, {**(options or {}), "cores": cores})
         try:
             laid = laid or model_of(loop, scene)
+            whole.settled(loop, scene["camera"], policies[0])
             given = written(loop, laid)
             count = cores or whole.loop_cores(loop)
             ran = whole.frames(

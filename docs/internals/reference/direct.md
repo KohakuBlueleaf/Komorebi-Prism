@@ -295,6 +295,35 @@ table lookup or a texel fetch.
    lit through glass by lamps or by the field (the sliding door's panel) stays brighter
    than Cycles' until lamps have visibility. The baked sky visibility is not rebuilt: it
    still treats glass as opaque.
+
+   **Transmitted light (`transmit`).** A DEPTH view keeps its nearest opaque 1/z and,
+   beside it, `T` (H, W, 3): the product over every glass fragment nearer than that 1/z
+   (the glass layer drawn with FILL's coverage, order free, so no peeling) of the
+   material's `transmission` tau times `(1 - F0)^2` (a pane's two faces at normal
+   incidence, F0 0.04; the bend through a thin pane ignored). `transmittance(view,
+   materials, opaque)` makes it for any view, `map_transmittance` for the sun's map in
+   its quadrants, `lamp_maps.face_transmit` for a lamp's face; the lights carry the sun's
+   as `shadow_transmit` (`with_map(..., transmit=True)`), and the sun's share
+   (`sun_shares`) weights each of the four taps that is lit by its texel's `T` before
+   the bilinear sum, per channel; with `shadow_transmit` the `glass_light` glass map is
+   not made (it would count the glass twice). Why this rule: Cycles' direct passes show
+   glass blocking because light that crossed glass is filed under its caustic paths,
+   while its whole frame keeps that light; rendering Cycles with each glass material
+   replaced by a rule (ignored, black, a straight pass of tau `(1 - F0)^2`) against its
+   real glass, the third is within 2 to 3 % in the regions the glass changes (35 and 41
+   dB on italian_flat and lynxsdesign at 640 x 360), the others 6 to 10 dB behind;
+   blocking loses a quarter to a third of the light of italian's lamps in their glass
+   bulbs. One `T` a texel is the product down to the nearest opaque surface, right for
+   every point a texel lights (that surface): a surface between two panes is itself the
+   nearest opaque, so a shelf between a bulb and a window takes the bulb's factor only.
+   It is wrong for a point on a pane itself: a glass pixel's own light (its
+   `(1 - max tau) a / pi E` and `S`) is given the product of its own pane and every pane
+   behind it down to the opaque surface, too dark by them; it shows on a tinted or
+   frosted pane lit through another (clear glass's own weight is near 0, so only its
+   highlight), and the nearest glass's 1/z beside `T` would tell it. Glass lying on an
+   opaque surface (a glass top on a table) is nearer or not by its float32 1/z against
+   the surface's, as the fill orders two layers; `checks.glass_transmit` leaves such
+   texels out of its traced comparison.
 4. **Terms.** `glass` (default on): left out, transparent triangles are not drawn. `R`'s
    environment form needs `background`; `S` needs `specular` (without it the term
    `glass_light`'s `F0` is 0). `parts` gains the glass layer's own planes

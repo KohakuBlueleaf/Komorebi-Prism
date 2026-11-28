@@ -155,8 +155,9 @@ Between COUNT and SETUP, on the X280 thread (`model.middle.middle` is its host f
    and the end slots. Each item also gets a base word: its first record's slot, and 1 plus
    its tile's index among the heavy tiles in the top 9 bits (0 for a whole tile), from
    which SETUP's reader makes its next slots with the prefixes SUM and HSUM computed.
-8. **Pages.** SETUP's items page (`item_table`): per tile its first item and their number
-   (`first | count << 16`), then per item its rows (`first_row | end_row << 8`, 16 bits).
+8. **Pages.** SETUP's items page (`item_table`, sized by the load's tiles and items): per
+   tile its first item and their number (`first | count << 16`), then per item its rows
+   (`first_row | end_row << 8`, 16 bits).
 
 The C does the same in parts the thread spreads over its four cores: `rm_costs`
 (totals), `rm_pick`, `rm_items` (cut), `rm_sort` and `rm_merge`, `rm_owners`,
