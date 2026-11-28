@@ -14,8 +14,7 @@ from prism.stages.direct.light.model.terms import light_pages
 from prism.stages.indirect.field_update.graph import FieldGraph
 from prism.stages.indirect.field_update.host import FieldUpdateHost
 from prism.stages.indirect.transport.device import window_defines, windows_bytes
-from prism.stages.indirect.transport.host import TransportHost
-from prism.stages.indirect.transport.plan.deal import deal
+from prism.stages.indirect.transport.host import TransportHost, dealt_ranges
 from prism.stages.post.show.host import ShowHost
 
 APPLY = "apply"  # the transport's handler the graph steps
@@ -72,7 +71,7 @@ def fitted(host):
     if host.held is None:
         return None, None
     space = fields.space_bytes(host.held)
-    first = deal(host.set, host.cores)
+    first = dealt_ranges(host.folder, host.set, host.cores)
     need = windows_at(host.set, int(np.diff(first).max()), host.block)
     if need > space:
         raise ValueError(

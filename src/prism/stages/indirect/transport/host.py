@@ -21,6 +21,7 @@ from prism_common.paths import cache_root, data_root
 from prism_reference.scene.public.table import scene_of
 
 ENCODING = 1  # w's encoding: a cached file of another is made again
+DEAL_VERSION = 1  # of a kept deal: raised when the deal changes
 SET_KEYED = ("blocks.npz", "weights.f32")  # the files a cached w depends on
 ORDER = ("x", "w", "y", "tables", "profile")  # apply's tensor parameters
 BLOCK = 8  # weight tiles a block
@@ -39,17 +40,38 @@ def scene_name(scene, options):
     return scene if isinstance(scene, str) else scene_of(options["name"])
 
 
-def weights_file(folder, cores):
-    """A set's cached w under <cache root>/apply/: <scene>_<key>.npy, the key of
-    SET_KEYED's sizes and modification times, `cores`, ENCODING."""
+def set_key(folder, cores, version):
+    """The key of a set's cached product: SET_KEYED's sizes and modification times,
+    `cores` and the product's `version` (16 hex)."""
     folder = Path(folder)
     stats = [(folder / name).stat() for name in SET_KEYED]
     text = json.dumps(
-        [[st.st_size, st.st_mtime_ns] for st in stats] + [int(cores), ENCODING]
+        [[st.st_size, st.st_mtime_ns] for st in stats] + [int(cores), version]
     )
-    key = hashlib.sha256(text.encode()).hexdigest()[:16]
-    scene = folder.name.removesuffix("_transport")
-    return cache_root() / "apply" / f"{scene}_{key}.npy"
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+
+def weights_file(folder, cores):
+    """A set's cached w under <cache root>/apply/: <scene>_<key>.npy, the key
+    set_key's at ENCODING."""
+    scene = Path(folder).name.removesuffix("_transport")
+    return cache_root() / "apply" / f"{scene}_{set_key(folder, cores, ENCODING)}.npy"
+
+
+def dealt_ranges(folder, s, cores):
+    """deal(s, cores) of the set in `folder`: read when kept under <cache
+    root>/deal/<scene>_<key>.npy (set_key's at DEAL_VERSION), else dealt and kept."""
+    scene = Path(folder).name.removesuffix("_transport")
+    path = cache_root() / "deal" / f"{scene}_{set_key(folder, cores, DEAL_VERSION)}.npy"
+    if path.exists():
+        return np.load(path)
+    first = deal(s, cores)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    part = path.with_name(path.name + ".part")
+    with open(part, "wb") as out:
+        np.save(out, first)
+    part.replace(path)
+    return first
 
 
 def encoded(s, path):
@@ -108,7 +130,8 @@ class TransportHost:
         """The set dealt to the cores (`first`: the deal's ranges, else made): its
         tables, sizes and w's bytes encoded or read from the cache."""
         _, pages = weight_pages(self.set)
-        first = deal(self.set, self.cores) if first is None else first
+        if first is None:
+            first = dealt_ranges(self.folder, self.set, self.cores)
         self.tables = tables(self.set, first, pages - 1)
         self.sizes = sizes(self.set, self.tables)
         self.raw = encoded(self.set, weights_file(self.folder, self.cores))
