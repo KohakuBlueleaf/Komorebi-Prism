@@ -130,7 +130,7 @@ def wait_state(base, token, test, timeout):
                 return state
             if state["status"] == "error":
                 return state
-        except (urllib.error.URLError, ConnectionError):
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
             pass
         time.sleep(0.25)
     return None
