@@ -116,13 +116,30 @@ class FieldUpdateHost:
             self.made = None  # no valid field: the first update comes before a frame
         self.lights = self.own_lights
         if self.sun is not None:
-            self.lights = sun_moved(self.scene, self.sun, self.loading, self.own_lights)
+            self.lights = self.lights_at(self.sun)
         self.counts = counts(self.model)
         self.elements, element_offsets = elements_region(self.model, self.lights)
         self.work_offsets, self.work_bytes = work_layout(self.model)
         self.offsets = element_offsets | self.work_offsets
-        empty = {"pages": np.zeros((self.counts["pages"], PAGE_TEXELS), np.uint32)}
-        self.own, self.first = light_pages(self.lights, empty)
+        _, self.first = light_pages(self.lights, self.empty_field())
+
+    def lights_at(self, sun):
+        """The own lights with the sun at `sun` as the card draws it (sun_lights: the
+        shadow map the loaded one); without the scene's box, the reference's moved."""
+        if self.box is None:
+            return sun_moved(self.scene, sun, self.loading, self.own_lights)
+        return sun_lights(self.own_lights, self.box, *sun)
+
+    def own_pages(self):
+        """Light pages of its own, when no host gives them: the sun's map drawn by the
+        reference at the option `sun`."""
+        if self.sun is not None and self.box is not None:
+            self.lights = sun_moved(self.scene, self.sun, self.loading, self.own_lights)
+        return light_pages(self.lights, self.empty_field())[0]
+
+    def empty_field(self):
+        """The field's pages, zero, as light_pages takes them."""
+        return {"pages": np.zeros((self.counts["pages"], PAGE_TEXELS), np.uint32)}
 
     def header_words(self):
         """The header region's words for the lights and bounces held."""
@@ -141,8 +158,7 @@ class FieldUpdateHost:
         try:
             self.pages = assembled.slot(PAGES)
         except MissingSlot:
-            self.pages = self.session.tensor(self.own, "uint32")
-        self.own = None
+            self.pages = self.session.tensor(self.own_pages(), "uint32")
         end = self.first["field"] + self.halves * self.counts["pages"]
         if self.pages.pages != end:
             raise ValueError(
