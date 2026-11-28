@@ -29,7 +29,7 @@ def scene_bounces(model, left=LEFT):
     E_(k-1), area-weighted luminance) is at most `left`; kept in the model. ValueError
     when the series does not shrink."""
     if CHOSEN in model:
-        return model[CHOSEN]
+        return int(model[CHOSEN])
     area = np.where(model["real"], model["area"], F(0))
     reflect = np.where(model["real"][:, None], model["albedo"] * F(1 / np.pi), F(0))
     x, powers = reflect.astype(F), []
