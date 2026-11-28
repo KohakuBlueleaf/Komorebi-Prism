@@ -98,6 +98,11 @@ class Shade(km.Program, compute=FRAME_COMPUTE):
         grid's bank, else 0): the surface's planes into `surface`'s frames."""
 
 
+def transmit_defines(host):
+    """The kernels' define of the sun map's T (SHADE's transmit mode)."""
+    return {"PRISM_SHADE_TRANSMIT": "1"} if host.transmit else {}
+
+
 def made(host):
     """The class made for a host's tensors and the capacity its frame is made for."""
     return Shade(
@@ -105,7 +110,8 @@ def made(host):
         **fields.given(Shade, host.held),
         defines=capacity.capacity_defines(host.held)
         | fields.defines(host.held)
-        | fields.table_defines(Shade, host.held),
+        | fields.table_defines(Shade, host.held)
+        | transmit_defines(host),
         session=host.session,
         depth=1,
     )

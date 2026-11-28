@@ -47,10 +47,11 @@ def region_bytes(quadrants):
     return SUN_AT + 4 * lines(H["SHADOW_PCF_CAMERAS"] + quadrants * CAMERA_WORDS)
 
 
-def region_words(lights, grid, target, first=0):
+def region_words(lights, grid, target, first=0, transmit=(0, 0)):
     """The sun region's words: LIGHT's table's 0 (another host's), then the
     quadrants, a side, the quadrant's `grid` word and its tiles, the map's tensor
-    `target` (from page `first`), then each quadrant's camera of `lights`."""
+    `target` (from page `first`), T's (1 + its first page, 0: none; its channels),
+    then each quadrant's camera of `lights`."""
     cameras = quadrant_cameras(lights)
     words = np.zeros(region_bytes(len(cameras)) // 4, dtype=np.uint32)
     sun = words[SUN_AT // 4 :]
@@ -65,6 +66,8 @@ def region_words(lights, grid, target, first=0):
         "TARGET": target.address,
         "TARGET_FIRST": first,
         "TARGET_PAGES": target.pages,
+        "TRANSMIT": transmit[0],
+        "TRANSMIT_CHANNELS": transmit[1],
     }
     for name, value in places.items():
         sun[H[f"SHADOW_PCF_{name}"]] = value

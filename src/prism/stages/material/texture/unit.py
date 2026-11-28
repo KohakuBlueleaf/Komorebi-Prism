@@ -17,6 +17,7 @@ UNIT = Unit(
         "opaque",
         "mode",
         "shade_surface",
+        "depth_mode",
     ),
     shares={"mesh.attributes": ("shade_table",)},
     takes=("frame.lists",),

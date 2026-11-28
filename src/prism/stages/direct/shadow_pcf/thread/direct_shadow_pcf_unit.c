@@ -46,6 +46,9 @@ static void quadrant_view(
         quadrant / across * sun[SHADOW_PCF_TILES_DOWN] * view->target_across +
         quadrant % across * sun[SHADOW_PCF_TILES_ACROSS];
     view->target_pages = sun[SHADOW_PCF_TARGET_PAGES];
+    view->transmit = sun[SHADOW_PCF_TRANSMIT];
+    view->transmit_base = sun[SHADOW_PCF_TARGET_FIRST];
+    view->transmit_channels = sun[SHADOW_PCF_TRANSMIT_CHANNELS];
 }
 
 /* A view's levels from `record` (none when it has none), `first` the map's first page.
@@ -390,6 +393,7 @@ static void fit_view(
     view->target_first = record[SHADOW_PCF_R_FIRST];
     view->target_across = record[SHADOW_PCF_R_ACROSS];
     view->target_pages = maps[SHADOW_PCF_M_FIT_PAGES];
+    view->transmit = view->transmit_base = view->transmit_channels = 0;
 }
 
 /* Record `record` of the page of maps `maps` (of kind `kind`) drawn: its levels'

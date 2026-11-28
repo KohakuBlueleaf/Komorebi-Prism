@@ -5,6 +5,9 @@
 #include <stdint.h>
 
 #include "../../../raster/kernels/common/layouts.hpp"
+#if defined(PRISM_SHOW_TRANSMIT)
+#include "../../../../core/include/thread/transmit.h"
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "convert.hpp"
 #include "komorebi/device/km_worker.hpp"
@@ -156,6 +159,78 @@ namespace show_k {
             rows += end_row - first_row;
             return -1;
         }
+
+#if defined(PRISM_SHOW_TRANSMIT)
+        // COPY_TRANSMIT's T 1: the buckets' page every byte 255.
+        void ones() const {
+            tt_l1_ptr uint32_t* words = reinterpret_cast<tt_l1_ptr uint32_t*>(
+                scratch + kShowBucketsPage * kShowPageBytes
+            );
+            for (uint32_t i = 0; i < TRANSMIT_SIDE * transmit_row_bytes(3) / 4; ++i) {
+                words[i] = 0xFFFFFFFF;
+            }
+        }
+
+        // Item `id`'s band of the map's page first + (tile / tiles) across + tile mod
+        // tiles in its T block (transmit_place: T's first page `transmit` - 1, the
+        // map's first page `base`, `channels`; `pages` the map's): its codes (plane
+        // 1's first bytes of its rows; an empty item none) with `codes`, else T 1.
+        // -1: go on; else the command's result.
+        template <typename Writer_>
+        int transmit_item(
+            const Writer_& writer,
+            const km_command_t& command,
+            uint32_t id,
+            uint32_t target,
+            uint32_t first,
+            uint32_t tiles,
+            uint32_t across,
+            uint32_t pages,
+            uint32_t transmit,
+            uint32_t base,
+            uint32_t channels,
+            bool codes
+        ) {
+            const uint32_t tile = id & kItemSlot;
+            const uint32_t page = first + tile / tiles * across + tile % tiles;
+            if ((tile * kPlanes) / tensor_pages >= kDirFrameMax || page >= pages ||
+                transmit == 0 || page < base || (channels != 1 && channels != 3)) {
+                return bad(writer, command);
+            }
+            const uint32_t first_row = id >> kItemRow0Shift & kItemRowMask;
+            const uint32_t row_end = id >> kItemRow1Shift & kItemRowMask;
+            const uint32_t end_row = row_end > 0 ? row_end : 32;
+            if (!writer.wait_front(planes, kShowPlanes)) {
+                return 1;
+            }
+            if (codes && (id & fill_k::kItemEmpty) != 0) {  // no glass: T 1 stays
+                cb_pop_front(planes, kShowPlanes);
+                return -1;
+            }
+            invalidate_l1_cache();
+            const TransmitPlace place = transmit_place(
+                transmit - 1, page - base, channels
+            );
+            const uint32_t row_bytes = transmit_row_bytes(channels);
+            const InterleavedAddrGen<true> blocks = {
+                .bank_base_address = target, .page_size = kShowPageBytes
+            };
+            noc_async_write(
+                codes ? get_read_ptr(planes) + first_row * kRowBytes
+                      : scratch + kShowBucketsPage * kShowPageBytes,
+                get_noc_addr(
+                    place.page, blocks, place.offset + first_row / 2 * row_bytes
+                ),
+                (end_row - first_row) / 2 * row_bytes
+            );
+            if (!sent(writer, command)) {
+                return 0;
+            }
+            cb_pop_front(planes, kShowPlanes);
+            rows += end_row - first_row;
+            return -1;
+        }
+#endif
     };
 
 }  // namespace show_k

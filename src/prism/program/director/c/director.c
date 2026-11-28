@@ -352,6 +352,7 @@ static uint32_t eye_view(const dr_frame_t* frame, dr_view_t* view) {
     }
     view->camera_at = dr_address(DR_REGION_NUMBERS, 4u * DR_N_CAMERA);
     view->target = view->target_first = view->target_across = view->target_pages = 0;
+    view->transmit = view->transmit_base = view->transmit_channels = 0;
     view->grid = dr_number(frame, DR_N_GRID);
     view->tiles = dr_number(frame, DR_N_TILES);
     return view->tiles ? 0u : DR_BAD_ARGS;

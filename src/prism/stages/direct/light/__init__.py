@@ -15,6 +15,7 @@ LIGHT = IMPLEMENTATIONS.register(
             "frame.visibility",
             "mesh.attributes",
             "light.shadow_map",
+            "light.transmit",
             "frame.surface",
         ),
         writes=("frame.visibility",),

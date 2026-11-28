@@ -14,6 +14,9 @@ namespace light_k {
         const uint32_t* table;
         uint32_t terms, lamps, bits, mode;
         bool graded;
+#if defined(PRISM_LIGHT_TRANSMIT)
+        bool transmit;  // the sun map's T weighs the shadow's taps (transmit_tile)
+#endif
     };
 
     // x / (1 + x) of exposure x L3 into Dst vector `to` (L4 to L7, L0, L1 used).

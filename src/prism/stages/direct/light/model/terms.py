@@ -10,6 +10,7 @@ from prism.stages.direct.light.model.numbers import (
     LH,
     PAGE,
 )
+from prism.stages.direct.light.model.transmit import transmit_pages
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.lights import placeholder, shadow_side
 
@@ -36,10 +37,11 @@ def map_pages(values):
     return np.ascontiguousarray(blocks.reshape(-1, PAGE * PAGE).view(np.uint32))
 
 
-def light_pages(lights, field=None):
+def light_pages(lights, field=None, transmit=0):
     """LIGHT's pages: the shadow map's 1/z (zero pages for a placeholder), the background
     map's three planes, each a map_pages; with `field` (field_of) its pages (`halves`
-    of them, 1 when absent, those after the first zero); and each part's first page."""
+    of them, 1 when absent, those after the first zero); with `transmit` (T's channels)
+    the map's T (transmit_pages, every code 1); and each part's first page."""
     side = shadow_side(lights)
     octa = lights["octahedral"].astype(F32)
     if side % PAGE or octa.shape[0] % PAGE:
@@ -54,6 +56,10 @@ def light_pages(lights, field=None):
         first["field"] = sum(len(part) for part in parts)
         parts.append(field["pages"])
         parts += [np.zeros_like(field["pages"])] * (field.get("halves", 1) - 1)
+    if transmit:
+        first["transmit"] = sum(len(part) for part in parts)
+        count = transmit_pages(side, transmit)
+        parts.append(np.full((count, PAGE * PAGE), 0xFFFFFFFF, dtype=np.uint32))
     return np.concatenate(parts), first
 
 

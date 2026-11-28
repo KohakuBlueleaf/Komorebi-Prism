@@ -23,7 +23,9 @@
 #define SHADOW_PCF_MAPS_AT 9u       /* the page of maps' first byte in the region */
 #define SHADOW_PCF_LEVELS_AT 10u    /* the levels' work bytes' first byte */
 #define SHADOW_PCF_LEVELS_BYTES 11u /* their bytes */
-#define SHADOW_PCF_CAMERAS 16u      /* the first quadrant's camera, on a line */
+#define SHADOW_PCF_TRANSMIT 12u /* 1 + T's first page in the map's tensor (0: none) */
+#define SHADOW_PCF_TRANSMIT_CHANNELS 13u /* T's channels, 1 or 3 (transmit.h) */
+#define SHADOW_PCF_CAMERAS 16u           /* the first quadrant's camera, on a line */
 
 /* The times region: a row a SUN, FIT or LAMPS command (the last SHADOW_PCF_TIMES_ROWS),
  * its words the number, the code, the pass's ticks, the map (0 SUN's, 1 + the first

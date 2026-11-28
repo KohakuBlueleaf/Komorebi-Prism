@@ -13,6 +13,10 @@ namespace light_step {
     // The pack CPU's texel addresses: four taps' (1,024 words a tap) from word 0, the
     // field's eight corners' from word 8,192 (pack/dst.hpp kLwIndex, kLwField).
     constexpr uint32_t kLightStepWorkBytes = 65536;
+    // With the sun map's T: the work's bytes after the field's corners for its taps'
+    // texel addresses, then their codes, then its tile's numbers (pack/dst.hpp
+    // kLwTransmit, kTransmitAllWords).
+    constexpr uint32_t kLightStepTransmitBytes = 16416;
     // A pass's page table (texel_pages Pages: keys, slots, the places used), then its
     // ask list (the pages, from word 1).
     constexpr uint32_t kLightStepPagesBytes = 2560;

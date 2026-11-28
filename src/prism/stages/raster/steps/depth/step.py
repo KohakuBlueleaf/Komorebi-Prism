@@ -1,7 +1,9 @@
 """The DEPTH view's last step of the tile thread: the visibility's 1/z pushed as an
 output block, turned row-major on the data-movement CPU that takes it and written to the
-tile's page of the view's target, with its levels when the view has them."""
+tile's page of the view's target, with its levels when the view has them; with T the
+tile's T block beside it."""
 
+from dataclasses import replace
 from pathlib import Path
 
 from prism.core.headers import constexpr
@@ -23,4 +25,10 @@ DEPTH_OUT = Step(
     thread=f"{STAGE}/thread/depth_out_frame_words.c",
     colour=False,
     depth=True,
+)
+
+# with the sun map's T (the option shadow_transmit): the tile's T block beside it
+DEPTH_OUT_TRANSMIT = replace(
+    DEPTH_OUT,
+    words=(*DEPTH_OUT.words, "transmit", "transmit_base", "transmit_channels"),
 )

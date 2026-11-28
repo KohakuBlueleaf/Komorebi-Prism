@@ -50,13 +50,32 @@ namespace light_k {
         store(L6, sx_vector(kSxGloss));
     }
 
+    // A row's irradiance vector of channel c: the one vector of every channel.
+    inline uint32_t channel_of(uint32_t vector, uint32_t c) {
+        static_cast<void>(c);
+        return vector;
+    }
+
+#if defined(PRISM_LIGHT_TRANSMIT)
+    // The sun's irradiance a channel: channel 0 at kSxSun, 1 and 2 at row k's kRvFx and
+    // kRvFy with T (`fx` that vector), else at kSxSun (`fx` 0).
+    struct SunChannels {
+        uint32_t fx;
+    };
+
+    inline uint32_t channel_of(const SunChannels& sun, uint32_t c) {
+        return c != 0 && sun.fx != 0 ? sun.fx + c - 1 : sx_vector(kSxSun);
+    }
+#endif
+
     // Row k's specular sum += specular x gloss x (the light's colour x `irradiance` /
     // pi): the colour's channel c the immediate light[stride c].
+    template <typename Irradiance>
     inline void shine(
         uint32_t k,
         const uint32_t* light,
         uint32_t stride,
-        uint32_t irradiance,
+        const Irradiance& irradiance,
         const uint32_t* table
     ) {
         for (uint32_t channel = 0; channel < 3; ++channel) {
@@ -64,7 +83,7 @@ namespace light_k {
             load(L1, sx_vector(kSxGloss));
             mul(L0, L1, L0);
             immediate(L2, light[stride * channel]);
-            load(L3, irradiance);
+            load(L3, channel_of(irradiance, channel));
             mul(L2, L3, L2);
             immediate(L3, table[kLtInvPi]);
             mul(L2, L3, L2);
@@ -176,12 +195,61 @@ namespace light_k {
         }
     }
 
+#if defined(PRISM_LIGHT_TRANSMIT)
+    // The taps L4 to L7 of row k bilinear by its fractions into `out`; L0 to L3 used.
+    inline void bilinear(uint32_t k, uint32_t out) {
+        load(L0, row_vector(k, kRvFx));
+        sub(ONE, L0, L1);
+        mul(L4, L1, L2);
+        TT_SFPMAD(L5, L0, L2, L2, 0);
+        mul(L6, L1, L3);
+        TT_SFPMAD(L7, L0, L3, L3, 0);
+        load(L0, row_vector(k, kRvFy));
+        sub(ONE, L0, L1);
+        mul(L2, L1, L2);
+        TT_SFPMAD(L3, L0, L2, L2, 0);
+        store(L2, out);
+    }
+
+    // Row k's lit taps L4 to L7 times their T (Pass::transmit_in's, in the row
+    // scratch), channel by channel: channels 1 and 2 bilinear over their taps' first,
+    // channel 0's taps left in L4 to L7.
+    inline void transmit_taps(uint32_t k) {
+        for (uint32_t c = 0; c < 3; ++c) {
+            for (uint32_t tap = 0; tap < kLightKeys; ++tap) {
+                load(L0, sx_vector(kSxTransmit + kLightKeys * c + tap));
+                mul(L0, L4 + tap, L0);
+                store(L0, sx_vector(kSxTransmit + kLightKeys * c + tap));
+            }
+        }
+        for (uint32_t c = 1; c < 3; ++c) {
+            for (uint32_t tap = 0; tap < kLightKeys; ++tap) {
+                load(L4 + tap, sx_vector(kSxTransmit + kLightKeys * c + tap));
+            }
+            bilinear(k, sx_vector(kSxTransmit + kLightKeys * c));
+        }
+        for (uint32_t tap = 0; tap < kLightKeys; ++tap) {
+            load(L4 + tap, sx_vector(kSxTransmit + tap));
+        }
+    }
+#endif
+
     // Row k's colour: (a / pi) E + specular; emissive a; empty the background; glass:
-    // tau C + that + F R in front, else C; toned (linear: not; graded: grade_row).
+    // tau C + that + F R in front, else C; toned (linear: not; graded: grade_row). With
+    // the sun map's T (numbers.transmit) each lit tap is weighted by its T a channel:
+    // the register plan's row fractions kRvFx, kRvFy, dead past the shadow's filter,
+    // then hold the sun's channels 1 and 2.
     template <bool glass = false>
     inline void light_row(uint32_t k, const LightNumbers& numbers, uint32_t* values) {
         const uint32_t* table = numbers.table;
         const uint32_t terms = numbers.terms;
+#if defined(PRISM_LIGHT_TRANSMIT)
+        const bool transmit = numbers.transmit;
+        static_assert(kRvFy == kRvFx + 1 && row_vector(0, kRvFx) != 0);
+        const SunChannels sun = {transmit ? row_vector(k, kRvFx) : 0u};
+#else
+        const uint32_t sun = sx_vector(kSxSun);
+#endif
         uint32_t mark = km::wall();
         auto lap = [&](uint32_t slot) {
             tensix_sync();
@@ -204,6 +272,11 @@ namespace light_k {
                 add(ZERO, ZERO, L4 + tap);
                 TTI_SFPENCC(3, 0, 0, 10);
             }
+#if defined(PRISM_LIGHT_TRANSMIT)
+            if (transmit) {
+                transmit_taps(k);
+            }
+#endif
             load(L0, row_vector(k, kRvFx));
             sub(ONE, L0, L1);
             mul(L4, L1, L2);
@@ -215,6 +288,14 @@ namespace light_k {
             mul(L2, L1, L2);
             TT_SFPMAD(L3, L0, L2, L2, 0);
             store(L2, sx_vector(kSxShadow));
+#if defined(PRISM_LIGHT_TRANSMIT)
+            if (transmit) {  // the sun's channels 1, 2 to their vectors
+                for (uint32_t c = 1; c < 3; ++c) {
+                    load(L0, sx_vector(kSxTransmit + kLightKeys * c));
+                    store(L0, channel_of(sun, c));
+                }
+            }
+#endif
             lap(kLightProfShadow);
         }
         const bool field = (terms & kTermIndirect) != 0;  // I at kSxIndirect: no sky
@@ -243,6 +324,15 @@ namespace light_k {
         TTI_SFPNOP;
         at_least_zero(L3, L4);
         if ((terms & kTermShadow) != 0) {
+#if defined(PRISM_LIGHT_TRANSMIT)
+            if (transmit) {  // the sun's channels 1, 2
+                for (uint32_t c = 1; c < 3; ++c) {
+                    load(L4, channel_of(sun, c));
+                    mul(L3, L4, L4);
+                    store(L4, channel_of(sun, c));
+                }
+            }
+#endif
             load(L4, sx_vector(kSxShadow));
             mul(L3, L4, L3);
         }
@@ -299,7 +389,7 @@ namespace light_k {
                     immediate(L0 + axis, table[kLtSunDirection + axis]);
                 }
                 gloss(k, numbers.bits);
-                shine(k, table + kLtSun, kLtChannel, sx_vector(kSxSun), table);
+                shine(k, table + kLtSun, kLtChannel, sun, table);
             }
             lap(kLightProfSpecular);
         }
@@ -339,7 +429,7 @@ namespace light_k {
                 add(L3, L4, L3);
             }
             immediate(L4, sky[kLtSun]);
-            load(L5, sx_vector(kSxSun));
+            load(L5, channel_of(sun, channel));
             TT_SFPMAD(L4, L5, L3, L3, 0);
             load(L4, sx_vector(kSxPoints + channel));
             add(L3, L4, L3);

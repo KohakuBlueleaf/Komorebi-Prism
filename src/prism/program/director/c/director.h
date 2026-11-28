@@ -39,8 +39,9 @@
  * index times DR_LAYERS plus the layer), its kind, its camera's words and their bank
  * address, its grid word (the commands') and tiles; a DEPTH view's target: a tensor,
  * its first page, its pages a row of tiles, its pages; and its levels (depth_levels.h):
- * the slots' tensor (0: none), target page p's slot p + levels_shift, the tops' tensor
- */
+ * the slots' tensor (0: none), target page p's slot p + levels_shift, the tops' tensor;
+ * its T (transmit.h): 1 + T's first page of the target (0: none), the map's first page
+ * (its tile 0's), T's channels (1 or 3) */
 typedef struct {
     uint32_t index, kind;
     uint32_t camera[DR_N_CAMERA_WORDS];
@@ -48,6 +49,7 @@ typedef struct {
     uint32_t grid, tiles;
     uint32_t target, target_first, target_across, target_pages;
     uint32_t levels, levels_shift, tops;
+    uint32_t transmit, transmit_base, transmit_channels;
 } dr_view_t;
 
 /* A layer of a view: its row of the layers region (DR_LAYER_WORDS, by DR_<UNIT>_L_*) */

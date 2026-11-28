@@ -85,6 +85,34 @@ tap outside the map reads key 0, a texel of 1/z 0: lit), or on an empty pixel th
 background texel of its view direction turned by `-turn` about y in each channel. The
 pages a row needs (at most 128) go into SHADE's page slots by the same mechanism.
 
+With the option `shadow_transmit` and glass in the scene (`model/transmit.py`), the
+sun's map keeps its `T` (the reference's kept form, `prism_reference.direct.transmit`)
+after every other part: a map tile's block of 16 x 16 codes (a byte grey, a word RGB,
+channels chosen once from the materials), blocks in the map's tile order, 16 or 4 to a
+page (`core/include/thread/transmit.h`); the pages start at 255 (T 1). The DEPTH views
+that draw the map draw the glass layer too (the shadow host names the layers in slot
+`view.depth`) and write the blocks: in a tile thread the material step's glass layer
+makes T in its colour pages and the depth step pushes the band's codes; in the default
+form SHADE's transmit mode (`kShadeTransmit`) puts them in the opaque frame's plane 1
+(its writer writes that plane besides the 1/z and the material word) and COPY_TRANSMIT
+(after COPY) writes T 1 over every tile, then the codes of the glass layer's items that
+are not empty (an empty item is a tile without glass: T 1 stays). LIGHT finds a shadow tap's T from its key (the page its map tile, its
+texel's row and column halved), gathers it with the taps, and weights each lit tap by it
+before the bilinear sum, a channel each (shine and the colour per channel).
+
+Every part of it is built only with the option on: the defines `PRISM_LIGHT_TRANSMIT`,
+`PRISM_SHADE_TRANSMIT`, `PRISM_SHOW_TRANSMIT` and the thread's `POST_SHOW_TRANSMIT` in
+the default form, the tile thread `LIT_TRANSMIT` (`GI_TRANSMIT`) of the threads' form,
+whose steps are the lit ones built with T (`material_transmit.hpp`,
+`light_transmit_step.hpp`, depth out with its T words). Off, the kernels are those of a
+build without it. The channels are read once a tile into the pass's numbers (a code's
+mask and its spread to three channels, a texel's place); a grey T is three equal
+channels from there on, so the rows run one body. The taps' addresses and codes take
+4,096 words and the tile's numbers 8 more after them (kept in L1, not on the pack CPU's
+stack, whose margin is the narrowest): LIGHT's work words after the field's corners in
+both forms, the tile thread's light step asking for a keep `work` larger by 16,416
+bytes.
+
 ## LIGHT's table
 
 4,096 bytes (`kLightTableBytes`; `table.light_table`), float32 unless said:
@@ -109,6 +137,7 @@ pages a row needs (at most 128) go into SHADE's page slots by the same mechanism
 | 88 | int: the light pages in all |
 | 89 to 91 | the glass's reflection share, F0 (0.04), 1 - F0 |
 | 92, 93 | the tone step's saturation; int: its curve (0 plain, 1 filmic) |
+| 94, 95 | int: the map's T's first page plus one (0: none), its channels |
 | 96 to 111 | the camera (the reader's copy) |
 | 128 + 16 l | lamp l: position, colour, intensity, radius, 1 / radius, size^2, then its shape: axis (3), scale, offset, square (below) |
 | 640 to 656 | the field (below) |

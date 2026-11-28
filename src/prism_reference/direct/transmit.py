@@ -28,7 +28,8 @@ def pane_factors(materials, triangles):
 
 def tile_product(records, members, factors, opaque, tx, ty):
     """T (32, 32, 3) and the fragments counted (32, 32) of one tile: the product of
-    `factors` of each member covering a pixel (FILL's rule) nearer than `opaque`."""
+    `factors` of each member covering a pixel (FILL's rule) whose drawn 1/z (held as
+    FILL holds it) is nearer than `opaque`."""
     px = (F(tx * TILE) + np.arange(TILE, dtype=F) + F(0.5))[None, None, :]
     py = (F(ty * TILE) + np.arange(TILE, dtype=F) + F(0.5))[None, :, None]
     cols = (np.arange(TILE) + tx * TILE)[None, None, :]
@@ -44,10 +45,11 @@ def tile_product(records, members, factors, opaque, tx, ty):
         box = records["box"][m]
         inside &= (cols >= box[:, 0, None, None]) & (cols <= box[:, 1, None, None])
         inside &= (rows >= box[:, 2, None, None]) & (rows <= box[:, 3, None, None])
-        wp = records["w_planes"][m]
+        wp, held = records["w_planes"][m], records["w_range"][m]
         w = (wp[:, 0, None, None] * px + wp[:, 1, None, None] * py) + wp[
             :, 2, None, None
         ]
+        w = np.minimum(np.maximum(w, held[:, 0, None, None]), held[:, 1, None, None])
         nearer = inside & (w > opaque[None])
         product *= np.where(nearer[..., None], factors[m][:, None, None, :], F(1)).prod(
             0
@@ -110,35 +112,53 @@ def t_channels(materials, triangles):
     return 1 if (tau == tau[:, :1]).all() else 3
 
 
-def page_side(channels):
-    """Texels along a page's square side for `channels`."""
-    return int(np.sqrt(PAGE_BYTES // WORD_BYTES[channels]))
+def block_side(scale=T_SCALE):
+    """Kept texels along a block's side: a map tile's (TILE x TILE map texels)."""
+    return TILE // scale
+
+
+def block_bytes(channels, scale=T_SCALE):
+    """A block's bytes for `channels`: its texels' words."""
+    return block_side(scale) ** 2 * WORD_BYTES[channels]
 
 
 def kept(through, channels, scale=T_SCALE):
-    """T (H, W, 3) as kept: {"codes" (h, w, channels) uint8 of each scale x scale block's
-    mean (round(255 T)), "present" (pages down, across) bool (a page not all 255),
-    "scale", "channels"}; the map's side a multiple of scale."""
+    """T (H, W, 3) as kept: {"codes" (h, w, channels) uint8, each the code of its scale x
+    scale texels' float32 mean (pairs of rows summed, then the two sums; times 1 /
+    scale^2; floor(255 v + 1/2)), "present" (tiles down, across) bool (a map tile's
+    block not all 255), "scale", "channels"}; H and W multiples of TILE."""
     side_y, side_x = through.shape[:2]
     h, w = side_y // scale, side_x // scale
-    low = through[: h * scale, : w * scale].reshape(h, scale, w, scale, 3)
-    low = low.astype(np.float64).mean(axis=(1, 3))
+    blocks = through.reshape(h, scale, w, scale, 3).astype(F)
+    low = blocks.sum(axis=1, dtype=F).sum(axis=2, dtype=F) if scale > 1 else through
+    if scale > 1:
+        low = (low.reshape(h, w, 3) * F(1.0 / (scale * scale))).astype(F)
     low = low[:, :, :1] if channels == 1 else low
-    codes = np.round(np.clip(low, 0, 1) * 255).astype(np.uint8)
-    p = page_side(channels)
-    down, across = -(-h // p), -(-w // p)
-    padded = np.full((down * p, across * p, channels), 255, dtype=np.uint8)
-    padded[:h, :w] = codes
-    present = (padded.reshape(down, p, across, p, channels) != 255).any(axis=(1, 3, 4))
+    code = np.floor(low * F(255) + F(0.5))
+    codes = np.clip(code, 0, 255).astype(np.uint8)
+    k = block_side(scale)
+    present = (codes.reshape(h // k, k, w // k, k, channels) != 255).any(axis=(1, 3, 4))
     return {"codes": codes, "present": present, "scale": scale, "channels": channels}
 
 
+def kept_pages(form):
+    """The 4 KiB pages a kept form holds (its blocks in map-tile order, as many a page
+    as fit) and those with a present block."""
+    per = PAGE_BYTES // block_bytes(form["channels"], form["scale"])
+    present = form["present"].reshape(-1)
+    pages = -(-len(present) // per)
+    padded = np.zeros(pages * per, dtype=bool)
+    padded[: len(present)] = present
+    return pages, int(padded.reshape(pages, per).any(axis=1).sum())
+
+
 def kept_at(form, iy, ix):
-    """T (n, 3) float32 of the kept form at map texels iy, ix: 1 on an absent page."""
-    s, p = form["scale"], page_side(form["channels"])
+    """T (n, 3) float32 of the kept form at map texels iy, ix: code / 255 (a float32
+    product), 1 in an absent block."""
+    s, k = form["scale"], block_side(form["scale"])
     ky, kx = iy // s, ix // s
-    codes = form["codes"][ky, kx].astype(F) / F(255)
-    there = form["present"][ky // p, kx // p]
+    codes = form["codes"][ky, kx].astype(F) * F(1.0 / 255)
+    there = form["present"][ky // k, kx // k]
     return np.where(there[:, None], np.broadcast_to(codes, (len(ky), 3)), F(1))
 
 

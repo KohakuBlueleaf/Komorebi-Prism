@@ -121,6 +121,7 @@ class ThreadsHost(Host):
         self.account_pages = None
         self.layers = {}  # by name: its tensors and numbers
         self.depth_views = ()  # another host's DEPTH views
+        self.depth_layers = DEPTH_LAYERS  # the layers they draw, as they name them
         self.loaded = None  # the run whose numbers and rows are written
         self.written = None  # the size whose grid is written
         self.standing = None  # the eye's view (camera bytes, size) the last frame asked
@@ -216,12 +217,13 @@ class ThreadsHost(Host):
             views = None
         if views:
             self.depth_views = tuple(views["views"])
+            self.depth_layers = tuple(views.get("layers", DEPTH_LAYERS))
             size = tuple(views["size"])
             sizes.append(size)
             for camera in views["cameras"]:
                 scenes = {
                     name: {**self.scenes[name], "camera": camera, "size": size}
-                    for name in DEPTH_LAYERS
+                    for name in self.depth_layers
                     if name in self.scenes
                 }
                 for name, slots in slots_needed(scenes, size, self.heavy).items():
@@ -307,7 +309,7 @@ class ThreadsHost(Host):
             0 if one["boxes"] is None else one["boxes"].address,
             one["group_first"],
         )
-        return row | {"depth": int(name in DEPTH_LAYERS)}
+        return row | {"depth": int(name in self.depth_layers)}
 
     def need(self, size):
         """The tiles of a frame of `size`; wide past the narrow grid."""

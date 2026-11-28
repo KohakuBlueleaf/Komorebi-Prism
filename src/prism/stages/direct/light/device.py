@@ -105,6 +105,11 @@ def shows_defines(host):
     return {"PRISM_LIGHT_SHOWS": "1"} if host.shows else {}
 
 
+def transmit_defines(host):
+    """The kernels' define of the sun map's T (each lit shadow tap weighted by it)."""
+    return {"PRISM_LIGHT_TRANSMIT": "1"} if host.transmit else {}
+
+
 def made(host):
     """The class made for a host's tensors and the raster's capacity."""
     cls = LightShown if host.shows else Light
@@ -114,7 +119,8 @@ def made(host):
         defines=capacity.capacity_defines(host.held)
         | fields.defines(host.held)
         | fields.table_defines(cls, host.held)
-        | shows_defines(host),
+        | shows_defines(host)
+        | transmit_defines(host),
         session=host.session,
         depth=1,
     )

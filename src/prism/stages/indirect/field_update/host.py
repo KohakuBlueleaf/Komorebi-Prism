@@ -14,6 +14,7 @@ from prism.core.unit import BESIDE, FRAMES
 from prism.program.assemble import MissingSlot
 from prism.stages.direct.light.model.sun import scene_box, sun_lights
 from prism.stages.direct.light.model.terms import light_pages
+from prism.stages.direct.light.model.transmit import transmit_pages
 from prism.stages.indirect.field_update.model.header import header, sun_words
 from prism.stages.indirect.field_update.model.numbers import (
     F32,
@@ -37,6 +38,7 @@ from prism_reference.direct.lights import (
     moved,
     options_of,
     placeholder,
+    shadow_side,
 )
 from prism_reference.direct.lights import load as load_lights
 from prism_reference.indirect.bounces import bounces_of
@@ -49,6 +51,7 @@ from prism_reference.scene.public.views import make_view
 COMMAND = "update"
 PAGES = "light.field"  # the light pages, when a host gives them
 SCALE = "light.field_scale"  # the last update's scale, for the host that reads it
+TRANSMIT = "light.transmit"  # the sun map's T after the field, when a host keeps it
 SCALE_COMMAND = "field_scale"  # the command returning the last update's scale word
 MS = 1e3
 
@@ -152,14 +155,25 @@ class FieldUpdateHost:
 
     def connect(self, assembled):
         """The light pages: slot light.field's tensor when a host gives it (ValueError
-        when it is smaller than the layout), else pages of its own; x and y of the
-        passes: the tensors of elements.radiance and elements.irradiance, of the
-        model's tiles."""
+        when it is not the layout's, the map's T after the field with slot
+        light.transmit), else pages of its own; x and y of the passes: the tensors of
+        elements.radiance and elements.irradiance, of the model's tiles."""
         try:
             self.pages = assembled.slot(PAGES)
         except MissingSlot:
             self.pages = self.session.tensor(self.own_pages(), "uint32")
         end = self.first["field"] + self.halves * self.counts["pages"]
+        try:
+            given = assembled.slot(TRANSMIT)
+        except MissingSlot:
+            given = None
+        if given is not None:
+            if int(given["first"]) != end:
+                raise ValueError(
+                    f"the map's T from light page {given['first']}, the update's "
+                    f"field ends at {end}"
+                )
+            end += transmit_pages(shadow_side(self.lights), int(given["channels"]))
         if self.pages.pages != end:
             raise ValueError(
                 f"the light pages hold {self.pages.pages} pages, the update's layout "

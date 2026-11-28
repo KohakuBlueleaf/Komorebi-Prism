@@ -11,6 +11,7 @@ import numpy as np
 from prism.core.capacity import Capacity, capacity, default_capacity, narrow, need
 from prism.core.control import Control
 from prism.core.implementation import Host
+from prism.stages.direct.light.model.transmit import transmit_channels
 from prism.stages.post.show.model.pages import (
     FramePages,
     padded_image,
@@ -87,6 +88,7 @@ class ShowHost(Host):
         self.form, self.view_notes = view_option(options)
         default = VIEW if self.form is not None else POWER
         self.conversion = options.get("transfer", default)
+        self.transmit = transmit_channels(options, options.get("materials"))  # T's
 
     def prepare(self):
         """The capacity of the scene's frame (as the raster stage's), the table, the
@@ -109,6 +111,8 @@ class ShowHost(Host):
             "profile": self.tensors["profile"],
             "target": self.tensors["display"],
         }
+        if self.transmit:
+            self.examples["frame_directory"] = self.tensors["directory"]
 
     def slots(self):
         """With the option light_shows, the display tensor as display.picture."""

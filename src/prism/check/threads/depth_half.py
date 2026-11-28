@@ -18,7 +18,6 @@ from prism.stages.direct.shadow_pcf.model.region import (
     across_of,
     quadrant_cameras,
 )
-from prism.stages.raster.host import DEPTH_LAYERS
 from prism_reference.scene.frame import frame_grid
 
 SUN = "sun"  # its command
@@ -74,7 +73,7 @@ def depth_model(loop, scene, view):
             shade,
         )
         for name, one, shade in tile_half.layers_of(loop, scene)
-        if name in DEPTH_LAYERS
+        if name in host.depth_layers
     ]
     if [name for name, _, _ in layers] != list(host.layers)[: len(layers)]:
         raise ValueError(f"the depth layers {layers} are not the frame's first ones")

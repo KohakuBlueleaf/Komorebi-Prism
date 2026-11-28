@@ -15,8 +15,10 @@ P = defined(Path(__file__).resolve().parent / THREAD / "post_show_unit.h")
 
 
 def defines(host):
-    """POST_SHOW_BY_LIGHT with the option light_shows: a COLOUR view sends no SHOW."""
-    return {"POST_SHOW_BY_LIGHT": "1"} if host.light_shows else {}
+    """POST_SHOW_BY_LIGHT with the option light_shows: a COLOUR view sends no SHOW;
+    POST_SHOW_TRANSMIT with the sun map's T: a DEPTH view's COPY_TRANSMIT after COPY."""
+    out = {"POST_SHOW_BY_LIGHT": "1"} if host.light_shows else {}
+    return out | ({"POST_SHOW_TRANSMIT": "1"} if host.transmit else {})
 
 
 UNIT = Unit(

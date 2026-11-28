@@ -109,6 +109,13 @@ slot(
     "then each fitted map's: camera, pages, side, texel, bias, levels)",
 )
 slot(
+    "light.transmit",
+    "u32",
+    "page",
+    "the sun map's T in the light pages: its first page and channels (1 a byte, 3 a "
+    "word a texel), a map tile's block of 16 x 16 half-resolution codes",
+)
+slot(
     "light.lamp_faces",
     "u32",
     "page",

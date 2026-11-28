@@ -16,6 +16,7 @@ SHADOW_PCF = IMPLEMENTATIONS.register(
             "light.shadow_map",
             "light.shadow_maps",
             "light.lamp_faces",
+            "light.transmit",
             "view.depth",
         ),
         device=None,

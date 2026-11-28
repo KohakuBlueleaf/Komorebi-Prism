@@ -10,6 +10,7 @@ from prism.core import fields
 from prism.core.capacity import capacity, default_capacity
 from prism.core.implementation import Host
 from prism.program.assemble import MissingSlot
+from prism.stages.direct.light.model.transmit import transmit_channels
 from prism.stages.material.texture.model.layers import as_shaded, prepare
 from prism.stages.material.texture.model.numbers import SH, SURFACE
 from prism.stages.material.texture.model.table import table_needs
@@ -91,6 +92,7 @@ class TextureHost(Host):
         self.lists = self.frames = None  # its slots, once connected
         self.loaded = None  # the run whose layer rows are written
         self.written_lists = {}  # by layer: the lists' addresses its row holds
+        self.transmit = transmit_channels(options, self.materials)  # the map's T's
 
     def tensor(self, rows):
         """A row-major uint32 array as a DRAM tensor, a page a row."""
@@ -201,7 +203,8 @@ class TextureHost(Host):
         lists, the textures, table, its profile, the opaque layer's directory when it
         merges (lit: the masked layer only; the glass layer's surface is its own), its
         mode (unlit: the masked layer's merged 1/z when a glass layer follows), its
-        surface's directory (0: unlit; the unit then gives the camera 0)."""
+        surface's directory (0: unlit; the unit then gives the camera 0), its mode in a
+        DEPTH view (lit glass with the map's T: kShadeTransmit; else 0)."""
         given, lit = self.lists[name], self.lights is not None
         merging = name == "masked" or (name == "glass" and not lit)
         opaque = self.lists["opaque"]["directory"] if merging else None
@@ -218,7 +221,16 @@ class TextureHost(Host):
             "opaque": opaque_word,
             "mode": mode,
             "shade_surface": 0 if surface is None else surface.address,
+            "depth_mode": self.depth_mode(name),
         }
+
+    def depth_mode(self, name):
+        """The layer `name`'s kShade* bits in a DEPTH view: the lit glass layer's T
+        (kShadeTransmit, kShadeTransmitRgb with three channels) when the map has one."""
+        if name != "glass" or self.lights is None or not self.transmit:
+            return 0
+        rgb = SH["kShadeTransmitRgb"] if self.transmit == 3 else 0
+        return SH["kShadeTransmit"] | rgb
 
     def view(self, loaded, camera, size):
         """Each layer's row once a run (after the raster stage's, the same index), and

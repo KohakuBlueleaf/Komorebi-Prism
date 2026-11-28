@@ -33,7 +33,7 @@ SHADE_BLOCK_WORDS = S["kShadeBlockBytes"] // 4  # a mesh block's shade block
 ATTRIBUTES = "mesh.attributes"  # the material stage's shade blocks, by layer
 VISIBILITY = "frame.visibility"  # each layer's frame tensors, by its name
 LISTS = "frame.lists"  # each layer's directory and lists, by its name
-DEPTH_LAYERS = ("opaque", "masked")  # the layers a DEPTH view draws
+DEPTH_LAYERS = ("opaque", "masked")  # the layers a DEPTH view draws unless told
 CAMERAS = "view.depth"  # another host's DEPTH views: indices, cameras, frame size
 UNIT_CODE = re.compile(r"#define\s+(RASTER_\w+)\s+\(DR_UNIT_CODES \+ (\d+)u\)")
 # the unit's codes (thread/raster_unit.h) as the thread returns them
@@ -146,6 +146,7 @@ class RasterHost(Host):
         self.depth = {}  # the DEPTH views' own tensors by layer, once connected
         self.depth_views = ()  # their indices
         self.depth_slots = {}
+        self.depth_layers = DEPTH_LAYERS  # as the DEPTH views name them
 
     def prepare(self):
         """The capacity of the scene's frame (at least the default's, the fill cores
@@ -297,11 +298,13 @@ class RasterHost(Host):
     def depth_tensors(self, views):
         """For DEPTH `views` (their indices, cameras and frame size), each depth
         layer's own lists, sized by the most its cameras need (at least the layer's
-        depth_list_slots_least), and directory."""
+        depth_list_slots_least), and directory; the layers they draw (their "layers",
+        DEPTH_LAYERS when not named)."""
         if not views:
             return
         self.depth_views = tuple(views["views"])
-        for name in DEPTH_LAYERS:
+        self.depth_layers = tuple(views.get("layers", DEPTH_LAYERS))
+        for name in self.depth_layers:
             if name not in self.layer_scenes:
                 continue
             scene = self.layer_scenes[name]
@@ -342,7 +345,7 @@ class RasterHost(Host):
         row["list_slots"] = self.layer_slots[name]
         row["shade"] = tensors["shade"].address if self.shaded else 0
         row["frame_pages"] = int(self.frame_words(frame)[0])
-        row["depth"] = int(name in DEPTH_LAYERS)
+        row["depth"] = int(name in self.depth_layers)
         row |= {f"frame_{i}": tensor.address for i, tensor in enumerate(frame)}
         return row
 

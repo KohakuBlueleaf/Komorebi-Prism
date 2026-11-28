@@ -6,11 +6,12 @@ units that ran in the last frame's row, and the times rows' medians by layer."""
 import numpy as np
 
 from prism.loop.report import medians
-from prism.stages.direct.light.model.expect import light_check
+from prism.stages.direct.light.model.expect import light_check, with_map
 from prism.stages.direct.shadow_pcf.check.sun_map import sun_map
 from prism.stages.material.texture.check.thread_frame import RESULTS
 from prism_reference.direct.frame import TERMS
-from prism_reference.direct.lights import moved
+from prism_reference.direct.lights import moved, placeholder
+from prism_reference.direct.transmit import map_kept
 from prism_reference.scene.camera import with_size
 
 FRAMES = 16  # frames a check runs, unless the options say
@@ -27,7 +28,7 @@ KEPT += ("max_error", "glass_in_front", "band", "outside_band")  # those a repor
 def lights_now(loop, scene):
     """The lights the frames of `scene` are lit with, under the loop's tone: at the
     loop's sun the reference's moved lights (the shadow map rebuilt), else their own;
-    the field of the option `bounces` when given."""
+    the field of the option `bounces` when given; the map's T when LIGHT has it."""
     host = loop.loaded.hosts[LIGHT]
     options = loop.loaded.options
     sun = options.get("sun")
@@ -36,7 +37,20 @@ def lights_now(loop, scene):
         lights = moved(host.lights, scene, loop.options["materials"], *sun)
     if "bounces" in options:
         lights = {**lights, "bounces": options["bounces"]}
+    if host.transmit:
+        lights = with_transmit(scene, loop.options["materials"], lights)
     return {**lights, **host.tone}
+
+
+def with_transmit(scene, materials, lights):
+    """`lights` with their map's kept T ("shadow_transmit"), the map made first when a
+    placeholder (with_map)."""
+    if placeholder(lights):
+        return with_map(scene, materials, lights, transmit=True)
+    if lights["sun_direction"][1] <= 0:
+        return lights
+    camera, depth = lights["shadow_camera"], lights["shadow_map"]
+    return {**lights, "shadow_transmit": map_kept(scene, camera, materials, depth)}
 
 
 def terms_now(host):

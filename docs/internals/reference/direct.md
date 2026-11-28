@@ -306,12 +306,17 @@ table lookup or a texel fetch.
    (`sun_shares`) weights each of the four taps that is lit by its texel's `T` before
    the bilinear sum, per channel; with `shadow_transmit` the `glass_light` glass map is
    not made (it would count the glass twice). The lights keep `T` as the card does
-   (`kept`, `map_kept`): 8 bits, each texel the mean of a `T_SCALE` x `T_SCALE` block of
-   the map's texels (half resolution by default, a parameter of the map), one grey
+   (`kept`, `map_kept`): 8 bits, each texel the float32 mean of a `T_SCALE` x `T_SCALE`
+   block of the map's texels (pairs of rows summed, then the two sums, times 1 /
+   `T_SCALE`^2, as the card sums them), coded `floor(255 v + 1/2)` and decoded as the
+   code times 1/255 (half resolution by default, a parameter of the map); one grey
    channel when every glass material's tau is grey and an RGB word (the fourth byte
-   unused) when any is tinted, chosen once from the scene's materials (`t_channels`); a
-   4 KiB page whose texels are all 255 is absent and reads 1, so a map keeps pages only
-   where glass lies over its opaque surface. Against the full form (float, RGB, the map's
+   unused) when any is tinted, chosen once from the scene's materials (`t_channels`).
+   A map tile's T is a block (16 x 16 texels at half resolution: 256 B grey, 1 KiB
+   RGB), the blocks in the map's tile order, as many to a 4 KiB page as fit
+   (`kept_pages`); a block whose texels are all 255 is absent and reads 1, so a map
+   needs only the blocks where glass lies over its opaque surface (the card writes
+   every block for now). Against the full form (float, RGB, the map's
    resolution) the frame by this rule moved under 0.04 dB from Cycles on both scenes, and
    half resolution is 44.6 dB from the full form at most 27 codes apart (quarter: 39.9 dB,
    39). Why this rule: Cycles' direct passes show

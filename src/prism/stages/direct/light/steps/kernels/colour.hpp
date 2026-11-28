@@ -69,6 +69,9 @@ namespace light_step {
             return lit_passes(lit, pass.field_counts, FieldScan{pass}, FieldRows{pass});
         }
         for (uint32_t r = pass.first; r < pass.end; ++r) {
+#if defined(PRISM_LIGHT_TRANSMIT)
+            pass.transmit_in(r);
+#endif
             light_row<true>(r - pass.row0, pass.numbers, pass.values);
             pass.values[kLightProfRows]++;
         }

@@ -261,14 +261,108 @@ class Show(km.Program, compute=FRAME_COMPUTE):
         )
 
 
+class ShowTransmit(Show):
+    """Show with the sun map's T (the option shadow_transmit): COPY_TRANSMIT."""
+
+    @km.handler
+    def copy_transmit(
+        self,
+        directory: km.Tensor,
+        frame_directory: km.Tensor,
+        target: km.Tensor,
+        first: int,
+        across: int,
+        target_pages: int,
+        grid: int,
+        transmit: int,
+        base: int,
+        form: int,
+    ):
+        """COPY_TRANSMIT: each item of the core's directory page, its band of the T
+        block of page first + (tile / TX) across + tile mod TX of the map in `target`
+        (as COPY's), the planes from the frame of `frame_directory`'s page: T 1, or
+        with TRANSMIT_CODES in `form` the band's codes from plane 1 (`transmit`: 1 +
+        T's first page, `base` the map's first, `form`'s low bits T's channels)."""
+        km.cxx(
+            "show_k::Reader reader;",
+            on="mover_a",
+            include=["../../kernels/read.hpp"],
+        )
+        km.cxx(
+            "show_k::Writer writer;",
+            on="mover_b",
+            include=["../../kernels/profile.hpp"],
+        )
+        km.cxx(
+            "writer.start(item_planes, show_space::scratch(get_write_ptr(command_space)));"
+            "\nwriter.ones();",
+            takes=[self.item_planes, self.command_space],
+            on="mover_b",
+        )
+        for head in directory.pages(self.rank, 1).entries(DirHead, size=3, fixed=1):
+            for frames in frame_directory.pages(self.rank, 1).entries(
+                DirFrames, first=DIR_FRAME, size=16, fixed=1
+            ):
+                km.cxx(
+                    READER_FRAME,
+                    takes=[frames, self.item_planes],
+                    on="mover_a",
+                )
+                km.cxx(
+                    "if (!writer.frame(movement, command, head_items, frames_pages)) "
+                    "{\n    return false;\n}",
+                    takes=[head, frames],
+                    on="mover_b",
+                )
+                for item in directory.pages(self.rank, 1).entries(
+                    DirItem, first=DIR_IDS, size=1, count=2
+                ):
+                    km.cxx(
+                        "if (!reader.item(movement, command, item_id, 1, 1)) {\n"
+                        "    return true;\n}",
+                        takes=[item],
+                        on="mover_a",
+                    )
+                    km.cxx(
+                        "if (const int wrote = writer.transmit_item(movement, command, "
+                        "item_id, target.word, first, grid_of(grid).across, across, "
+                        "target_pages, transmit, base, form & ~TRANSMIT_CODES, "
+                        "(form & TRANSMIT_CODES) != 0); wrote >= 0) {\n"
+                        "    return wrote != 0;\n}",
+                        takes=[
+                            item,
+                            target,
+                            first,
+                            across,
+                            target_pages,
+                            grid,
+                            transmit,
+                            base,
+                            form,
+                        ],
+                        on="mover_b",
+                    )
+        km.cxx(
+            "if (!writer.sent(movement, command)) {\n    return false;\n}",
+            on="mover_b",
+        )
+
+
+def transmit_defines(host):
+    """The kernels' define of the sun map's T (COPY_TRANSMIT's)."""
+    return {"PRISM_SHOW_TRANSMIT": "1"} if host.transmit else {}
+
+
 def made(host):
     """The class made for a host's tensors and capacity, one command at a time."""
-    return Show(
+    cls = ShowTransmit if host.transmit else Show
+    return cls(
         **host.examples,
-        **fields.given(Show, host.held),
+        **fields.given(cls, host.held),
         defines=capacity.capacity_defines(host.held)
         | fields.defines(host.held)
-        | SPACE_DEFINES,
+        | SPACE_DEFINES
+        | transmit_defines(host),
         session=host.session,
         depth=1,
     )

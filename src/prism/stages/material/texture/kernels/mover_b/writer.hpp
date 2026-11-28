@@ -199,6 +199,19 @@ namespace shade_k {
                         bytes
                     );
                 }
+#if defined(PRISM_SHADE_TRANSMIT)
+                if (lit && part == 0 && (mode & kShadeTransmit) != 0) {  // T's codes
+                    const InterleavedAddrGen<true> tensor = {
+                        .bank_base_address = frame[1 + page / tensor_pages],
+                        .page_size = kOutPageBytes
+                    };
+                    noc_async_write(
+                        source + kOutPageBytes,
+                        get_noc_addr((page + 1) % tensor_pages, tensor, byte_offset),
+                        bytes
+                    );
+                }
+#endif
                 if (!writes_sent(movement, command)) {
                     return false;
                 }

@@ -17,6 +17,10 @@ from prism.program.assemble import MissingSlot
 from prism.program.loaded import MICROSECONDS
 from prism.program.threads.tile_option import depth_levels
 from prism.stages.direct.light.model.sun import scene_box, shadow_of_pages
+from prism.stages.direct.light.model.transmit import DEFAULT as TRANSMIT_DEFAULT
+from prism.stages.direct.light.model.transmit import OPTION as TRANSMIT_OPTION
+from prism.stages.direct.light.model.transmit import transmit_channels
+from prism.stages.direct.light.steps.step import LIGHT_TRANSMIT
 from prism.stages.direct.shadow_pcf.model.faces import Faces
 from prism.stages.direct.shadow_pcf.model.fit import Fits
 from prism.stages.direct.shadow_pcf.model.maps import (
@@ -55,6 +59,8 @@ TIMES = "sun_times"
 MAP = "light.shadow_map"  # the light pages, the map their first pages
 CAMERAS = "view.depth"  # the DEPTH views: indices, cameras, frame size
 LAMP_FACES = "light.lamp_faces"  # each lamp's first face record and faces
+TRANSMIT = "light.transmit"  # T's first page in the light pages and its channels
+DEPTH_LAYERS = ("opaque", "masked")  # the layers a DEPTH view draws, glass with T
 PAGE_WORDS = 1024  # a map's page
 AZIMUTH = (0.0, 360.0)  # the sun's angles a viewer offers, degrees
 ELEVATION = (0.0, 90.0)
@@ -82,6 +88,10 @@ class ShadowHost(Host):
         self.swap = 0  # 1 + the half the next SUN swaps in (0: none)
         self.lamps_began = 0.0  # when the LAMPS command asked was asked for
         self.levels_not_made = False  # levels asked, the DEPTH views write none
+        self.transmit = (
+            0,
+            0,
+        )  # the sun map's T: 1 + its first page (0: none), channels
 
     def levels_state(self):
         """The levels: "made", "not asked", or "not made" (asked, but the tile thread's
@@ -125,14 +135,34 @@ class ShadowHost(Host):
         )
         faces = len(self.faces.faces)
         self.views = tuple(range(1, 1 + quadrants + count + faces))
+        self.channels = transmit_channels(self.options, self.options.get("materials"))
         self.target = None
+
+    def composed(self, assembled):
+        """Refused when the option shadow_transmit and the tile thread disagree."""
+        on = bool(self.options.get(TRANSMIT_OPTION, TRANSMIT_DEFAULT))
+        has = LIGHT_TRANSMIT in assembled.tile_thread.steps
+        if has != on:
+            raise ValueError(
+                f"option {TRANSMIT_OPTION}={on} with a tile thread "
+                f"{'with' if has else 'without'} the sun map's T (option tile_thread="
+                "prism.program.threads.tiles:LIT_TRANSMIT or GI_TRANSMIT goes with "
+                f"{TRANSMIT_OPTION}=True)"
+            )
 
     def connect(self, assembled):
         """The map's tensor: the light pages (slot light.shadow_map) when a host gives
-        them, else a tensor of the map's own."""
+        them, else a tensor of the map's own; the map's T (slot light.transmit) in the
+        light pages when a host gives it."""
+        try:
+            given = assembled.slot(TRANSMIT)
+            self.transmit = (1 + int(given["first"]), int(given["channels"]))
+        except MissingSlot:
+            self.transmit = (0, 0)
         try:
             self.target = assembled.slot(MAP)
         except MissingSlot:
+            self.transmit = (0, 0)
             pages = np.zeros((map_pages(self.lights), PAGE_WORDS), dtype=np.uint32)
             self.target = self.session.tensor(pages, "uint32")
         if self.target.pages < map_pages(self.lights):
@@ -188,7 +218,7 @@ class ShadowHost(Host):
         the sun's words and the quadrants' cameras at the sun, then the page of maps
         (no fitted map)."""
         grid = raster_host.grid_word(QUADRANT)
-        words = region_words(self.moved(), grid, self.target)
+        words = region_words(self.moved(), grid, self.target, transmit=self.transmit)
         maps, levels, work = self.places()
         sun = words[SUN_AT // 4 :]
         sun[H["SHADOW_PCF_MAPS_AT"]] = maps
@@ -230,7 +260,12 @@ class ShadowHost(Host):
         cameras = cameras + self.faces.cameras()
         lamps = self.faces.lamps(len(self.lights["lamp_intensity"]))
         return {
-            CAMERAS: {"views": self.views, "cameras": cameras, "size": QUADRANT},
+            CAMERAS: {
+                "views": self.views,
+                "cameras": cameras,
+                "size": QUADRANT,
+                "layers": DEPTH_LAYERS + (("glass",) if self.channels else ()),
+            },
             LAMP_FACES: lamps,
         }
 

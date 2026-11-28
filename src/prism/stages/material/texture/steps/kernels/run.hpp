@@ -34,6 +34,10 @@ namespace material_step {
         Table table;
         int32_t first_row = 0, end_row = 0;
         uint32_t tile_y = 0, first_word = 0, words = 0;
+#if defined(PRISM_MATERIAL_TRANSMIT)
+        uint32_t tile_x = 0;      // the tile's column (a DEPTH view's glass layer)
+        bool depth_view = false;  // the view is a DEPTH view (material_step_compute)
+#endif
         uint32_t slots_address = 0;  // the page cache
         uint32_t* index = nullptr;   // 1,024 texel addresses, row by row
         texel_pages::Pages pages;
@@ -57,6 +61,9 @@ namespace material_step {
             first_row = static_cast<int32_t>(tile.first_row);
             end_row = static_cast<int32_t>(tile.end_row);
             tile_y = tile.tile / grid_of(ctx.page[TF_GRID]).across;
+#if defined(PRISM_MATERIAL_TRANSMIT)
+            tile_x = tile.tile % grid_of(ctx.page[TF_GRID]).across;
+#endif
             first_word = kRowBytes / 4 * tile.first_row;
             words = kRowBytes / 4 * (tile.end_row - tile.first_row);
             vl = __riscv_vsetvl_e32m8(32);

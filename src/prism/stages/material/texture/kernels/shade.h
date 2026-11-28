@@ -15,6 +15,11 @@
 // kShadeGlass: tau C + (1 - max tau) colour where nearer (a tie to the surface).
 constexpr uint32_t kShadeMergedDepth = 1;
 constexpr uint32_t kShadeGlass = 2;
+// Lit, a DEPTH view's glass layer (pack/lit/transmit.hpp): its T over the opaque
+// layer's 1/z, the codes in the opaque frame's plane 1 (kShadeTransmitRgb: a word a
+// texel, else a byte).
+constexpr uint32_t kShadeTransmit = 4;
+constexpr uint32_t kShadeTransmitRgb = 8;
 // With the opaque directory, a pixel nearer than the opaque layer's (a tie to it) with
 // alpha byte >= kAlphaOpaque takes the masked colour, else the opaque one, in the
 // opaque frame.

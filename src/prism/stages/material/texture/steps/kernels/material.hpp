@@ -1,7 +1,8 @@
 // Material, the tile thread's step after visibility, unlit (material_compute: the
 // colour into the opaque layer's planes of frame.visibility) or lit
 // (material_lit_compute: the frame's words there, the surfaces into frame.surface; in
-// a DEPTH view only the masked layer's 1/z merged). Its begin (material_begin,
+// a DEPTH view the masked layer's 1/z merged, with T (material_transmit.hpp) the glass
+// layer's T into its own pages). Its begin (material_begin,
 // material_lit_begin) reads the table and, lit, the camera once a command; then the
 // layers in the step's order as its list pass streams them: the pack CPU shades, the
 // unpack CPU hands the blocks on and serves the pack CPU's mails (its requests'
@@ -17,6 +18,9 @@
 #include "begin.hpp"
 #elif defined(TRISC_PACK)
 #include "lit/lit.hpp"
+#if defined(PRISM_MATERIAL_TRANSMIT)
+#include "transmit.hpp"
+#endif
 #include "unlit.hpp"
 #elif defined(TRISC_UNPACK)
 #include "../../kernels/waits.hpp"
@@ -130,7 +134,8 @@ namespace material_step {
 // opaque layer's pages of frame.visibility); lit, each layer's frame words in its own
 // pages and its surface in frame.surface (the masked one's taken into the opaque
 // one's).
-// A DEPTH view (lit only): the masked layer merged into the opaque one. False: gave up.
+// A DEPTH view (lit only): the masked layer merged into the opaque one, then the glass
+// layer's T into its own pages (transmit.hpp). False: gave up.
 template <bool lit, typename Ctx, typename Tile, typename Planes>
 bool material_step_compute(
     Ctx& ctx, const Tile& tile, Planes& planes, uint32_t layers, uint32_t textures
@@ -158,6 +163,9 @@ bool material_step_compute(
             ctx.kept(MATERIAL_KEPT(Cache)),
             ctx.page[textures]
         );
+#if defined(PRISM_MATERIAL_TRANSMIT)
+    run.depth_view = depth_view;
+#endif
 #else
     static_cast<void>(textures);
 #endif
@@ -170,11 +178,26 @@ bool material_step_compute(
             if (order.opaque == TR_LAYERS && order.role[i] != kOpaque) {
                 return false;  // nothing to merge into
             }
+#if defined(PRISM_MATERIAL_TRANSMIT)
+            return !depth_view || order.role[i] == kMasked || order.role[i] == kGlass;
+#else
             return !depth_view || order.role[i] == kMasked;
+#endif
         },
         [&](uint32_t i, auto& list, uint32_t entries) {
 #if defined(TRISC_PACK)
             const uint32_t visibility = planes.frame_visibility;
+#if defined(PRISM_MATERIAL_TRANSMIT)
+            if (run.depth_view && order.role[i] == kGlass) {
+                return transmit_layer(
+                    list,
+                    run,
+                    run.tile_x,
+                    layer_planes(visibility, order.layer[i]),
+                    layer_planes(visibility, order.opaque)
+                );
+            }
+#endif
 #if defined(PRISM_TF_MATERIAL_LIT_LAYERS)
             if constexpr (lit) {
                 return lit_layer(

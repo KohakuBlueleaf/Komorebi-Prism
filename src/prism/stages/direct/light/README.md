@@ -93,6 +93,20 @@ LIGHT's profile page after the pack CPU's words (`kLightProfShow*`). The frame's
 planes are not written in that command: nothing after it reads them.
 
 
+## The sun map's T (the option `shadow_transmit`)
+
+`shadow_transmit` (False in every preset) keeps the sun's map's transmittance through
+glass, so sunlight through a window or a glass roof comes in at the glass's tint and
+loss instead of being blocked. Turn it on for a scene whose glass stands between the
+sun and lit surfaces the frame sees; a scene without glass gains nothing from it. In
+the threads' presets it goes with the option
+`tile_thread=prism.program.threads.tiles:LIT_TRANSMIT` (`GI_TRANSMIT` for `gi_threads`;
+the shadow host refuses the two apart), and not with `near_tile`. The map's T is kept
+in the light pages (a byte a texel at half the map's side grey, a word RGB); the
+programs built with it are larger (the pack CPU's text, and in a tile thread the
+light step's keep `work`, 16,416 bytes larger). The layout and the arithmetic are in
+`docs/internals/direct/light_model.md`.
+
 ## In the frame's thread
 
 The preset `lit` (`configs/pipeline/lit.py`) runs raster, material.texture,

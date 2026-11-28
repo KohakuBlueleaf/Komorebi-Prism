@@ -73,6 +73,37 @@ namespace light_k {
     static_assert(
         kZeroTexel + 5 * kFieldDirectionBytes < (kShadeSlots + 1) * kTexPageBytes
     );
+#if defined(PRISM_LIGHT_TRANSMIT)
+    // T's texel of a key 0 (off the map): every byte 255, after the field's zeros
+    constexpr uint32_t kOneTexel = kZeroTexel + 6 * kFieldDirectionBytes;
+    static_assert(kOneTexel + 4 <= (kShadeSlots + 1) * kTexPageBytes);
+    // a row's T at its taps in the row scratch, over the lamps' and the specular
+    // vectors (kSxPoints to kSxGloss, made after the shadow) and the field's corner
+    // (used before it): tap t of channel c at kSxTransmit + 4 c + t
+    constexpr uint32_t kSxTransmit = kSxPoints;
+    static_assert(kSxTransmit + 3 * kLightKeys <= kSxCorner + 1);
+    // T's taps' words (their texel addresses, then their codes), 1,024 a tap
+    constexpr uint32_t kTransmitWords = 1024 * kLightKeys;
+
+    // T's numbers of a tile (Pass::transmit_tile), after its taps' words: on, 1 + its
+    // first light page, the map's 1 + first page, its blocks a page's shift, a byte's
+    // mask and a word's shift in a texel's place, a code's mask and its spread.
+    struct TransmitTile {
+        uint32_t on, first, map_first, page_shift, byte_mask, word_shift, mask, spread;
+    };
+
+    constexpr uint32_t kTransmitAllWords = kTransmitWords + sizeof(TransmitTile) / 4;
+    // in the light work, after the field's corners (before the profile's words; the
+    // tile thread's light step asks for a larger work)
+    constexpr uint32_t kLwTransmit = kLwField + 1024 * kFieldCorners;
+    static_assert(kLwTransmit + kTransmitAllWords <= kLwProfile);
+
+    // A float of `bits` made in a register (no constant in local memory).
+    inline float held_float(uint32_t bits) {
+        asm volatile("" : "+r"(bits));
+        return as_float(bits);
+    }
+#endif
     constexpr uint32_t kOutsideBits = 0xCA000000;  // -2^21: a page term off the grid
     constexpr uint32_t kEighthBits = 0x3E000000, kEightBits = 0x41000000;  // 1/8, 8
     constexpr uint32_t kTwoBits = 0x40000000;  // 2 (1/2: kHalfB)

@@ -55,15 +55,33 @@ static uint32_t shade(
 }
 
 /* A DEPTH view's layer: the merging layer's 1/z into the opaque layer's of the view's
- * own directories (the lit form, mode 0). */
+ * own directories (the lit form, mode 0); the glass layer's T over the opaque layer's
+ * (its depth mode, kShadeTransmit) when the view keeps T. */
 static uint32_t depth_layer(
     dr_frame_t* frame, const dr_view_t* view, const dr_layer_t* layer
 ) {
     const uint32_t surface = layer->words[DR_MATERIAL_TEXTURE_L_SHADE_SURFACE];
+    const uint32_t depth_mode = layer->words[DR_MATERIAL_TEXTURE_L_DEPTH_MODE];
+    const volatile uint32_t* first = layer_row(view, FIRST_LAYER);
+    if (depth_mode != 0) {
+        if (view->transmit == 0 || surface == 0) {
+            return 0;
+        }
+        return shade(
+            frame,
+            view,
+            layer,
+            layer->words[DR_MATERIAL_TEXTURE_TAKES_FRAME_LISTS_DIRECTORY],
+            layer->words[DR_MATERIAL_TEXTURE_TAKES_FRAME_LISTS_LISTS],
+            first[DR_MATERIAL_TEXTURE_TAKES_FRAME_LISTS_DIRECTORY],
+            depth_mode,
+            view->camera_at,
+            surface
+        );
+    }
     if (layer->words[DR_MATERIAL_TEXTURE_L_OPAQUE] == 0 || surface == 0) {
         return 0;
     }
-    const volatile uint32_t* first = layer_row(view, FIRST_LAYER);
     return shade(
         frame,
         view,

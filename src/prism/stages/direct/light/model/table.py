@@ -6,6 +6,7 @@ import numpy as np
 from prism.stages.direct.light.model.field import field_layout, field_words
 from prism.stages.direct.light.model.numbers import F32, LH, PAGE
 from prism.stages.direct.light.model.terms import term_bits
+from prism.stages.direct.light.model.transmit import transmit_pages
 from prism.stages.material.texture.model.table import exponents
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.glass import GLASS_F0
@@ -16,12 +17,13 @@ from prism_reference.post.tone import CURVE_FILMIC, CURVE_PLAIN, CURVE_VIEW
 from prism_reference.raster.fill import BACKGROUND
 
 
-def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
+def light_table(lights, materials, terms=TERMS, field=None, indirect=True, transmit=0):
     """LIGHT's table (shade.h kLt*): the sky, ambient, sun, exposure, terms, lamps,
     shadow, turn, maps' pages, tone (saturation 1 and curve 0 when the lights lack
     them), each lamp; with the term `indirect` the field's words (`field`: field_of,
     its pages from its `half` of its `halves`, 0 of 1 when absent), `indirect` False
-    clearing kTermIndirect."""
+    clearing kTermIndirect; with `transmit` (T's channels) T's first page after them
+    all."""
     words = np.zeros(LH["kLightTableBytes"] // 4, dtype=np.uint32)
 
     def put(at, values):
@@ -90,6 +92,10 @@ def light_table(lights, materials, terms=TERMS, field=None, indirect=True):
         count = field_layout(field["model"])[1]
         field_words(words, field, pages + field.get("half", 0) * count)
         pages += field.get("halves", 1) * count
+    if transmit:
+        words[LH["kLtTransmitFirst"]] = 1 + pages
+        words[LH["kLtTransmitChannels"]] = transmit
+        pages += transmit_pages(sides["Shadow"], transmit)
     words[LH["kLtPages"]] = pages
     # the glass's reflection: its share, F0 and 1 - F0
     put(LH["kLtReflection"], lights.get("reflection", 0.0))

@@ -113,6 +113,9 @@ namespace light_k {
                 slots_address + kZeroTexel + kFieldDirectionBytes * direction
             ) = 0;
         }
+#if defined(PRISM_LIGHT_TRANSMIT)
+        *reinterpret_cast<volatile uint32_t*>(slots_address + kOneTexel) = 0xFFFFFFFF;
+#endif
         uint32_t* shade_work = reinterpret_cast<uint32_t*>(
             texel_space::texel_work(compute_mail::write_ptr(buffers.shade_work))
         );
@@ -127,6 +130,9 @@ namespace light_k {
         pass.values = values;
         pass.index = work + kLwIndex;
         pass.field_index = work + kLwField;
+#if defined(PRISM_LIGHT_TRANSMIT)
+        pass.transmit_tile();
+#endif
         pass.slots = reinterpret_cast<const uint32_t*>(slots_address);
         const size_t vl = __riscv_vsetvl_e32m8(32);
         pass.vl = vl;

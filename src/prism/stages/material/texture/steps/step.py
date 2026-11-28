@@ -2,6 +2,7 @@
 in SHADE's order, texture pages requested, the colour (unlit) or the frame's words and
 the surfaces (lit) left in the tile's planes."""
 
+from dataclasses import replace
 from pathlib import Path
 
 from prism.core.headers import constexpr
@@ -74,4 +75,9 @@ LIT_STEP = Step(
     begin=True,
     fields=FIELDS,
     depth=True,
+)
+
+# with the sun map's T (the option shadow_transmit): a DEPTH view's glass layer's T
+LIT_TRANSMIT_STEP = replace(
+    LIT_STEP, header="stages/material/texture/steps/kernels/material_transmit.hpp"
 )

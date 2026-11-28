@@ -47,3 +47,11 @@ LIGHT_NEAR = replace(
     header=f"{STAGE}/steps/kernels/light_near_step.hpp",
     reads=(*LIGHT.reads, "near.light"),
 )
+
+# with the sun map's T (the option shadow_transmit): its taps' words after the work's
+LIGHT_TRANSMIT = replace(
+    LIGHT,
+    header=f"{STAGE}/steps/kernels/light_transmit_step.hpp",
+    keeps=LIGHT.keeps
+    | {"work": LS["kLightStepWorkBytes"] + LS["kLightStepTransmitBytes"]},
+)

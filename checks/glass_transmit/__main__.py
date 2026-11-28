@@ -25,9 +25,9 @@ from prism_reference.direct.transmit import (
     LOSS,
     kept,
     kept_at,
+    kept_pages,
     map_kept,
     map_transmittance,
-    page_side,
     pane_factors,
     sun_shares,
     t_channels,
@@ -138,20 +138,14 @@ def written_report(tau, channels):
         "texels_crossing": int(((want < 1).any(axis=2) & judged).sum()),
         "kept_judged": int((~block_edge).sum()),
         "kept_apart": int((codes_apart & ~block_edge).sum()),
-        "pages_present": int(form["present"].sum()),
-        "pages": int(form["present"].size),
-        "absent_not_one": int(
-            (form["codes"] != 255)
-            .any(axis=2)[
-                np.repeat(
-                    np.repeat(~form["present"], page_side(channels), 0),
-                    page_side(channels),
-                    1,
-                )[: side // k, : side // k]
-            ]
-            .sum()
-        ),
+        "blocks_present": int(form["present"].sum()),
+        "blocks": int(form["present"].size),
     }
+    out["pages"], out["pages_present"] = kept_pages(form)
+    iy, ix = np.divmod(np.arange(side * side), side)
+    decoded = form["codes"][iy // k, ix // k].astype(F) * F(1.0 / 255)
+    looked = kept_at(form, iy, ix)
+    out["directory_apart"] = int((looked != decoded).any(axis=1).sum())
     rng = np.random.default_rng(1)
     points = np.stack(
         [rng.uniform(-0.9, 0.9, 4096), np.zeros(4096), rng.uniform(-0.9, 0.9, 4096)], 1
@@ -252,8 +246,10 @@ def public_report(name, samples, rng):
     return {
         "glass_triangles": int(clear.sum()),
         "channels": form["channels"],
-        "pages_present": int(form["present"].sum()),
-        "pages": int(form["present"].size),
+        "blocks_present": int(form["present"].sum()),
+        "blocks": int(form["present"].size),
+        "pages": kept_pages(form)[0],
+        "pages_present": kept_pages(form)[1],
         "texels_judged": int(judged.sum()),
         "texels_at_an_edge": int(near_edge.sum()),
         "texels_tied": int(tie.sum()),
@@ -280,7 +276,7 @@ def main():
     for name in args.scenes:
         record[name] = public_report(name, args.samples, rng)
     keys = ("texels_apart", "share_apart", "one_apart_from_sun_shadow")
-    keys += ("channels_apart", "kept_apart", "absent_not_one")
+    keys += ("channels_apart", "kept_apart", "directory_apart")
     apart = sum(r.get(key, 0) for r in record.values() for key in keys)
     print(json.dumps({"ok": apart == 0, **record}))
     return 0 if apart == 0 else 1

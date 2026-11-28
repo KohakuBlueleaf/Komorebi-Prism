@@ -13,6 +13,7 @@ from prism.stages.direct.light.model.field import field_of
 from prism.stages.direct.light.model.sun import scene_box
 from prism.stages.direct.light.model.table import light_table
 from prism.stages.direct.light.model.terms import light_pages
+from prism.stages.direct.light.model.transmit import transmit_channels
 from prism.stages.direct.light.unit import FORMS
 from prism.stages.direct.shadow_pcf.host import SUN
 from prism.stages.direct.shadow_pcf.model.region import lights_at
@@ -34,6 +35,7 @@ LISTS = "frame.lists"  # the raster stage's layers, by name
 SURFACES = "frame.surface"  # each layer's surface directory, by name
 SCALE = "light.field_scale"  # the field's scale as its last update left it
 DISPLAY = "display.picture"  # the display LIGHT writes with the option light_shows
+TRANSMIT = "light.transmit"  # the sun map T's first light page and channels
 SHOW_TABLE = "show_table"  # the display stage's thresholds' region
 SWITCHED = ("shadow", "lamps", "specular", "background")  # the terms a control turns
 EXPOSURE = (1e-3, 1e3)  # the tone's limits: exposure, saturation
@@ -94,6 +96,7 @@ class LightHost(Host):
         self.terms = tuple(options.get("terms") or TERMS)
         self.indirect = "indirect" in self.terms
         self.glass = bool(options.get("glass", glass_of(self.materials)))
+        self.transmit = transmit_channels(options, self.materials)  # T's, 0: none
         self.shows = bool(options.get("light_shows", False))
         self.display = None  # slot display.picture, with light_shows
         self.order = []  # the raster stage's layers, by its row index
@@ -131,7 +134,7 @@ class LightHost(Host):
         self.field = field_of(self.lights) if self.indirect else None
         if self.field is not None and self.options.get("update_beside"):
             self.field = {**self.field, "halves": 2, "half": 0}
-        pages, _ = light_pages(self.lights, self.field)
+        pages, self.first_pages = light_pages(self.lights, self.field, self.transmit)
         self.pages = self.tensor(pages)
         self.own = {"opaque": self.light_tensors()}  # by the surface's first layer
         if self.glass:
@@ -179,11 +182,19 @@ class LightHost(Host):
             self.terms,
             self.field,
             self.indirect,
+            self.transmit,
         )
 
     def slots(self):
-        """The light pages: the shadow map's and the field's pages, one tensor."""
-        return {"light.shadow_map": self.pages, "light.field": self.pages}
+        """The light pages: the shadow map's and the field's pages, one tensor; with T
+        its first page and channels (slot light.transmit)."""
+        given = {"light.shadow_map": self.pages, "light.field": self.pages}
+        if self.transmit:
+            given[TRANSMIT] = {
+                "first": int(self.first_pages["transmit"]),
+                "channels": self.transmit,
+            }
+        return given
 
     def connect(self, assembled):
         """The raster's frame (frame.visibility), whose colour planes LIGHT writes;
@@ -261,6 +272,7 @@ class LightHost(Host):
             self.terms,
             self.field,
             self.indirect,
+            self.transmit,
         )
 
     def write_region(self, region=None):

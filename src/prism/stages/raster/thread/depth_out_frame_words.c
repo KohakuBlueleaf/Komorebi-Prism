@@ -1,4 +1,5 @@
-/* The depth_out step's words of a DEPTH view's frame's page, its target's pages. */
+/* The depth_out step's words of a DEPTH view's frame's page: its target's pages, its
+ * levels, its T (transmit.h). */
 #include "depth_out_frame_words.h"
 
 uint32_t depth_out_frame_words(
@@ -15,5 +16,10 @@ uint32_t depth_out_frame_words(
     page[PRISM_TF_DEPTH_OUT_LEVELS] = view->levels;
     page[PRISM_TF_DEPTH_OUT_LEVELS_SHIFT] = view->levels_shift;
     page[PRISM_TF_DEPTH_OUT_TOPS] = view->tops;
+#if defined(PRISM_TF_DEPTH_OUT_TRANSMIT)
+    page[PRISM_TF_DEPTH_OUT_TRANSMIT] = view->transmit;
+    page[PRISM_TF_DEPTH_OUT_TRANSMIT_BASE] = view->transmit_base;
+    page[PRISM_TF_DEPTH_OUT_TRANSMIT_CHANNELS] = view->transmit_channels;
+#endif
     return 0;
 }

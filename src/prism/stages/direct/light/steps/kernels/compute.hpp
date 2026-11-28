@@ -55,6 +55,12 @@ namespace light_step {
     static_assert(4 * (kLwField + 1024 * kFieldCorners) <= kLightStepWorkBytes);
     static_assert(4 * (2 * kPagesHashSize + kShadeSlots) <= kLightStepPagesBytes);
     static_assert(4 * (1 + kShadeSlots) <= kLightStepAskedBytes);
+#if defined(PRISM_LIGHT_TRANSMIT)
+    static_assert(
+        4 * (kLwTransmit + kTransmitAllWords) <=
+        kLightStepWorkBytes + kLightStepTransmitBytes
+    );
+#endif
 
     // The form's numbers from LIGHT's table and SHADE's (`shade_table`, `shade_words`
     // of it kept); false: out of range (given up).
@@ -158,6 +164,10 @@ namespace light_step {
         pass.values = values;
         pass.index = work + kLwIndex;
         pass.field_index = work + kLwField;
+#if defined(PRISM_LIGHT_TRANSMIT)
+        pass.transmit_tile();
+        *reinterpret_cast<volatile uint32_t*>(cache + kOneTexel) = 0xFFFFFFFF;
+#endif
         pass.slots = reinterpret_cast<const uint32_t*>(cache);
         const size_t vl = __riscv_vsetvl_e32m8(32);
         pass.vl = vl;

@@ -11,6 +11,9 @@
 #include "copy_in.hpp"
 #include "keys.hpp"
 #include "lit/lit.hpp"
+#if defined(PRISM_SHADE_TRANSMIT)
+#include "lit/transmit.hpp"
+#endif
 #include "list.hpp"
 #include "texels.hpp"
 
@@ -69,7 +72,8 @@ namespace shade_k {
 
     // SHADE on the pack CPU: `opaque` the opaque layer's directory (0: not merging),
     // `mode` the kShade* bits, `grid` the frame's (grid.h), `camera` the camera's
-    // address (0: unlit; else the lit form, lit/lit.hpp).
+    // address (0: unlit; else the lit form, lit/lit.hpp, or with kShadeTransmit
+    // lit/transmit.hpp).
     inline void shade_pack(
         km::Compute& compute,
         const km_command_t& command,
@@ -80,6 +84,12 @@ namespace shade_k {
     ) {
         static_cast<void>(command);
         const compute_mail::Waits waits = waits_of(compute.control());
+#if defined(PRISM_SHADE_TRANSMIT)
+        if (camera != 0 && (mode & kShadeTransmit) != 0) {
+            shade_transmit(waits, grid, (mode & kShadeTransmitRgb) != 0 ? 3u : 1u);
+            return;
+        }
+#endif
         if (camera != 0) {
             shade_lit(waits, opaque, grid);
             return;
