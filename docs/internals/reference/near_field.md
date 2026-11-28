@@ -343,6 +343,58 @@ against the full lookup of the field):
   `W_T` 19.3 s on one host core, 5.5 s on eight (`workers`: bands of tile rows in forked
   processes, the same `W_T` to the bit).
 
+### The blend across tiles
+
+Alone, the form makes E blocky: on the five views the mean step of E's luminance between
+neighbours of one surface is 8.2 to 12.2 times larger across a tile's edge than inside a
+tile (with the per-pixel field lookup and march: 1.01 to 1.08). Each of its parts
+contributes on its own: the groups (a pixel's far weights on its tile's groups) 2.4 to
+3.5, the upsample bounded to the tile 2.6 to 3.5, the filter bounded to the tile 1.8 to
+2.3, the cells 1.1 to 2.0. Even with exact rays in the march the ratio is 1.47: the steps
+come from the form, not from noise.
+
+With a band (`FORM["band"]`, 4 by default; 0 is the form alone; `near/blend.py`) a
+half pixel's E is the sum over the
+2 x 2 tiles whose middles surround it, one of each parity of row and column, of its row
+on that tile's cells and groups times that tile's `S_T`:
+
+- **The weights**: along each axis a ramp of half width `band` half pixels across the
+  middle line between the two tiles' middles (1 to the nearer tile beyond it), the
+  product of the two axes; a tile out of the frame or with no covered half pixel takes
+  none, and the weights are renormalized to sum to 1 (`blend.class_tiles`). The weights
+  are folded into the rows, so `W` is (H, W, 4, 32) and the product stays linear in `S`.
+- **The rows on another tile**: the near columns by the samples' places from that
+  tile's corner (`tile.near_weights` with `owner`), the filter bounded to the half pixels
+  of one owner (`fuse.smooth` with `label`); the far columns by the owner's groups, an
+  entry not among the owner's going to the owner's group of its direction whose
+  weighted centre is nearest (`blend.far_rows`); K and the fusion by that tile's groups.
+- **The upsample** reads the nearest four half pixels wherever they are: at most one
+  half pixel into the neighbouring tile.
+
+The furnace reads 1 to 1e-15 (every class row is itself the fusion of a furnace that
+reads 1, and the weights sum to 1). On the five views (two bounces, half rows, groups;
+"seam" is the ratio above; whole / contact as PSNR / PSNR over 8 x 8 px blocks):
+
+| view | band | seam | whole | contact |
+|---|---|---:|---|---|
+| Sponza overview | 0 | 12.18 | 20.94 / 23.33 | 26.20 / 29.78 |
+| Sponza overview | 4 | 1.08 | 20.96 / 23.37 | 26.14 / 29.53 |
+| Sponza close | 0 | 10.64 | 19.20 / 22.22 | 17.24 / 19.19 |
+| Sponza close | 4 | 1.05 | 19.20 / 22.21 | 17.25 / 19.20 |
+| italian_flat camera | 0 | 11.44 | 21.34 / 26.70 | 31.55 / 37.51 |
+| italian_flat camera | 4 | 1.01 | 21.42 / 26.86 | 31.56 / 37.56 |
+| italian_flat close | 0 | 8.28 | 22.13 / 26.19 | 20.94 / 24.31 |
+| italian_flat close | 4 | 1.03 | 22.16 / 26.22 | 20.96 / 24.35 |
+| lynxsdesign | 0 | 8.24 | 18.95 / 21.97 | 18.61 / 21.37 |
+| lynxsdesign | 4 | 1.04 | 18.98 / 22.03 | 18.63 / 21.38 |
+
+- On Sponza overview a band of 2 leaves the seam at 1.39; 8 gives 0.96 and scores
+  0.08 to 0.09 dB under 4. Each half pixel reads at most 4 tiles' operands, all among
+  the 3 x 3 around its own tile; on the card the product goes by row blocks of 32 half
+  pixels that read one operand each (`indirect.near_tile`, "The records").
+- The building of `W` takes 3.4 times as long as the form alone (8.6 s against 2.5 s
+  for Sponza overview at 1,280 x 720 on six host cores).
+
 The one-tile form does not replace any block of the transport. Of the dense cluster
 pairs of Sponza's transport, 1.9 % lie within the screen term's reach (centres within
 2 h); a transport built without its near blocks loses its multiple bounce (K 0.91 to

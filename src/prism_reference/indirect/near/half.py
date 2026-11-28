@@ -64,7 +64,8 @@ def upsample(images, depth_half, depth, normal, tile=0):
 
 def upsample_weights(depth_half, depth, normal, tile):
     """`upsample`'s weights (H, W, 4) over each full pixel's taps (dy, dx) = (0, 0),
-    (0, 1), (1, 0), (1, 1), normalized, with only half pixels of its own tile."""
+    (0, 1), (1, 0), (1, 1), normalized; with tile > 0 only half pixels of its own tile.
+    """
     h, w = depth_half.shape
     zh = np.where(np.isfinite(depth_half), depth_half, 1e30)
     nh = half_of(normal)
@@ -83,7 +84,9 @@ def upsample_weights(depth_half, depth, normal, tile):
 
 
 def tap_place(index, full, size, tile):
-    """A tap's half-pixel index along one axis: within the frame and the full pixel's
-    own tile."""
+    """A tap's half-pixel index along one axis: within the frame and (tile > 0) the full
+    pixel's own tile."""
+    if tile <= 0:
+        return np.clip(index, 0, size - 1)
     low = (full // 2) // tile * tile
     return np.clip(np.clip(index, 0, size - 1), low, np.minimum(low + tile, size) - 1)
