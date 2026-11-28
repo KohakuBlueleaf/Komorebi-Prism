@@ -8,14 +8,12 @@ Left, cards of real lines (teaser_lines.py), each marked in the colour of the ma
 centre draws for it; the shell commands of docs/guides/quick_start.md wrapped at their
 arguments, the C lines without their indentation. Centre: the card as levels.py draws it
 (ports: X280 1; the job thread: clusters 2 and 3, program/jobs/thread.py; an update's
-applies as core steps on every core between two frames); one frame's phases and the update after a
-sun move from measurements/gi_threads (Sponza). Right: frames of gi_threads from the
-viewer (docs/images/frame-*.jpg), triangles from docs/concepts/scenes.md, ms from
-measurements/gi_threads; the rows from measurements/gi_threads (frame ratio less push,
-lynxsdesign_a01894bbb8, the update), docs/internals/raster/model.md (lists grown,
-checks/camera_moves), measurements/transport_build (the artists' scene, 8 threads) and
-measurements/account with threads_account (lit, Sponza: FILL, SHADE, LIGHT written
-against the rows out), as resident.py quotes them.
+applies as core steps on every core between two frames); one frame moving and standing
+and the update after a sun move from measurements/gi_threads (Sponza). Right: frames of
+gi_threads from the viewer (docs/images/frame-*.jpg; Italian Flat's at the camera of
+measurements/gltf_truth), triangles from docs/concepts/scenes.md, ms from
+measurements/gi_threads; the rows from measurements/gi_threads (the largest scene,
+3,840 x 2,160, the update) and measurements/gltf_truth (Italian Flat, Cycles' time).
 """
 
 import base64
@@ -25,16 +23,18 @@ import sys
 from draw import REPO, Svg, write
 from PIL import Image
 from teaser_lines import (
+    BOUNCES,
     CARDS,
-    FRAME_MS,
     FRAMES_DURING,
     GI_LESS_PUSH_MS,
     GI_STOP_MS,
+    MOVES_MS,
     NOTES,
     PHASES,
     PICTURES,
     RATIOS,
     ROWS,
+    STANDS_MS,
     SWAP_MS,
 )
 
@@ -167,46 +167,39 @@ def tile(s, x, y, w):
 
 
 def frame(s, x, y, w):
-    """One gi_threads frame's phases and gi less push; returns the bottom."""
+    """One gi_threads frame moving and standing on one axis, gi less push under them;
+    returns the bottom."""
     c = s.c
-    s.text(x, y, "one gi_threads frame, Sponza", 12, c["fg"], True)
-    s.text(x + w, y, f"{FRAME_MS:.2f} ms", 12, c["r"][0], True, anchor="end")
+    s.text(x, y, "gi_threads, Sponza", 12, c["fg"], True)
+    s.text(x + w, y, f"{STANDS_MS:.2f} ms standing", 12, c["r"][0], True, anchor="end")
     label = 58
     x0, span = x + label, w - label - 2
     scale = (span - 40) / GI_LESS_PUSH_MS
-    rows = ("host", "X280 1", "cores")
-    ys = [y + 10 + 22 * i for i in range(3)]
-    for name, ly in zip(rows, ys, strict=True):
-        s.text(x, ly + 13, name, 11, c["fg"], True)
-        s.rule(x0, ly + 9, x + w, ly + 9, 0.6)
-    s.rect(x0 + 4, ys[0] + 2, 170, 15, c["bg"], rx=2)
-    s.text(x0 + 6, ys[0] + 13, "FRAME: no round trip", 11, c["mute"])
-    s.rect(x0, ys[1], FRAME_MS * scale, 18, c["w"][2], c["w"][0], rx=2, sw=1)
-    s.text(x0 + 6, ys[1] + 13, "answers the pulls", 11, c["fg"])
+    my, sy, gy = y + 10, y + 50, y + 82
+    s.text(x, my + 13, "moves", 11, c["fg"], True)
     t = 0.0
     for name, ms in PHASES:
         colour = c["r"][0] if name == "tile" else c["r"][1]
-        s.rect(
-            x0 + t * scale + 0.4, ys[2], max(ms * scale - 0.8, 1.2), 18, colour, rx=1
-        )
+        s.rect(x0 + t * scale + 0.4, my, max(ms * scale - 0.8, 1.2), 18, colour, rx=1)
         t += ms
-    tx = x0 + (t - PHASES[-1][1] / 2) * scale
-    label = f"tile {PHASES[-1][1]:.2f}"
-    s.text(tx, ys[2] + 13, label, 11, c["ink"], True, anchor="middle")
+    s.text(x0 + t * scale + 4, my + 13, f"{MOVES_MS:.2f}", 11, c["fg"], True)
+    s.text(x, sy + 13, "stands", 11, c["fg"], True)
+    s.rect(x0, sy, STANDS_MS * scale, 18, c["r"][0], rx=1)
+    s.text(x0 + 6, sy + 13, "the tile pull alone", 11, c["ink"], True)
+    s.text(x0 + STANDS_MS * scale + 4, sy + 13, f"{STANDS_MS:.2f}", 11, c["fg"], True)
     first = ", ".join(f"{n} {ms:.2f}" for n, ms in PHASES[:3])
-    s.text(x0, ys[2] + 32, first, 11, c["mute"])
-    by = ys[2] + 42
-    s.text(x, by + 13, "gi", 11, c["fg"], True)
-    s.rect(x0, by, GI_LESS_PUSH_MS * scale, 18, c["g"][1], c["rule"], rx=2, sw=0.8)
-    s.text(x0 + 6, by + 13, "stage-wise, less push", 11, c["fg"])
-    s.text(x + w, by + 13, f"{GI_LESS_PUSH_MS:.2f}", 11, c["fg"], True, anchor="end")
-    return by + 18
+    s.text(x0, my + 32, f"{first}, tile", 11, c["mute"])
+    s.text(x, gy + 13, "gi", 11, c["fg"], True)
+    s.rect(x0, gy, GI_LESS_PUSH_MS * scale, 18, c["g"][1], c["rule"], rx=2, sw=0.8)
+    s.text(x0 + 6, gy + 13, "stage-wise, less push", 11, c["fg"])
+    s.text(x + w, gy + 13, f"{GI_LESS_PUSH_MS:.2f}", 11, c["fg"], True, anchor="end")
+    return gy + 18
 
 
 def update(s, x, y, w):
     """The field's update after a sun move, in each form; returns the bottom."""
     c = s.c
-    s.text(x, y, "the sun moved: the field's update", 12, c["fg"], True)
+    s.text(x, y, f"sun moved: the field's update, {BOUNCES} bounces", 12, c["fg"], True)
     label = 72
     x0 = x + label
     scale = (w - label - 44) / GI_STOP_MS
@@ -226,29 +219,30 @@ def update(s, x, y, w):
 
 
 def ratios(s, x, y, w):
-    """Each scene's frame over gi's less push as a dot on 0.6 to 1.1; returns the
-    bottom."""
+    """Each scene's frame over gi's less push, standing (a dot) and moving (a ring), on
+    0.3 to 1.0; returns the bottom."""
     c = s.c
     s.text(x, y, "every scene: gi_threads / gi less push", 12, c["fg"], True)
-    label, low, high = 124, 0.6, 1.1
+    label, low, high = 124, 0.3, 1.0
     x0, span = x + label, w - label - 30
 
     def at(r):
         return x0 + (r - low) / (high - low) * span
 
     top = y + 8
-    for i, (name, ratio) in enumerate(RATIOS):
+    for i, (name, stands, moves) in enumerate(RATIOS):
         ry = top + 14 * i
-        s.text(x, ry + 10.5, name, 11, c["fg"], mono=" " not in name)
+        s.text(x, ry + 10.5, name, 11, c["fg"], mono=True)
         s.rule(x0, ry + 7, x0 + span, ry + 7, 0.5, "1 3")
-        colour = "p" if ratio > 1 else "r"
-        s.rect(at(ratio) - 4, ry + 3, 8, 8, c[colour][0], rx=4)
-        s.text(x0 + span + 4, ry + 10.5, f"{ratio:.2f}", 11, c[colour][0], True)
+        s.rect(at(moves) - 4, ry + 3, 8, 8, c["bg"], c["r"][0], rx=4, sw=1.2)
+        s.rect(at(stands) - 4, ry + 3, 8, 8, c["r"][0], rx=4)
+        s.text(x0 + span + 4, ry + 10.5, f"{stands:.2f}", 11, c["r"][0], True)
     bottom = top + 14 * len(RATIOS)
     s.rule(at(1.0), top - 2, at(1.0), bottom + 2, 1.2)
-    for r in (0.6, 0.8, 1.0):
+    for r in (0.4, 0.6, 0.8, 1.0):
         s.text(at(r), bottom + 12, f"{r:.1f}", 11, c["mute"], anchor="middle")
-    return bottom + 12
+    s.text(x, bottom + 26, "dot: standing; ring: moving", 11, c["mute"])
+    return bottom + 26
 
 
 def jpeg_uri(path, middle):
@@ -256,7 +250,7 @@ def jpeg_uri(path, middle):
     image = Image.open(path).convert("RGB")
     side = image.width
     h = round(side * PH / PW)
-    top = min(max(round(middle * side - h / 2), 0), side - h)
+    top = min(max(round(middle * image.height - h / 2), 0), image.height - h)
     image = image.crop((0, top, side, top + h)).resize((2 * PW, 2 * PH), Image.LANCZOS)
     data = io.BytesIO()
     image.save(data, "JPEG", quality=72, optimize=True)
@@ -274,12 +268,14 @@ def outcomes(s, x, y):
         s.text(x, y + PH + 26, f"{triangles} tris, {ms:.2f} ms", 11, c["mute"])
         y += PH + 33
     for what, condition, value, against, colour in ROWS:
-        s.rect(x, y, RW, 44, c["box"], c["line"], rx=4, layer=0)
+        h = 31 + 13 * len(against)
+        s.rect(x, y, RW, h, c["box"], c["line"], rx=4, layer=0)
         s.text(x + 7, y + 14, what, 11, c["fg"], True)
         s.text(x + RW - 7, y + 14, condition, 11, c["mute"], anchor="end")
         s.text(x + 7, y + 27, value, 11.5, c[colour][0], True)
-        s.text(x + 7, y + 40, against, 11, c["mute"])
-        y += 48
+        for i, line in enumerate(against):
+            s.text(x + 7, y + 40 + 13 * i, line, 11, c["mute"])
+        y += h + 4
     return y - 4
 
 
@@ -290,13 +286,7 @@ def teaser(theme):
     s.text(MX, 22, "the card draws it by itself", 17, c["w"][0], True)
     s.text(RX, 22, "what comes out", 17, c["fg"], True)
 
-    y = TOP
-    for spec in CARDS:
-        y = card(s, LX, y, LW, *spec) + 5
-    left = y - 5
-    s.line(LX + LW + 1, 300, MX - 3, 300, "g", 1.8)
-
-    s.rect(MX, TOP, MW, left - TOP, c["bg"], c["w"][0], rx=6, sw=1.6, layer=0)
+    under = len(s.layers[0])  # the centre's frame goes under its cores
     ix, iw = MX + 10, MW - 20
     s.text(ix, TOP + 18, "host", 11, c["fg"], True)
     s.text(ix + 34, TOP + 18, "the camera and one command a frame", 11, c["mute"])
@@ -307,10 +297,20 @@ def teaser(theme):
     ty = tile(s, ix, ky, iw) + 22
     fy = frame(s, ix, ty, iw) + 26
     uy = update(s, ix, fy, iw) + 26
-    ratios(s, ix, uy, iw)
-
+    centre = ratios(s, ix, uy, iw) + 10
     right = outcomes(s, RX, TOP)
-    ny = max(left, right) + 16
+    bottom = max(centre, right)
+    s.rect(MX, TOP, MW, bottom - TOP, c["bg"], c["w"][0], rx=6, sw=1.6, layer=0)
+    s.layers[0].insert(under, s.layers[0].pop())
+
+    # the left cards spread to end level with the other two columns
+    heights = sum(HEAD + STEP * len(spec[-1]) + 6 for spec in CARDS)
+    gap = max(5, (bottom - TOP - heights) / (len(CARDS) - 1))
+    y = TOP
+    for spec in CARDS:
+        y = card(s, LX, y, LW, *spec) + gap
+    s.line(LX + LW + 1, 300, MX - 3, 300, "g", 1.8)
+    ny = max(y - gap, bottom) + 16
     for i, note in enumerate(NOTES):
         s.text(LX, ny + 14 * i, note, 11, c["mute"])
     return s.finish(ny + 14 * len(NOTES) - 4)

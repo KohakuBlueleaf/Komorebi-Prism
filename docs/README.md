@@ -48,6 +48,7 @@ docstring names the code and the records the figure is taken from.
 | [internals/post/show.md](internals/post/show.md) | the display's conversion on the card |
 | [internals/reference/raster.md](internals/reference/raster.md) | the reference's raster: setup, fill and SHADE |
 | [internals/reference/material.md](internals/reference/material.md) | the reference's texture sampling and accesses |
+| [internals/reference/texture_lookup.md](internals/reference/texture_lookup.md) | the card's texture data looked up per pixel by several rules, the card's own among them: taps and gather, against a finer lookup |
 | [internals/reference/direct.md](internals/reference/direct.md) | the reference's lit frame, its lights and glass |
 | [internals/reference/indirect.md](internals/reference/indirect.md) | the reference's indirect light: elements, the hierarchical matrix, the sky, the field, against a traced truth |
 | [internals/reference/near_field.md](internals/reference/near_field.md) | the near field of the indirect light: the rule that fuses the frame's depth with the field, the visibility mask in two levels, the knobs, against the truth, the artefacts and their causes |

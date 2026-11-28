@@ -40,12 +40,11 @@ left 5.2 % and 38 %. A bright scene takes more passes and a longer update: its l
 converges slowly (modern_living_room, mean albedo 0.85: 15).
 
 What a user sees: after the sun moves, the frames go on with the field they hold, and
-the indirect light of a bright scene settles when the update ends. In the threads' form
-that takes about a third of a second on italian_flat_97f97a20ba (8 passes) and about
-two thirds on lynxsdesign_a01894bbb8 (8 passes), against about a tenth at 2 passes.
-Beside the frames, each pass costs about 7 ms on Sponza, 37 ms on italian_flat_97f97a20ba
-and 75 ms on lynxsdesign_a01894bbb8. An update that has the card alone (the first one,
-before the first frame) costs 7 to 8 ms a pass. The choice costs 1.6 s (Sponza) to
+the indirect light of a bright scene settles when the update ends. In the threads' form,
+from the sun set to the first frame with the new field, that takes 161 ms on Sponza
+(3 passes), 409 ms on italian_flat_69651f32b4 (8) and 568 ms on lynxsdesign_6efc48febc
+(8); the update itself takes 96, 285 and 342 ms beside the frames
+([gi_threads](../performance/gi_threads.md)). The choice costs 1.6 s (Sponza) to
 9.6 s (modern_living_room) on the host at load, once per process.
 
 ## The matrix as blocks
@@ -92,7 +91,7 @@ build's `y` within 2.4e-4 of the dense build's exact one
   products: `t = V^T x`, then `U t`.
 - `y` (slot `elements.irradiance`, float32 tiles) is written from the sums.
 
-The apply alone takes 2,609.3 us on Sponza and 4,288.0 us on the Bistro interior on
+The apply alone takes 2,609.3 us on Sponza and 4,288.6 us on the Bistro interior on
 every core of one P150A ([measurements/apply](../../measurements/apply/README.md)). Inside
 a frame program the class is made in its frame form: its buffers are windows over the
 command space the other stages share
@@ -156,32 +155,30 @@ The sun is a control, `direct.shadow_pcf.sun` (azimuth and elevation). When it m
 Until the new field is in, a `gi_tile` or `gi_threads` frame shows the new sun's direct
 light with the old field.
 
-A scene whose sun map the card draws (a file opened without a baked map: its lights hold
-a placeholder) has no valid field when it is loaded: the field its lights were prepared
-with was made before any map existed, the sun unshadowed. For such a scene, with the sun
-up, the first update is not beside the frames: the first frame is drawn after the sun's
-pass and that update, in every form, so no frame shows that field. Later updates run
-beside the frames as above.
+The card draws every scene's sun map at its load (the lighting file holds no map, only a
+stand-in, [scenes](scenes.md)), so no scene has a valid field when it is loaded: the field
+its lights were prepared with was made before any map existed, the sun unshadowed. With
+the sun up, the first update is therefore not beside the frames: the first frame is drawn
+after the sun's pass and that update, in every form, so no frame shows that field. Later
+updates run beside the frames as above.
 
 ## Measured
 
-On Sponza at 1,024 x 1,024 the first `sun` pass of a run takes 19.18 ms
+On Sponza at 1,024 x 1,024 the first `sun` pass of a run takes 19.58 ms
 ([lit_frame](../../measurements/lit_frame/README.md)) and the blocking update of `gi`
-124.87 ms at 2 bounces ([gi_frame](../../measurements/gi_frame/README.md)). Beside the
+111.57 ms at the scene's 3 bounces ([gi_frame](../../measurements/gi_frame/README.md)). Beside the
 frames (`gi_tile`) the update takes 130.50 to 197.84 ms on the card while 7 to 14 frames
 are drawn, the longest gap between two frames 2.4 to 3.7 ms over the steady one, and the
 first frame after the swap is byte for byte `gi`'s
 ([update_beside](../../measurements/update_beside/README.md)).
 
-After one sun move at 1,920 x 1,080 on ten scenes, the stage-wise form stops: `gi` waits
-161.6 to 471.6 ms (Sponza 174.5) from the control set to the end of its first frame at the
-new sun, the update 104.5 to 181.4 ms of it on the card. The threads' form draws frames
-during its update: `gi_threads` draws 2 to 7 frames with the old field, each 1.25 to 1.36
-times the steady frame (measured while the applies held the lowest ranks), and its first frame with the
-new field ends 130.7 to 780.6 ms after the control was set (Sponza 138.5); the longest gap
-is the first frame at the new sun, which holds the sun's pass
-([gi_threads](../performance/gi_threads.md)). With each apply a core step on every core,
-the frames during the update take the steady frame's time and each apply is a stall of
-2.6 to 3.9 ms between two frames; the update's span on the card grows (Sponza 125.2 to
-145.3 ms), as an apply waits for the frame in progress
+After one sun move at 1,920 x 1,080 on ten scenes, each with its own count of passes (2
+to 15), the stage-wise form stops: `gi` waits 173.4 to 350.9 ms (Sponza 173.4) from the
+control set to the end of its first frame at the new sun, the update 104.0 to 287.0 ms
+of it on the card; on the largest scene its run did not end. The threads' form draws
+frames during its update, each apply a core step on every core between two frames:
+`gi_threads` draws 4 to 19 frames with the old field, the first at the time of a frame
+whose lists are made again, the others at the steady frame's, and its first frame with
+the new field ends 161.4 to 567.5 ms after the control was set (Sponza 161.4); the
+longest gap is the first frame at the new sun, which holds the sun's pass
 ([gi_threads](../performance/gi_threads.md)).

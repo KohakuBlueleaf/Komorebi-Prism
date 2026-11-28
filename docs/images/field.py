@@ -170,7 +170,7 @@ def bars(s, y, items, colour, h=20):
             s.text((x0 + x1) / 2, y + h / 2 + 4, label, 11, c["fg"], anchor="middle")
 
 
-# Sponza's sun move (measurements/gi_threads, the update with no reserved cores), card
+# Sponza's sun move (measurements/gi_threads, a traced update, 2026-11-27), card
 # ms from the first frame after the sun's pass: the frames, the applies between two of
 # them, the job thread's parts, the first frame with the new field
 FRAMES = ((0.0, 18.6), (19.9, 39.4), (42.1, 60.7), (63.5, 82.1), (83.5, 102.1))

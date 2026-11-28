@@ -41,7 +41,7 @@
 <text x="195.0" y="138.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#4493f8" text-anchor="middle" xml:space="preserve">range 1</text>
 <text x="307.0" y="138.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#4493f8" text-anchor="middle" xml:space="preserve">range 2</text>
 <text x="391.0" y="138.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="#4493f8" text-anchor="middle" xml:space="preserve">range 3</text>
-<text x="28.0" y="156.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">a count range: 4 blocks; counted, then placed, by the core that asks</text>
+<text x="28.0" y="156.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">a count range: 4 blocks on Sponza (set by the scene); counted, then placed</text>
 <text x="28.0" y="182.0" font-family="-apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" fill="#e6edf3" text-anchor="start" xml:space="preserve">a row of the frame: 60 tiles of 32 x 32 pixels</text>
 <rect x="28.0" y="190.0" width="5.6" height="14.0" rx="1" fill="#21262d" stroke="none" stroke-width="1"/>
 <rect x="34.6" y="190.0" width="5.6" height="14.0" rx="1" fill="#21262d" stroke="none" stroke-width="1"/>

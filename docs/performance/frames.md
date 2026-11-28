@@ -47,22 +47,23 @@ than it gives. The phases, the bytes and the cores' waits behind these numbers a
 The renderer's frame was measured on its own ([gi_threads](gi_threads.md), from
 [measurements/gi_threads](../../measurements/gi_threads/README.md)): 1,920 x 1,080, the
 view's camera, 64 frames a load, the median over frames 2 to 64 then of three runs, card
-120 cores, 2026-11-27 (UTC+8), Komorebi 0.6.0, every `gi_threads` picture equal to `gi`'s.
-`gi` holds its push (4.440 ms at the 2.5 GT/s the card's link ran at during these runs;
-0.565 ms at its normal 16 GT/s); `gi_threads` has none. ms.
+120 cores at link 16 GT/s, 2026-11-28 (UTC+8), Komorebi 0.6.0, every `gi_threads` picture
+equal to `gi`'s. `gi` holds its push (0.564 ms); `gi_threads` has none. "Moves": the lists
+made again every frame; "stands": the lists kept (the default `keep_lists`), the tile pull
+alone. ms.
 
-| scene (view) | `gi` | `gi` less push | `gi_threads` |
-|---|---:|---:|---:|
-| sponza (overview) | 26.887 | 22.447 | 18.610 |
-| bistro_interior (overview) | 37.722 | 33.282 | 24.182 |
-| breakfast_room (overview) | 22.862 | 18.422 | 15.303 |
-| salle_de_bain (overview) | 26.282 | 21.842 | 19.189 |
-| modern_hall (overview) | 28.406 | 23.966 | 18.639 |
-| modern_living_room (overview) | 30.087 | 25.647 | 18.196 |
-| classroom_a1c62e93f7 (camera) | 25.834 | 21.394 | 19.170 |
-| lynxsdesign_411c9daef8 (camera) | 58.242 | 53.802 | 49.474 |
-| italian_flat_97f97a20ba (camera) | 52.464 | 48.023 | 42.224 |
-| lynxsdesign_a01894bbb8 (camera) | 98.599 | 94.159 | 102.094 |
+| scene (view) | `gi` | `gi` less push | `gi_threads` moves | `gi_threads` stands |
+|---|---:|---:|---:|---:|
+| sponza (overview) | 24.689 | 24.125 | 20.003 | 16.795 |
+| bistro_interior (overview) | 36.226 | 35.663 | 25.247 | 21.154 |
+| breakfast_room (overview) | 19.985 | 19.421 | 16.341 | 14.056 |
+| salle_de_bain (overview) | 23.908 | 23.344 | 19.696 | 16.010 |
+| modern_hall (overview) | 25.457 | 24.893 | 19.384 | 18.370 |
+| modern_living_room (overview) | 27.520 | 26.956 | 20.089 | 15.149 |
+| classroom_3f4180c5d0 (camera) | 34.581 | 34.017 | 26.514 | 22.037 |
+| lynxsdesign_b49574c042 (camera) | 58.580 | 58.016 | 43.664 | 29.433 |
+| italian_flat_69651f32b4 (camera) | 52.888 | 52.324 | 40.904 | 29.680 |
+| lynxsdesign_6efc48febc (camera) | 101.142 | 100.578 | 67.163 | 37.753 |
 
 ## The stage-wise presets
 

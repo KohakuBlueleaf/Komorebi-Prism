@@ -130,7 +130,7 @@ PHASES = (
         "count",
         "pull",
         "w",
-        "a pull: ranges of|4 blocks to whoever|asks; who took each",
+        "a pull: ranges of|blocks to whoever|asks; who took each",
         "count: each box|into the tiles it|reaches",
         "counts and rows|pages, a core",
     ),
@@ -248,15 +248,15 @@ def frame(s, top, xs, xbottom):
         x0,
         top + 262,
         "a frame of 1,920 x 1,080: 60 x 34 tiles, 136 slices of 16 "
-        "tiles, 2,040 tile threads; a range is 4 blocks of 32 triangles",
+        "tiles, 2,040 tile threads; a range is 4 blocks of 32 triangles on Sponza",
         11.5,
         c["fg"],
     )
     s.text(
         x0,
         top + 279,
-        "the count and place pulls read every triangle block once each; "
-        "the sums and the running sum are the frame's only waits for every core",
+        "ranges outside the view are skipped; a standing camera runs the tile pull "
+        "alone; the sums and running sum wait for every core",
         11.5,
         c["mute"],
     )

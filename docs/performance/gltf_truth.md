@@ -33,28 +33,34 @@ scenes are left out as test scenes.
 
 ## The reference and the card against the same glTF
 
-Cycles(glTF) with its bounces is the truth. "Direct": the reference's direct light
-against Cycles' passes of the same scene with no bounce; "card": `python -m prism_cli open
-scene.glb --pipeline lit --size 1280 720 --bake none` on card 1, the last of 16 frames.
+Cycles(glTF) with its bounces is the truth (`scripts/run/compare.py`, 2026-11-28, main at
+f614f61). "Direct": the reference's direct light against Cycles' passes of the same scene
+with no bounce; "reference": the reference's whole frame; "card": `gi_threads` on the card
+with the far field built, 1,280 x 720, the last of 48 frames. PSNR on the truth displayed
+by the standard sRGB transfer.
 
-| scene | base colour MAD | diffuse, ratio of means | glossy, ratio of means | PSNR direct | PSNR card |
-|---|---:|---:|---:|---:|---:|
-| italian_flat | 0.155 | 1.08 | 0.54 | 16.82 | 11.91 |
-| lynxsdesign | 0.204 | 1.12 | 0.57 | 16.84 | 14.14 |
-| charge_factory_floor | 0.512 | 1.38 | 0.84 | 15.95 | refused: 73 lamps, the light table holds 32 |
+| scene | registered pixels | base colour MAD | diffuse, ratio of means | glossy, ratio of means | PSNR direct | PSNR reference | PSNR card |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| italian_flat | 0.988 | 0.185 | 0.94 | 0.80 | 21.07 | 15.97 | 15.29 |
+| lynxsdesign | 1.000 | 0.126 | 1.07 | 0.66 | 16.59 | 12.48 | 12.48 |
+| charge_factory_floor | | | | | | | refused: 73 lamps, the light table holds 32 |
+
+Cycles takes 43.4 s (italian_flat) and 40.4 s (lynxsdesign) for its 256 samples on one
+V100-class GPU; the card's frame at 1,920 x 1,080 is 29.68 and 37.75 ms standing
+([gi_threads](gi_threads.md)).
 
 What makes the differences:
 
-- **The material model.** Sheen and clearcoat are dropped; glossy light is about half of
-  Cycles' on the two interiors.
-- **Shadows.** Masked, blended and transmitting surfaces cast opaque shadows (italian_flat's
-  sun, behind glass, gives 0).
-- **Emission.** Emitting surfaces are not drawn in the reference's direct light.
-- **The world.** An `.exr` map is not read: lynxsdesign's world light is 0.
-- **The card's lighting** is the converter's (an environment of its own, a constant
-  ambient; area lights and the sidecar's world dropped), so its picture is brighter and
-  flatter; lynxsdesign shows square blocks of wrong colour over the staircase and ceiling
-  and a moire on the armchairs' fabric.
-- **Tone.** Filmic and AgX are not applied: the standard sRGB transfer.
-- **The comparison.** Cycles(glTF) runs at an empty file's light settings; lens shift is
-  not applied by the reference's camera.
+- **The lights.** The reference's frame and the card draw the converter's lighting (an
+  environment of its own, a constant ambient); the file's own lights are drawn only with
+  the option `file_lights` ([glTF scenes](../guides/gltf_scenes.md#the-files-own-lighting-file_lights)).
+  Cycles' passes use the file's. lynxsdesign's picture on the card is darker than Cycles'
+  (ratio of means 0.38), without the ceiling's cove light.
+- **The card against the reference.** On lynxsdesign the two whole frames give the same
+  PSNR (12.48); on italian_flat the card's is 0.68 dB lower.
+- **Tone.** The card applies Filmic or AgX only when the scene's sidecar has its view
+  tables; neither scene has them, so both use the standard sRGB transfer. Against
+  Blender's own display (Filmic High Contrast, AgX Punchy) the card's PSNR is 14.51
+  (italian_flat) and 18.03 (lynxsdesign).
+- **The comparison.** Cycles(glTF) runs at an empty file's light settings, not the
+  artist's.

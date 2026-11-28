@@ -44,7 +44,7 @@ def cut(s, x, y, w):
     s.text(
         x + 12,
         by + 54,
-        "a count range: 4 blocks; counted, then placed, by the " "core that asks",
+        "a count range: 4 blocks on Sponza (set by the scene); counted, then placed",
         11.5,
         c["fg"],
     )

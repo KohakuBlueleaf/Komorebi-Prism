@@ -257,7 +257,15 @@ def matrix(s, top):
         11.5,
         c["mute"],
     )
-    return bottom + 30
+    s.text(
+        16,
+        bottom + 38,
+        "gi_threads also names indirect.near_tile, which fills no item: the one-tile "
+        "indirect product, a step of the tile thread with the option near_tile (off).",
+        11.5,
+        c["mute"],
+    )
+    return bottom + 45
 
 
 def pipeline(theme):

@@ -440,15 +440,15 @@ def passes_panel(s, top):
         h,
         "The bounces: one apply a pass",
         "r",
-        "the control bounces, 2 by default",
+        "the scene's count of passes, or the control bounces",
     )
     y = top + 42
     items = (
         ("L0", "sun, lamps, sky", "y", 112),
         ("apply", "E1 = M L0", "a", 104),
         ("x albedo / pi", "", "g", 104),
-        ("apply", "E2 = M (a/pi E1)", "a", 130),
-        ("E1 + E2 + sky", "", "r", 118),
+        ("apply, each pass", "Ek = M (a/pi Ek-1)", "a", 130),
+        ("E1 + ... + En + sky", "", "r", 118),
         ("the field", "its voxels", "b", 92),
     )
     x = 30

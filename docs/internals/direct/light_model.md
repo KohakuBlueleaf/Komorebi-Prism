@@ -153,7 +153,9 @@ offset -cos outer x scale, square 1. An area light's stand-in (`lobe_shape`) is 
 lobe about its emitting normal: scale 1, offset 0, square 0, its intensity the light's
 power / pi on the axis (the same power over the front half). The stand-in is a point
 where the light is a surface: wrong near the light (no penumbra, a hot spot at the
-centre), and unshadowed, as every lamp of LIGHT is unshadowed today. Shapes come only
+centre), and unshadowed, as every lamp of LIGHT is unshadowed today: with `file_lights`
+the shadow stage draws each lamp's depth faces at the load (a cube's six for a point, one
+for a spot; option `lamp_maps`), but the light step reads none of them yet. Shapes come only
 with a file's own lighting (the option `file_lights`), and the stand-ins only with
 `area_lights` too (`lights.load`, the host and the reference alike); without them every
 lamp is a point, as before. The row was 10

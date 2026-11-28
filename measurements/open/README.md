@@ -62,6 +62,44 @@ Seconds, each part exclusive of the tensor writes inside it (they are their own 
 | command | the command's seconds, the PNG written |
 | peak RSS GiB | the process's peak resident memory |
 
+## `gi_threads` from the file
+
+The renderer opened from each file, as the quick start opens it: `python -m prism_cli
+open <folder>/scene.glb --pipeline gi_threads --bake none --size 1920 1080 --card 0`, 16
+frames on the scene's view. Date 2026-11-28 (UTC+8), main at f614f61, Komorebi 0.6.0,
+card 0 at 16 GT/s (the wait for its lock outside every time), 24 CPUs of the host. Each
+scene in a data root of its own, its caches emptied first (Komorebi's, tt-metal's and the
+cache root's), three opens in turn:
+
+- cold: the file converted, the module and the program built; the scene has no far
+  field, so the open draws without the indirect light and starts its build on the host;
+- with the far field: the next open after that build ended (the program with the far
+  field's implementations built and fitted for the first time);
+- warm: the same command again.
+
+Seconds, the columns as in [the columns](#the-columns) (`lights` with their shadow map;
+`frames` the first frame and the 16 frames). Every frame's code 0.
+
+| scene | run | digest | convert | lights | module | read back | session | host models | program made | program build | program launch | frames | first picture | peak RSS GiB |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| classroom (1,252,126 triangles) | cold | 0.36 | 7.19 | 8.55 | 17.19 | 0.45 | 4.09 | 3.16 | 3.47 | 9.67 | 10.43 | 0.40 | 67.4 | 8.9 |
+| | with the far field | 0.00 | 0.00 | 0.00 | 0.34 | 0.43 | 1.08 | 5.03 | 31.71 | 7.47 | 5.53 | 0.68 | 53.9 | 9.3 |
+| | warm | 0.00 | 0.00 | 0.00 | 0.32 | 0.75 | 1.18 | 5.65 | 2.57 | 0.16 | 1.25 | 0.68 | 13.7 | 6.0 |
+| italian_flat (4,821,520) | cold | 1.99 | 13.02 | 8.69 | 17.03 | 0.90 | 4.12 | 7.01 | 3.42 | 7.40 | 9.28 | 0.56 | 75.5 | 15.0 |
+| | with the far field | 0.00 | 0.00 | 0.00 | 0.34 | 5.31 | 1.18 | 54.41 | 348.35 | 7.61 | 5.91 | 0.92 | 425.6 | 8.8 |
+| | warm | 0.00 | 0.00 | 0.00 | 0.32 | 0.91 | 1.27 | 8.90 | 2.77 | 0.14 | 1.26 | 0.90 | 17.0 | 6.0 |
+| lynxsdesign (29,756,735) | cold | 3.56 | 29.15 | 12.59 | 17.16 | 2.96 | 3.81 | 28.97 | 3.37 | 7.56 | 9.29 | 0.79 | 122.2 | 17.6 |
+| | with the far field | 0.00 | 0.00 | 0.00 | 0.33 | 2.96 | 1.10 | 28.43 | 35.28 | 7.53 | 6.13 | 1.24 | 85.5 | 16.4 |
+| | warm | 0.00 | 0.00 | 0.00 | 0.34 | 3.14 | 1.19 | 20.48 | 4.16 | 0.17 | 1.53 | 1.26 | 33.4 | 12.5 |
+
+The far field's build, started by the cold open as a process of its own on the host
+(the lights' sky visibility baked, then the transport set): classroom 174.3 s (lights
+14.7, transport 159.6), italian_flat 149.1 s (48.9, 100.1), lynxsdesign 259.8 s (113.2,
+146.6). The first open with the far field spends 31.7 to 348.4 s in "program made";
+the warm open after it 2.6 to 4.2 s. italian_flat's 348.4 s is one run and was not
+repeated. The conversion alone, in a process of its own with an empty root and cache
+(the digest and every step): classroom 9.8 s, italian_flat 18.6 s, lynxsdesign 37.5 s.
+
 ## The loads
 
 Each scene: the parts of each run, then the host models and the tensors by implementation.

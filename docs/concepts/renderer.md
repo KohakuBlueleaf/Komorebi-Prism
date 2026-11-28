@@ -75,7 +75,7 @@ threads' frame host, else the stage-wise one. `prism.loop.Loop` runs both the sa
 |---|---|---|---|
 | `textured_threads` | threads | `raster.threads`, `material.texture.threads`, `post.show.threads` | the renderer's frame without light; its picture `textured`'s |
 | `lit_threads` | threads | and `direct.shadow_pcf`, `direct.light.threads` | the renderer's frame without the indirect light: direct light, the sun's views when it moves; its picture `lit`'s |
-| `gi_threads` | threads | and `indirect.transport.threads`, `indirect.field_update.threads`, with `direct.light.threads_field` | the renderer: `lit_threads` with the indirect field, updated by the job thread while frames go on; its picture `gi`'s |
+| `gi_threads` | threads | and `indirect.transport.threads`, `indirect.field_update.threads`, with `direct.light.threads_field`; `indirect.near_tile` (the one-tile product, filling no item, a step with the option `near_tile`, off) | the renderer: `lit_threads` with the indirect field, updated by the job thread while frames go on; its picture `gi`'s |
 | `raster` | stage-wise | `raster`, `post.show` | visibility with the vertex colours |
 | `textured` | stage-wise | `raster`, `material.texture`, `post.show` | the reference picture of `textured_threads` |
 | `lit` | stage-wise | and `direct.shadow_pcf`, `direct.light` | the reference picture of `lit_threads` |
@@ -88,7 +88,8 @@ The scene's data a preset needs: `raster` the mesh (a generated scene too); the 
 presets a scene with materials (a public scene or an opened glTF file); the lit presets
 its lighting; the `gi` presets its far field, the indirect file and the transport set,
 made once on the host by `python scripts/data/public_scenes.py indirect <scene>`
-([scenes](scenes.md#indirect-light)). On a scene without them, `gi`, `gi_threads` and
+([scenes](scenes.md#indirect-light)), or for a scene opened from a file by the open
+itself, beside its frames ([built at open](../guides/gltf_scenes.md#built-at-open)). On a scene without them, `gi`, `gi_threads` and
 `gi_tile` are opened without the far field, chosen once when the preset is opened: no
 implementation fills `indirect`, `gi_threads` lights with `direct.light.threads` in place
 of `direct.light.threads_field`, and the picture is the lit preset's of the same form

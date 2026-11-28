@@ -92,12 +92,6 @@ CARDS = [
         "indirect/transport/device.py",
         [
             (
-                "    w_in = km.Pair(km.bfp8_b, pages=BLOCK * BLOCKS_A_HALF)",
-                "a",
-                "",
-                None,
-            ),
-            (
                 "    sums: km.L1[km.fp32, OWN, 32, 32] = km.own(push=None)",
                 "a",
                 "",
@@ -112,14 +106,7 @@ CARDS = [
                 "",
                 None,
             ),
-        ],
-    ),
-    (
-        "a graph beside the frames",
-        "m",
-        "solid",
-        "indirect/field_update/graph.py",
-        [
+            ("...", "skip", "field_update/graph.py, the job thread:", "mute"),
             ("    applied = graph.command(", "a", "the applies, a bounce a round", "a"),
             ("    ...", "skip", "", None),
             ("    graph.command(", "m", "", None),
@@ -130,69 +117,92 @@ CARDS = [
 ]
 
 # One gi_threads frame on Sponza's overview, 1,920 x 1,080, ms: the dispatcher's
-# phases (cores: count, sums, place, tile; X280 1: running, words); the frame; gi less
-# its push.
-PHASES = [("count", 1.039), ("sums", 0.321), ("place", 1.812), ("tile", 15.429)]
-FRAME_MS, GI_LESS_PUSH_MS = 18.610, 22.447
-# After one sun move on Sponza, host ms: sun set to the swap frame's end and the frames
-# drawn during the update (gi_threads, each apply on every core between two frames);
-# gi's stop.
-SWAP_MS, FRAMES_DURING, FRAME_DURING_MS, GI_STOP_MS = 172.5, 6, 19.6, 175.1
+# phases while the camera moves (cores: count, sums, place, tile); the frame moving and
+# standing (the lists kept: the tile alone); gi less its push.
+PHASES = [("count", 1.079), ("sums", 0.324), ("place", 1.879), ("tile", 16.720)]
+MOVES_MS, STANDS_MS, GI_LESS_PUSH_MS = 20.003, 16.795, 24.125
+# After one sun move on Sponza (its 3 bounces), host ms: sun set to the swap frame's end
+# and the frames drawn during the update (gi_threads, each apply on every core between
+# two frames); gi's stop.
+BOUNCES, SWAP_MS, FRAMES_DURING, GI_STOP_MS = 3, 161.4, 5, 173.4
 
 # Each scene's gi_threads frame over gi's less push, 1,920 x 1,080 (the name shown,
-# the ratio).
+# standing, moving).
 RATIOS = [
-    ("sponza", 0.83),
-    ("bistro_interior", 0.73),
-    ("breakfast_room", 0.83),
-    ("salle_de_bain", 0.88),
-    ("modern_hall", 0.78),
-    ("modern_living_room", 0.71),
-    ("classroom", 0.90),
-    ("lynxsdesign 411c", 0.92),
-    ("italian_flat", 0.88),
-    ("lynxsdesign a018", 1.08),
+    ("sponza", 0.70, 0.83),
+    ("bistro_interior", 0.59, 0.71),
+    ("breakfast_room", 0.72, 0.84),
+    ("salle_de_bain", 0.69, 0.84),
+    ("modern_hall", 0.74, 0.78),
+    ("modern_living_room", 0.56, 0.75),
+    ("classroom_3f41", 0.65, 0.78),
+    ("lynxsdesign_b495", 0.51, 0.75),
+    ("italian_flat_6965", 0.57, 0.78),
+    ("lynxsdesign_6efc", 0.38, 0.67),
 ]
 
-# (file stem, name, triangles, gi_threads ms at 1,920 x 1,080, crop's middle 0..1)
+# (file stem, name, triangles, gi_threads ms standing at 1,920 x 1,080, crop's middle
+# 0..1)
 PICTURES = [
-    ("sponza", "Sponza", "262 k", 18.610, 0.55),
-    ("breakfast_room", "Breakfast Room", "270 k", 15.303, 0.5),
-    ("bistro_interior", "Bistro, interior", "1.02 M", 24.182, 0.5),
-    ("modern_living_room", "The Modern Living Room", "786 k", 18.196, 0.52),
+    ("sponza", "Sponza", "262 k", 16.795, 0.55),
+    ("bistro_interior", "Bistro, interior", "1.02 M", 21.154, 0.5),
+    ("breakfast_room", "Breakfast Room", "270 k", 14.056, 0.55),
+    ("italian_flat", "Italian Flat", "4.8 M", 29.680, 0.5),
 ]
 
-# (what, its condition, Prism, against it, the value's colour)
+# (what, its condition, Prism, against it (one line or several), the value's colour)
 ROWS = [
-    ("pictures", "1,920 frames", "0 pixels differ", "from gi's, byte for byte", "r"),
-    ("frame", "29.8 M tris", "102.09 ms", "gi less push 94.16", "p"),
+    ("pictures", "3,840 frames", "0 pixels differ", ("from gi's, byte for byte",), "r"),
+    (
+        "frame",
+        "29.8 M tris",
+        "37.75 ms standing",
+        ("moving 67.16", "gi less push 100.58"),
+        "r",
+    ),
+    (
+        "3,840 x 2,160",
+        "Sponza",
+        "57.08 ms standing",
+        ("moving 66.51", "gi: past L1"),
+        "r",
+    ),
     (
         "sun moved",
         "Sponza",
         f"{FRAMES_DURING} frames drawn",
-        f"gi stops {GI_STOP_MS} ms",
+        (f"gi stops {GI_STOP_MS} ms", f"the scene's {BOUNCES} bounces"),
         "r",
     ),
-    ("lists too small", "Sponza", "grown in 5.3 ms", "reload 6.5 to 7.3 s", "r"),
-    ("transport build", "8.8 M tris", "205 s by blocks", "dense + SVD 986 s", "r"),
-    ("DRAM written", "lit, Sponza", "8.36 MB a frame", "stage-wise 207.52 MB", "r"),
+    (
+        "Italian Flat",
+        "the same glTF",
+        "29.68 ms a frame",
+        ("Cycles(glTF): 43.4 s,", "256 samples,", "one V100-class GPU"),
+        "r",
+    ),
 ]
 
 NOTES = [
     (
         "ms: one Blackhole P150A, 1,920 x 1,080, the median frame on the card at each "
-        "scene's overview. gi less push: the stage-wise frame less its push"
+        "scene's view. Standing: the camera still, the lists kept, the tile pull alone;"
     ),
     (
-        "to the host. Pictures: gi_threads in the viewer at 1,024 x 1,024. Build: on the "
-        "host, 8 tracer threads (dense + SVD: 16 CPUs)."
+        "moving: the lists made again each frame. gi less push: the stage-wise frame less "
+        "its push to the host. Pictures: gi_threads in the viewer at 1,920 x 1,080;"
     ),
     (
-        "Bytes: the planes written between the stage-wise steps against the display rows. "
-        "Lists: a look down 40 degrees, grown against a reload."
+        "Italian Flat's at 1,280 x 720 at the camera of the comparison with Cycles, which "
+        "reads the same glTF file (docs/performance/gltf_truth.md)."
+    ),
+    (
+        "Curved surfaces are drawn with flat triangles (a glTF file's vertex normals are "
+        "not carried yet), visible on Sponza's banners."
     ),
     (
         "Scenes: Crytek Sponza (Frank Meinl, Crytek; CC BY 3.0); Amazon Lumberyard Bistro "
-        "(ORCA; CC BY 4.0); Breakfast Room, The Modern Living Room (Wig42; CC BY 3.0)."
+        "(ORCA; CC BY 4.0); Breakfast Room (Wig42; CC BY 3.0);"
     ),
+    "Italian Flat (Flavio Della Tommasa, malapixel.com; CC BY).",
 ]

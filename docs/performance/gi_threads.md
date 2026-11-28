@@ -2,121 +2,119 @@
 
 The renderer, the preset `gi_threads` (the lit frame with the indirect field, run as
 threads the cores take, [the frame as threads](../concepts/threads.md)), against its
-stage-wise form `gi`, on the ten scenes of the viewer's data; then the field's update
-after the sun is moved once. Every number is from
+stage-wise form `gi`, on ten scenes; then the field's update after the sun is moved
+once. Every number is from
 [measurements/gi_threads](../../measurements/gi_threads/README.md); this page gives what
 they say.
 
-Conditions: one Blackhole P150A, 120 cores, AICLK 1,350 MHz, 2026-11-27 (UTC+8),
-Komorebi 0.6.0, 1,920 x 1,080 at the view's camera, every core, each preset with its own
-options. 64 frames a load, no sun moved; a run's number is the median over frames 2 to
-64, the number given the median of three interleaved runs. Every frame's code 0 and every
-`gi_threads` picture equal to `gi`'s, byte for byte, in all 1,920 frames. ms.
+Conditions: one Blackhole P150A, 120 cores, AICLK 1,350 MHz, its link at 16 GT/s,
+2026-11-28 (UTC+8), Komorebi 0.6.0, 1,920 x 1,080 at the view's camera, every core, each
+preset with its own options. 64 frames a load, no sun moved; a run's number is the median
+over frames 2 to 64, the number given the median of three interleaved runs. Every frame's
+code 0 and every `gi_threads` picture equal to `gi`'s, byte for byte, in all 3,840
+frames. ms.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/results-dark.svg">
-  <img src="../images/results-light.svg" width="880" alt="Bar charts: gi_threads against gi less its push on ten scenes, ms; a glTF file's load to its first picture, cold and warm, on three artists' scenes, s.">
+  <img src="../images/results-light.svg" width="880" alt="Bar charts: gi_threads, its camera standing and moving, against gi less its push on ten scenes, ms; a glTF file's load to its first picture on three artists' scenes, s.">
 </picture>
 
-*The frame (above) from [measurements/gi_threads](../../measurements/gi_threads/README.md); the load (below) from [measurements/open](../../measurements/open/README.md), the waste cut, 2026-11-27.*
+*The frame (above) from [measurements/gi_threads](../../measurements/gi_threads/README.md); the load (below) from [measurements/open](../../measurements/open/README.md).*
 
 ## The frame
 
 `gi` pushes its picture into the host's memory inside its frame (its option `push`
-true); `gi_threads` does not (the post step writes the display's pages from the cores).
-"`gi` less push" is the like frame; the ratio is `gi_threads` over it. The card's PCIe
-link ran at 2.5 GT/s during these runs (16 GT/s is its normal speed), so the push in
-the column `gi` is 4.440 ms on every scene; at 16 GT/s it is 0.565 ms (measured the
-same day on the stage-wise `textured` frame, every other time unchanged), and `gi`'s
-frame is then its frame less push plus 0.565 ms.
+true, 0.564 ms); `gi_threads` does not (the post step writes the display's pages from
+the cores). "`gi` less push" is the like frame; each ratio is `gi_threads` over it.
 
-| scene (view) | `gi` | `gi` less push | `gi_threads` | ratio |
-|---|---:|---:|---:|---:|
-| sponza (overview) | 26.887 | 22.447 | 18.610 | 0.83 |
-| bistro_interior (overview) | 37.722 | 33.282 | 24.182 | 0.73 |
-| breakfast_room (overview) | 22.862 | 18.422 | 15.303 | 0.83 |
-| salle_de_bain (overview) | 26.282 | 21.842 | 19.189 | 0.88 |
-| modern_hall (overview) | 28.406 | 23.966 | 18.639 | 0.78 |
-| modern_living_room (overview) | 30.087 | 25.647 | 18.196 | 0.71 |
-| classroom_a1c62e93f7 (camera) | 25.834 | 21.394 | 19.170 | 0.90 |
-| lynxsdesign_411c9daef8 (camera) | 58.242 | 53.802 | 49.474 | 0.92 |
-| italian_flat_97f97a20ba (camera) | 52.464 | 48.023 | 42.224 | 0.88 |
-| lynxsdesign_a01894bbb8 (camera) | 98.599 | 94.159 | 102.094 | 1.08 |
+`gi_threads` keeps a frame's lists while the view does not change (its option
+`keep_lists`, on by default): a standing camera's frame runs the tile pull alone. When
+the camera moves, the lists are made again each frame: the count, sums and place pulls
+run before the tile pull. Both are given: "stands" is what a viewer shows most of the
+time, "moves" the cost of a frame while the camera moves.
 
-The three runs' medians lie within 0.1 ms of each other on every row; the ranges are in
+| scene (view) | `gi` | `gi` less push | `gi_threads` moves | `gi_threads` stands | ratio moves | ratio stands |
+|---|---:|---:|---:|---:|---:|---:|
+| sponza (overview) | 24.689 | 24.125 | 20.003 | 16.795 | 0.83 | 0.70 |
+| bistro_interior (overview) | 36.226 | 35.663 | 25.247 | 21.154 | 0.71 | 0.59 |
+| breakfast_room (overview) | 19.985 | 19.421 | 16.341 | 14.056 | 0.84 | 0.72 |
+| salle_de_bain (overview) | 23.908 | 23.344 | 19.696 | 16.010 | 0.84 | 0.69 |
+| modern_hall (overview) | 25.457 | 24.893 | 19.384 | 18.370 | 0.78 | 0.74 |
+| modern_living_room (overview) | 27.520 | 26.956 | 20.089 | 15.149 | 0.75 | 0.56 |
+| classroom_3f4180c5d0 (camera) | 34.581 | 34.017 | 26.514 | 22.037 | 0.78 | 0.65 |
+| lynxsdesign_b49574c042 (camera) | 58.580 | 58.016 | 43.664 | 29.433 | 0.75 | 0.51 |
+| italian_flat_69651f32b4 (camera) | 52.888 | 52.324 | 40.904 | 29.680 | 0.78 | 0.57 |
+| lynxsdesign_6efc48febc (camera) | 101.142 | 100.578 | 67.163 | 37.753 | 0.67 | 0.38 |
+
+The three runs' medians lie within 0.16 ms of each other on every row; the ranges are in
 the measurement's table.
 
 ## By phase
 
 `gi`'s commands grouped (raster: every pass of both layers, fill included); `gi_threads`'
-dispatcher phases (place: the set-up pass and the list writes; tile: every step of a tile
-thread). The two do not stand one for one: the threads' place holds the stage-wise
-set-up, its tile the stage-wise fill, shade, light and show.
+dispatcher phases with its lists made again (place: the set-up pass and the list writes;
+tile: every step of a tile thread), and its tile pull standing. The two do not stand one
+for one: the threads' place holds the stage-wise set-up, its tile the stage-wise fill,
+shade, light and show.
 
-| scene | `gi` raster | shade | light | show | `gi_threads` count | sums | running | place | tile |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| sponza | 9.537 | 6.062 | 7.321 | 1.531 | 1.039 | 0.321 | 0.050 | 1.812 | 15.429 |
-| bistro_interior | 16.377 | 7.631 | 10.751 | 1.538 | 1.629 | 0.456 | 0.060 | 2.694 | 19.403 |
-| breakfast_room | 6.666 | 3.651 | 7.646 | 1.569 | 0.729 | 0.185 | 0.041 | 1.282 | 13.087 |
-| salle_de_bain | 8.760 | 4.719 | 7.949 | 1.534 | 1.592 | 0.186 | 0.040 | 2.555 | 14.852 |
-| modern_hall | 5.344 | 3.805 | 14.916 | 1.561 | 0.383 | 0.325 | 0.054 | 0.561 | 17.367 |
-| modern_living_room | 11.259 | 4.391 | 10.596 | 1.615 | 1.277 | 0.320 | 0.050 | 2.503 | 14.086 |
-| classroom_a1c62e93f7 | 7.399 | 3.979 | 9.413 | 1.578 | 1.072 | 0.185 | 0.040 | 1.499 | 16.407 |
-| lynxsdesign_411c9daef8 | 31.305 | 9.721 | 13.193 | 1.528 | 9.387 | 0.322 | 0.051 | 12.888 | 26.868 |
-| italian_flat_97f97a20ba | 24.911 | 9.416 | 13.889 | 1.573 | 5.410 | 0.322 | 0.051 | 8.200 | 28.259 |
-| lynxsdesign_a01894bbb8 | 69.893 | 11.508 | 13.039 | 1.614 | 30.637 | 0.322 | 0.051 | 36.748 | 34.401 |
+| scene | `gi` raster | shade | light | show | `gi_threads` count | sums | running | place | tile | standing tile |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| sponza | 9.902 | 7.436 | 7.285 | 1.535 | 1.079 | 0.324 | 0.052 | 1.879 | 16.720 | 16.735 |
+| bistro_interior | 17.023 | 9.409 | 10.739 | 1.541 | 1.298 | 0.459 | 0.063 | 2.394 | 21.081 | 21.084 |
+| breakfast_room | 6.862 | 4.473 | 7.572 | 1.614 | 0.787 | 0.187 | 0.042 | 1.339 | 14.012 | 14.008 |
+| salle_de_bain | 9.114 | 5.872 | 7.911 | 1.555 | 1.260 | 0.189 | 0.043 | 2.289 | 15.951 | 15.961 |
+| modern_hall | 5.452 | 4.620 | 14.927 | 1.583 | 0.391 | 0.324 | 0.053 | 0.414 | 18.267 | 18.311 |
+| modern_living_room | 11.556 | 5.429 | 10.588 | 1.620 | 1.555 | 0.324 | 0.054 | 3.110 | 15.092 | 15.091 |
+| classroom_3f4180c5d0 | 15.717 | 8.304 | 11.304 | 1.546 | 1.486 | 0.458 | 0.062 | 2.488 | 22.072 | 21.967 |
+| lynxsdesign_b49574c042 | 32.742 | 12.527 | 13.202 | 1.528 | 4.610 | 0.324 | 0.052 | 9.324 | 29.371 | 29.375 |
+| italian_flat_69651f32b4 | 26.237 | 12.691 | 13.722 | 1.555 | 3.778 | 0.325 | 0.053 | 7.157 | 29.611 | 29.621 |
+| lynxsdesign_6efc48febc | 72.845 | 14.544 | 13.536 | 1.577 | 9.565 | 0.323 | 0.052 | 19.545 | 37.722 | 37.694 |
 
-The steps' words take 0.001 to 0.002 ms in every row.
+The steps' words take 0.002 ms in every row; standing, count and place take under
+0.005 ms.
 
 ## The field's update after one sun move
 
 One run a preset a scene: 8 frames, the sun set to (120, 40) through the loop's control,
-32 frames. `gi` sends the sun's pass and the update before the next frame and waits:
-"stop" is the host's ms from the control set to the end of the first frame at the new
-sun, "update" the update's card time. `gi_threads` runs the update as the job thread's
-graph beside the frames: "frames during" are drawn with the old field, "to swap" is the
-host's ms from the control set to the end of the first frame with the new field. Every
-code 0; the field's scale the reference's in both presets.
+32 frames. The update's passes are the scene's own count ("bounces"). `gi` sends the
+sun's pass and the update before the next frame and waits: "stop" is the host's ms from
+the control set to the end of the first frame at the new sun, "update" the update's card
+time. `gi_threads` runs the update as the job thread's graph beside the frames, each
+apply a step of every core between two frames: "frames during" are drawn with the old
+field, "to swap" is the host's ms from the control set to the end of the first frame
+with the new field. Every code 0.
 
-| scene | `gi` stop | `gi` update | `gi_threads` frames during | their ms | steady ms | longest gap | to swap |
-|---|---:|---:|---:|---|---:|---:|---:|
-| sponza | 174.5 | 109.9 | 3 | 23.6 to 23.7 | 18.60 | 56.5 | 138.5 |
-| bistro_interior | 223.6 | 135.9 | 3 | 31.3 to 31.4 | 24.15 | 72.5 | 179.4 |
-| breakfast_room | 161.6 | 104.5 | 3 | 19.6 to 19.7 | 15.24 | 50.1 | 130.7 |
-| salle_de_bain | 204.8 | 136.6 | 4 | 25.0 to 25.2 | 19.25 | 70.5 | 183.4 |
-| modern_hall | 219.9 | 164.6 | 7 | 23.3 to 23.9 | 18.53 | 47.6 | 231.1 |
-| modern_living_room | 243.0 | 174.7 | 6 | 23.3 to 23.6 | 18.23 | 63.4 | 220.2 |
-| classroom_a1c62e93f7 | 169.4 | 106.9 | 3 | 24.8 to 25.0 | 19.14 | 65.8 | 161.1 |
-| lynxsdesign_411c9daef8 | 322.3 | 164.0 | 3 | 64.8 to 68.4 | 49.43 | 163.5 | 362.6 |
-| italian_flat_97f97a20ba | 269.5 | 123.7 | 2 | 55.9 to 55.9 | 42.41 | 144.4 | 259.6 |
-| lynxsdesign_a01894bbb8 | 471.6 | 181.4 | 3 | 133.5 to 138.8 | 102.00 | 388.8 | 780.6 |
+| scene | bounces | `gi` stop | `gi` update | `gi_threads` frames during | their ms | steady ms | first frame at the new sun | to swap |
+|---|---:|---:|---:|---:|---|---:|---:|---:|
+| sponza | 3 | 173.4 | 108.1 | 5 | 16.7 to 20.0 | 16.74 | 60.9 | 161.4 |
+| bistro_interior | 2 | 203.5 | 106.8 | 4 | 21.0 to 25.2 | 21.14 | 67.0 | 167.5 |
+| breakfast_room | 12 | 188.6 | 134.3 | 14 | 14.0 to 16.3 | 13.98 | 55.4 | 288.8 |
+| salle_de_bain | 10 | 270.6 | 200.3 | 12 | 16.1 to 19.7 | 16.07 | 61.0 | 298.7 |
+| modern_hall | 10 | 240.5 | 188.5 | 13 | 17.5 to 19.7 | 18.13 | 43.9 | 330.5 |
+| modern_living_room | 15 | 350.9 | 287.0 | 19 | 15.2 to 20.1 | 15.24 | 64.7 | 425.1 |
+| classroom_3f4180c5d0 | 3 | 192.4 | 104.0 | 5 | 21.9 to 26.5 | 22.03 | 74.1 | 202.9 |
+| lynxsdesign_b49574c042 | 5 | 293.7 | 153.5 | 7 | 29.3 to 43.7 | 29.43 | 92.5 | 320.6 |
+| italian_flat_69651f32b4 | 8 | 277.8 | 136.5 | 9 | 29.5 to 41.0 | 29.64 | 112.3 | 409.1 |
+| lynxsdesign_6efc48febc | 8 | (did not end) |  | 10 | 37.6 to 67.2 | 37.78 | 147.8 | 567.5 |
 
 ## What the numbers say
 
-- **The renderer's frame is the faster one on nine scenes**: 0.71 to 0.92 of `gi` less
-  its push, 0.60 to 0.85 of `gi` as it runs. A tile's steps (fill, shade, light, show)
-  run on the core that took it, its planes kept in L1, as one tile pull.
-- **It is behind on the largest scene**, lynxsdesign_a01894bbb8 (102.09 against 94.16 ms
-  less push): its count and place pulls take 67.4 ms, against 69.9 ms for all the
-  stage-wise raster's passes with fill included, and the tile pull adds 34.4 ms on top.
-  On that scene the threads' count and place, not the tile steps, are the frame.
-- **The update no longer stops the frames.** `gi` waits 161.6 to 471.6 ms for the sun's
-  pass and the update; `gi_threads` draws 2 to 7 frames during it, each 1.25 to 1.36
-  times the steady frame while the update's applies held the lowest ranks. The longest
-  gap is the first frame at the new sun, which holds the sun's pass and the host's work
-  of the change.
-- **With no reserved cores** (each apply a core step on every core between two frames,
-  [measurements/gi_threads](../../measurements/gi_threads/README.md#the-update-with-no-reserved-cores)),
-  the frames during the update take the steady frame's time on Sponza, italian_flat and
-  the largest lynxsdesign scene; each apply is a stall of 2.6 to 3.9 ms between two
-  frames, and the update's span on the card grows from 125.2 to 145.3 ms on Sponza and
-  from 386.0 to 528.8 ms on the largest scene: an apply waits for the frame in progress,
-  the new field for the frame already sent.
+- **The renderer's frame is the faster one on every scene**: 0.67 to 0.84 of `gi` less
+  its push while the camera moves, 0.38 to 0.74 while it stands. A tile's steps (fill,
+  shade, light, show) run on the core that took it, its planes kept in L1, as one tile
+  pull; a standing camera runs that pull alone.
+- **The larger the scene, the more a standing camera saves**: on the largest scene
+  (lynxsdesign_6efc48febc, 29.8 million triangles) the count and place pulls take 29.1
+  ms of the moving frame's 67.2, and the standing frame is 37.8 ms.
+- **The update does not stop the frames.** `gi` waits 173.4 to 350.9 ms for the sun's
+  pass and the update; `gi_threads` draws 4 to 19 frames during it, the first at the
+  moving frame's time, the others at the steady frame's. On lynxsdesign_6efc48febc the
+  stage-wise `gi` with a sun move did not end within its run's 900 s.
 
 ## What is not measured
 
-- A moving camera (reloads, recoveries) and a sun moved during the frame runs.
+- A moving path (reloads, recoveries): the moving frame here is the lists made again
+  each frame at one camera.
 - The account (no core's time, bytes or records); the other ways of handing out
   (`order`, `kept`) and a tile cut (`heavy`) for `gi_threads`.
-- The update's span on the card in the threads' form: the update's columns are one run a
-  scene and hold host time.
+- The update's columns are one run a scene and hold host time.

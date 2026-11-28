@@ -49,7 +49,9 @@ is refused. What the conversion keeps and drops: [glTF scenes](gltf_scenes.md).
 The record's `name` is the scene's name from now on, `<stem>_<10 hex digits>`, with one
 view, `camera`. A file just opened has no far field yet (its indirect file and transport
 set, [below](#the-indirect-light)): `gi_threads` draws it without the indirect light, and
-the record's `far_field` says `absent: ` with what the scene lacks.
+the record's `far_field` says `absent: ` with what the scene lacks. The open starts the
+far field's build beside its frames (the record's `far_field_build`); `--wait-far-field`
+waits for it and draws the frames again with the indirect light.
 
 ## 4. Frames along a path
 
@@ -96,7 +98,9 @@ python -m prism_cli run --pipeline gi_threads --scene sponza --view overview \
 
 The indirect light of `gi_threads` (and `gi`, `gi_tile`) reads two files of the scene
 beside its lights: its indirect file and its transport set, the far field. They are made
-on the host once, after the lights:
+on the host once, after the lights: for a scene opened from a file, by the open itself,
+beside its frames ([built at open](gltf_scenes.md#built-at-open)); for a public scene, or
+by hand:
 
 ```sh
 python scripts/data/public_scenes.py indirect <name>                      # the dense build
@@ -112,4 +116,5 @@ Until they exist, the preset is opened without the far field: the implementation
 fill the indirect item are left out and the light step reads no field, so its picture is
 `lit_threads`' (`lit`'s, `lit_tile`'s). The record's `far_field` and the viewer's scene
 menu and load notice say so; the next open after the files are written loads the whole
-preset ([the command line](cli.md#run)).
+preset ([the command line](cli.md#run)), and the viewer loads it again by itself when the
+build lands.

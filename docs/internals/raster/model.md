@@ -258,8 +258,9 @@ each layer past its slots, writes that layer's row again in every view (the eye 
 DEPTH views share a layer's lists; the texture host writes its row again when the lists
 it was given change), keeps the slots in `list_slots_least` for a later load, and the
 loop tries the frame again. On Sponza's overview at 1,920 x 1,080 under `gi_threads`, a
-look down 40 degrees needs 36,901 masked entries against 32,864 slots: the growth took
-5.3 ms where the reload took 6.5 to 7.3 s (`checks/camera_moves`). The stage-wise form
+look down 40 degrees needs 36,901 masked entries against 32,864 slots: the growth takes
+2.3 to 2.5 ms (two runs, 2026-11-28), where a reload took 6.5 to 7.3 s
+(`checks/camera_moves`; every one of its 145 frames equal to `gi`'s). The stage-wise form
 keeps its reload: the slots it needs are in its times row, read after the stop.
 `DP_TOO_MANY` (slices or count ranges past the build's capacity) follows the frame's
 size and the mesh, not the camera, and stays a reload.

@@ -47,35 +47,26 @@ was repaired.
 
 ## The reference and the card against the same glTF
 
-The usable scenes, with Cycles(glTF) as the truth. "Direct" is the reference's direct
-light (`scripts/run/light_compare.py compare`) against Cycles' passes of the same `.blend`
-made from the glTF with no bounce, both displayed by the reference; "card" is
-`python -m prism_cli open scene.glb --pipeline lit --size 1280 720 --bake none` on card 1
-(16 frames, the last) against Cycles(glTF) with its bounces.
+The usable scenes, with Cycles(glTF) as the truth (`scripts/run/compare.py SCENE --pipeline
+gi_threads --frames 16 --crop all`, 2026-11-28, main at f614f61, the card at link 16 GT/s).
+"Direct" is the reference's direct light against Cycles' passes of the scene made from
+the glTF with no bounce, the passes lit by the file's own lights; "reference" the
+reference's whole frame; "card" `gi_threads` on card 0 with the far field built,
+1,280 x 720, the last of 48 frames, against Cycles(glTF) with its bounces (italian_flat
+12, lynxsdesign 12). PSNR against the truth displayed by the standard sRGB transfer, and
+against Blender's own display (its view transform and look).
 
-| scene | registered pixels | base colour MAD | diffuse, ratio of means | glossy, ratio of means | PSNR direct | PSNR card |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| italian_flat | 0.988 | 0.155 | 1.08 | 0.54 | 16.82 | 11.91 |
-| lynxsdesign | 1.000 | 0.204 | 1.12 | 0.57 | 16.84 | 14.14 |
-| charge_factory_floor | 1.000 | 0.512 | 1.38 | 0.84 | 15.95 | refused: 73 lamps, the light table holds 32 |
+| scene | registered pixels | base colour MAD | diffuse, ratio of means | glossy, ratio of means | specular, ratio of means | PSNR direct | PSNR reference | PSNR card | PSNR card, Blender's display |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| italian_flat | 0.988 | 0.185 | 0.94 | 0.80 | 0.63 | 21.07 | 15.97 | 15.29 | 14.51 (Filmic, High Contrast) |
+| lynxsdesign | 1.000 | 0.126 | 1.07 | 0.66 | 0.78 | 16.59 | 12.48 | 12.48 | 18.03 (AgX, AgX - Punchy) |
+| charge_factory_floor | | | | | | | | refused: 73 lamps, the light table holds 32 | |
 
-What makes the differences:
-
-- The material model. Sheen and clearcoat are dropped: a fabric with `KHR_materials_sheen`
-  is near white in Cycles' diffuse colour and its plain texture in ours (italian_flat's
-  sofas); charge_factory_floor's dominant material carries sheen and clearcoat, which
-  Cycles' colour passes count and the reference's base colour does not (the 0.512).
-  Glossy light is about half of Cycles' on the two interiors.
-- Shadows. Masked, blended and transmitting surfaces cast opaque shadows: italian_flat's
-  sun, behind glass, gives 0 against Cycles' light.
-- Emission. Emitting surfaces are not drawn in the reference's direct light (the window's
-  backdrop and the poster are black in ours, lit in Cycles').
-- The world. lynxsdesign's map is an `.exr`, which the reference does not read: its world
-  light is 0.
-- The card's lighting is the converter's (an environment of its own, a constant ambient;
-  area lights and the sidecar's world dropped), so its picture is brighter and flatter.
-  lynxsdesign shows square blocks of wrong colour over the staircase and ceiling, and a
-  moire on the armchairs' fabric (the filtering).
-- Tone. Filmic and AgX with their looks are not applied: the standard sRGB transfer.
-- Settings of the comparison: Cycles(glTF) runs at an empty file's light settings, not
-  the artist's; lens shift is not applied by the reference's camera.
+- Cycles(glTF): 43.4 s (italian_flat) and 40.4 s (lynxsdesign) for 256 samples on one
+  V100-class GPU.
+- The whole frame's ratio of means, card over truth: italian_flat 1.21, lynxsdesign 0.38.
+- The reference's frame and the card draw the converter's lighting; the passes the
+  file's. Neither scene's sidecar has view tables, so the card draws with the standard
+  sRGB transfer.
+- italian_flat's 1,280 x 720 card picture uses the scene's exposure (2.17, the sidecar's
+  `render.exposure`); lynxsdesign's is 1.

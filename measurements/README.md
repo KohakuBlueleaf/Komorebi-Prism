@@ -25,6 +25,7 @@ A folder's README opens with its conditions; its card line, from the records'
 | [lists_kept](lists_kept/README.md) | the eye's lists kept while its view stands: the standing frame (the tile pull alone) against the whole frame on four scenes at three poses, pictures equal |
 | [walk_cull](walk_cull/README.md) | the walk culled by the view: whole frames with and without the count ranges' box test on four scenes at three poses, pictures equal; the account of the 29.8 M triangle scene |
 | [threads_ranges](threads_ranges/README.md) | the size of a count range: 4 blocks against the size chosen from the scene, on four scenes at three poses, by phase, pictures equal |
+| [texture_lookup](texture_lookup/README.md) | the texture lookup's modes in the reference on two artists' scenes at the render camera, against a finer lookup and Cycles' colour pass |
 | [lookup_model](lookup_model/README.md) | the pages a frame's lookups read, modelled on the host and checked against the account: today's passes, an item's pages, the pages a core would keep |
 | [update_beside](update_beside/README.md) | the field's update on the cluster beside the frames' (`gi_tile`): the frames drawn during it, the swap, against `gi`'s blocking update |
 | [viewer](viewer/README.md) | the viewer's field of view at its ends |

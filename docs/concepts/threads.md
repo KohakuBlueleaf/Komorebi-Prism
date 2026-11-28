@@ -239,9 +239,10 @@ The slots a layer grew to are kept in the option `list_slots_least` for a later 
 ## Measured
 
 On one P150A at 1,920 x 1,080 the renderer, `gi_threads`, draws Sponza's overview in
-18.610 ms against `gi`'s 22.447 ms less its push, and is the faster frame on nine of ten
-scenes (0.71 to 0.92 of `gi` less push); on the largest, lynxsdesign_a01894bbb8, it is
-102.094 ms against 94.159, its count and place pulls 67.4 ms
+16.795 ms while the camera stands (the lists kept: the tile pull alone) and 20.003 ms
+while it moves, against `gi`'s 24.125 ms less its push. It is the faster frame on all ten
+scenes: 0.38 to 0.74 of `gi` less push standing, 0.67 to 0.84 moving; on the largest,
+lynxsdesign_6efc48febc (29.8 million triangles), 37.753 and 67.163 ms against 100.578
 ([gi_threads](../performance/gi_threads.md)). The threads' `textured` frame with `prefer`
 is 13.134 ms on Sponza's overview against the stage-wise frame's 16.428 ms; on the artists' scenes
 it is faster than the stage-wise frame in `lit` and slower in `textured`; on hidden

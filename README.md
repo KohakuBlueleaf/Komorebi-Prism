@@ -7,19 +7,17 @@ and matrix-heavy. glTF in, frame out.**
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/teaser-dark.svg">
-  <img src="docs/images/teaser-light.svg" width="880" alt="You give it: the commands prism_cli open with a glTF file and prism_viewer.server with --pipeline gi_threads; the preset configs/pipeline/gi_threads.py, which names an implementation for each item of the pipeline; the light stage's Step, which reads and leaves planes kept in L1, and the tile thread LIT; the pull (kmx_pull_run on X280 1, port.next on a core); the transport's apply y = M x on 32 x 32 tiles (matmul_block); the field update's graph. The card draws it by itself: 120 Tensix cores, each inside a tile thread, asking X280 1 for threads; X280 2 and 3 run the job thread, whose graph has each of the update's applies run on every core between two frames; the display pages leave; one core runs visibility, material_lit, light, post with frame.visibility and frame.surface in its L1. One gi_threads frame on Sponza: 18.61 ms (count 1.04, sums 0.32, place 1.81, tile 15.43), the host sending one command, against the stage-wise gi less its push, 22.45 ms; after a sun move gi_threads draws 6 frames during the update and swaps at 172.5 ms, where gi stops for 175.1 ms; each of ten scenes' gi_threads frame over gi less push, 0.71 to 0.92 and 1.08 on the largest. What comes out: gi_threads frames of Sponza (18.61 ms), Breakfast Room (15.30 ms), Bistro interior (24.18 ms) and The Modern Living Room (18.20 ms); 0 pixels different from gi in 1,920 frames; 102.09 ms against 94.16 on the 29.8 M-triangle scene; lists grown in 5.3 ms against a reload of 6.5 to 7.3 s; the transport built block by block in 205 s against 986 s dense; 8.36 MB written a frame against 207.52 MB between the stage-wise steps.">
+  <img src="docs/images/teaser-light.svg" width="880" alt="You give it: the commands prism_cli open with a glTF file and prism_viewer.server with --pipeline gi_threads; the preset configs/pipeline/gi_threads.py, which names an implementation for each item of the pipeline; the light stage's Step, which reads and leaves planes kept in L1, and the tile thread LIT; the pull (kmx_pull_run on X280 1, port.next on a core); the transport's apply y = M x (sums in L1 on 32 x 32 tiles, matmul_block) and the field update's graph, whose last command gives X280 1 the new field. The card draws it by itself: 120 Tensix cores, each inside a tile thread, asking X280 1 for threads; X280 2 and 3 run the job thread's graph, an apply on every core between two frames; the display pages leave; one core runs visibility, material_lit, light, post with frame.visibility and frame.surface in its L1. One gi_threads frame on Sponza: 20.00 ms moving (count 1.08, sums 0.32, place 1.88, then the tile), 16.80 ms standing, against the stage-wise gi less its push, 24.12 ms; after a sun move (3 bounces) gi_threads draws 5 frames and shows the new field at 161.4 ms, where gi stops for 173.4 ms; each of ten scenes' gi_threads frame over gi less push, 0.38 to 0.74 standing. What comes out: gi_threads frames of Sponza (16.80 ms), Bistro interior (21.15 ms), Breakfast Room (14.06 ms) and Italian Flat (29.68 ms, at the camera of the Cycles comparison); 0 pixels different from gi in 3,840 frames; 37.75 ms standing on the 29.8 M-triangle scene against 100.58 for gi less push; 57.08 ms standing at 3,840 x 2,160; Italian Flat at 29.68 ms a frame, where Cycles reading the same glTF takes 43.4 s for 256 samples on one V100-class GPU.">
 </picture>
 
 *What you give it, real lines of the files each card names, marked in the colour of what it
 causes on the card; the card running a frame by itself and the field's update beside the
 frames; real `gi_threads` frames and what each number is compared with. One P150A, 1,920 x
-1,080, the median frame on the card at each scene's overview
-([gi_threads](measurements/gi_threads/README.md)); the pictures from the viewer at 1,024 x
-1,024; every `gi_threads` picture equal to `gi`'s. The transport build:
-[transport_build](measurements/transport_build/README.md); the bytes:
-[account](measurements/account/README.md) and
-[threads_account](measurements/threads_account/README.md); the lists grown: [the raster's
-model](docs/internals/raster/model.md).*
+1,080, the median frame on the card at each scene's view
+([gi_threads](measurements/gi_threads/README.md)); the pictures from the viewer at 1,920 x
+1,080, Italian Flat's at the camera of its comparison with Cycles reading the same glTF
+file ([glTF truth](docs/performance/gltf_truth.md)); every `gi_threads` picture equal to
+`gi`'s.*
 
 A frame is drawn by the card alone. The host writes the camera and sends one command,
 FRAME, to a thread on the card's X280 cores, **the frame's thread**. It cuts the view's
@@ -58,11 +56,13 @@ python -m prism_viewer.server --host 127.0.0.1 --port 8790 --token TOKEN \
 `open` converts the file once into the data root (a second `open` of the same file
 converts nothing), makes its lights when it has none, draws 16 frames from the file's
 camera and writes the last picture into `out/`; its one-line JSON record names the scene
-(`NAME`, the file's stem and ten hex digits). `run` draws 64 frames with the eye moving
-forward. A scene just opened has no far field: `gi_threads` draws it without the
-indirect light (the record's `far_field` says so) until its indirect file and transport
-set exist; `python scripts/data/public_scenes.py indirect NAME --transport sketch` makes
-them once, on the host.
+(`NAME`, the file's stem and ten hex digits of a digest of the file's bytes and the
+converter's version: a new converter gives a scene a new name, as in the tables below). `run` draws 64 frames with the eye moving
+forward. A scene just opened has no far field yet: `open` starts its build on the host
+beside the frames, and `gi_threads` draws without the indirect light (the record's
+`far_field` says so) until the build has written its files; the next load, or the
+viewer by itself, draws with it, and `open --wait-far-field` waits for the build and
+draws again.
 The viewer, once its page is built
 (`cd apps/prism_viewer/web && npm install && npm run build`), is at
 `http://127.0.0.1:8790/?token=TOKEN`. Every step, and the public scenes, are in [the quick start](docs/guides/quick_start.md).
@@ -111,7 +111,7 @@ later runs. The variables are in [the environment](docs/guides/environment.md).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/levels-dark.svg">
-  <img src="docs/images/levels-light.svg" width="880" alt="The renderer at three levels. 1, the machine: the host joined by PCIe to one Blackhole P150A, its eight DRAM banks D0 to D7, X280 cluster 0 (Komorebi's dispatcher), cluster 1 (the frame's thread) and clusters 2 and 3 (the job thread), and 120 Tensix cores coloured by their port on X280 1: ranks 0 to 29, 30 to 59, 60 to 89, 90 to 119; an update's applies in gi_threads run on every rank between two frames. 2, a frame: one view as six columns, each with what X280 1 does, what the Tensix cores do and what is left in DRAM: count (a pull of ranges of 4 triangle blocks; counts and rows pages), sums (an ordinary command; records and the slices' words), running sum (on the X280; the slices' places), place (a pull replaying the log; each layer's lists), words (on the X280; the frame's page), tile (a pull answered by dp_choose; display pages). 3, one core: its port on X280 1, mover A (asks, reads the record, hands on the descriptor), mover B, the rings frame_jobs and frame_list_a and _b, the compute CPUs unpack, math and pack running visibility, material_lit, light and post, and its L1: the shared line of 1,216 bytes, the steps' kept state, frame.visibility and frame.surface of 20 pages of 4 KiB each; the display page is the one write.">
+  <img src="docs/images/levels-light.svg" width="880" alt="The renderer at three levels. 1, the machine: the host joined by PCIe to one Blackhole P150A, its eight DRAM banks D0 to D7, X280 cluster 0 (Komorebi's dispatcher), cluster 1 (the frame's thread) and clusters 2 and 3 (the job thread), and 120 Tensix cores coloured by their port on X280 1: ranks 0 to 29, 30 to 59, 60 to 89, 90 to 119; an update's applies in gi_threads run on every rank between two frames. 2, a frame: one view as six columns, each with what X280 1 does, what the Tensix cores do and what is left in DRAM: count (a pull of ranges of triangle blocks, 4 on Sponza, those outside the view skipped; counts and rows pages), sums (an ordinary command; records and the slices' words), running sum (on the X280; the slices' places), place (a pull replaying the log; each layer's lists), words (on the X280; the frame's page), tile (a pull answered by dp_choose; display pages). 3, one core: its port on X280 1, mover A (asks, reads the record, hands on the descriptor), mover B, the rings frame_jobs and frame_list_a and _b, the compute CPUs unpack, math and pack running visibility, material_lit, light and post, and its L1: the shared line of 1,216 bytes, the steps' kept state, frame.visibility and frame.surface of 20 pages of 4 KiB each; the display page is the one write.">
 </picture>
 
 *The same renderer at three levels, each zoomed from the one above: the card and who sits
@@ -120,14 +120,14 @@ thread with the tile's planes in its L1.*
 
 | step | what it computes | where it runs |
 |---|---|---|
-| count, place | each layer's triangles counted into the tiles their boxes reach, then written into the tiles' lists; a range of four triangle blocks a thread | the Tensix core that takes the range |
+| count, place | each layer's triangles counted into the tiles their boxes reach, then written into the tiles' lists; a range of triangle blocks a thread, its size chosen from the scene, a range outside the view skipped; at a standing camera the lists are kept and neither runs | the Tensix core that takes the range |
 | sums | each slice of 16 tiles: its records (a tile thread each) in order of weight, every core's positions | every Tensix core, one command |
 | running sum, the tile pull's choice | each layer's list place a slice; the next tile thread for the core that asks | the frame's thread, X280 cluster 1 |
 | `visibility` | each layer's planes: 1/z, colour, triangle number, from the tile's lists | the core that takes the tile thread |
 | `material`, `material_lit` | the material's colour or texel, the masked layer cut and merged, the glass layer blended; with lights, each layer's surface | the same core |
 | `light` | the sun through its shadow map's filter, the lamps, the specular terms, the sky, the indirect field, emissive, the background, the tone step | the same core |
 | `post` | the colour as 8-bit pixels, written to the tile's display page | the same core |
-| the sun's shadow map | DEPTH views of the sun after it moves: `visibility`, `material_lit`, `depth_out` | the frame's thread hands them out; the Tensix cores draw them |
+| the sun's shadow map | DEPTH views of the sun at each load and after it moves: `visibility`, `material_lit`, `depth_out` | the frame's thread hands them out; the Tensix cores draw them |
 | the indirect field | the sources, a transport apply a bounce, the field's pages; swapped in between two frames | the job thread, X280 clusters 2 and 3; the applies on every core, between two frames |
 
 The parts, the slots between them and the presets are in
@@ -137,7 +137,7 @@ The parts, the slots between them and the presets are in
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/pipeline-dark.svg">
-  <img src="docs/images/pipeline-light.svg" width="880" alt="The pipeline: the items raster (step visibility), material (step material_lit), direct (step light) and post (step post) in a row, the slots between them: scene.mesh and view.camera into raster; frame.visibility and frame.lists from raster to material; frame.surface and mesh.attributes from material to direct; the colour planes to post; display.picture out. Above direct, the shadow, the sun's DEPTH views (visibility, material_lit, depth_out), giving light.shadow_map; below it, indirect, the field from the transport's apply a bounce on the job thread, giving light.field from elements.radiance and elements.irradiance. Below, a table of which implementation fills each item in the presets textured_threads, lit_threads and gi_threads (raster.threads, material.texture.threads, direct.shadow_pcf, direct.light.threads or direct.light.threads_field, indirect.transport.threads and indirect.field_update.threads, post.show.threads) and textured, lit and gi (raster, material.texture, direct.shadow_pcf, direct.light, indirect.transport and indirect.field_update, post.show).">
+  <img src="docs/images/pipeline-light.svg" width="880" alt="The pipeline: the items raster (step visibility), material (step material_lit), direct (step light) and post (step post) in a row, the slots between them: scene.mesh and view.camera into raster; frame.visibility and frame.lists from raster to material; frame.surface and mesh.attributes from material to direct; the colour planes to post; display.picture out. Above direct, the shadow, the sun's DEPTH views (visibility, material_lit, depth_out), giving light.shadow_map; below it, indirect, the field from the transport's apply a bounce on the job thread, giving light.field from elements.radiance and elements.irradiance. Below, a table of which implementation fills each item in the presets textured_threads, lit_threads and gi_threads (raster.threads, material.texture.threads, direct.shadow_pcf, direct.light.threads or direct.light.threads_field, indirect.transport.threads and indirect.field_update.threads, post.show.threads) and textured, lit and gi (raster, material.texture, direct.shadow_pcf, direct.light, indirect.transport and indirect.field_update, post.show); gi_threads also names indirect.near_tile, which fills no item: the one-tile indirect product, a step of the tile thread with the option near_tile, off by default.">
 </picture>
 
 *The items, the named slots between them and the step each gives the tile thread; the slots
@@ -148,7 +148,9 @@ The presets in [configs/pipeline](configs/pipeline): `gi_threads` is the rendere
 `lit_threads` is it without the indirect light, `textured_threads` without any light; `textured`, `lit` and `gi` run the same parts
 stage-wise, as commands on every core one after another, and draw the pictures the
 threads' presets are judged by; `raster`, `lit_tile`, `gi_tile`, `field` and `apply` are
-parts and comparisons.
+parts and comparisons. `gi_threads`' option `near_tile` (off by default) takes a standing
+frame's indirect light from one matrix product a screen tile, run on the matrix engine,
+in place of the field's lookup ([near field](docs/internals/reference/near_field.md)).
 
 ### The frame as threads
 
@@ -176,7 +178,7 @@ and pack's time a step from [threads_account](measurements/threads_account/READM
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/dispatch-dark.svg">
-  <img src="docs/images/dispatch-light.svg" width="880" alt="How work reaches a core. The cut: a layer's triangle blocks of 32 triangles in count ranges of 4 blocks; a row of the frame's 60 tiles in slices of 16; slice 1's records in order of weight, numbered slice x 32 + place, a tile past the weight heavy cut into bands of rows. A pull: mover A tells its port on X280 1 the ended thread's number, cost and codes, and asks; the answer, a record's number and its word, is usually waiting (0.3 us); mover A hands the descriptor to the compute CPUs and mover B and takes one more ahead; an answer of 0 means none left. The tile pull's choice: prefer (a slice within one of the core's last, heaviest first) 9.930 ms, order (the next slice with records left, one cursor) 10.647 ms, kept (slice s to core s mod cores; 136 slices on 120 cores, 16 cores take two) 20.243 ms, Sponza textured. Lists too small: the running sum finds a layer's entries past its list slots, the view stops with DP_LISTS_SMALL before place writes, the need page goes to DRAM, the host's ThreadsHost.needed makes lists of the entries and a quarter more, writes the rows again and keeps list_slots_least, and the frame is tried again; past the build's capacity, DP_TOO_MANY, one reload.">
+  <img src="docs/images/dispatch-light.svg" width="880" alt="How work reaches a core. The cut: a layer's triangle blocks of 32 triangles in count ranges of 4 blocks on Sponza, the size set by the scene; a row of the frame's 60 tiles in slices of 16; slice 1's records in order of weight, numbered slice x 32 + place, a tile past the weight heavy cut into bands of rows. A pull: mover A tells its port on X280 1 the ended thread's number, cost and codes, and asks; the answer, a record's number and its word, is usually waiting (0.3 us); mover A hands the descriptor to the compute CPUs and mover B and takes one more ahead; an answer of 0 means none left. The tile pull's choice: prefer (a slice within one of the core's last, heaviest first) 9.930 ms, order (the next slice with records left, one cursor) 10.647 ms, kept (slice s to core s mod cores; 136 slices on 120 cores, 16 cores take two) 20.243 ms, Sponza textured. Lists too small: the running sum finds a layer's entries past its list slots, the view stops with DP_LISTS_SMALL before place writes, the need page goes to DRAM, the host's ThreadsHost.needed makes lists of the entries and a quarter more, writes the rows again and keeps list_slots_least, and the frame is tried again; past the build's capacity, DP_TOO_MANY, one reload.">
 </picture>
 
 *Work reaches a core only when it asks: the frame is cut into ranges, slices and records;
@@ -188,7 +190,7 @@ textured ([threads_account](measurements/threads_account/README.md)).*
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/transport-dark.svg">
-  <img src="docs/images/transport-light.svg" width="880" alt="The indirect light is one matrix product y = M x applied as 32 x 32 tiles on the cores' matrix engines. First, Sponza's transport matrix as it is stored, 1,151 x 1,151 tiles of 32 elements: dense near blocks along the diagonal (13,024 blocks, 265,798 tiles), low-rank far blocks U V^T (8,406 blocks, 155,628 tiles) and dropped zero blocks; three blocks picked out: a dense 5 x 5 block as 25 tile products, a 9 x 9 low-rank block of rank 19 as t = V^T x then U t in 18 tile products instead of 81, and a 72 x 72 far block of rank 94 stored as 432 tiles instead of 5,184. Second, the apply as one command on every core: y's receiver tiles dealt in contiguous ranges, one a core, 3 to 16 tiles each at about 4,500 weight tiles to read; inside one core, mover A reads the table pages and streams x and the bfp8_b weights from DRAM, the compute CPUs unpack, multiply tile by tile with matmul_block and pack onto the core's own sums in L1, mover B writes y's tiles; one apply takes 2,609.3 us on Sponza. Third, the bounces: the sources L0, E1 = M L0, E2 = M (albedo / pi E1), their sum with the sky into the field.">
+  <img src="docs/images/transport-light.svg" width="880" alt="The indirect light is one matrix product y = M x applied as 32 x 32 tiles on the cores' matrix engines. First, Sponza's transport matrix as it is stored, 1,151 x 1,151 tiles of 32 elements: dense near blocks along the diagonal (13,024 blocks, 265,798 tiles), low-rank far blocks U V^T (8,406 blocks, 155,628 tiles) and dropped zero blocks; three blocks picked out: a dense 5 x 5 block as 25 tile products, a 9 x 9 low-rank block of rank 19 as t = V^T x then U t in 18 tile products instead of 81, and a 72 x 72 far block of rank 94 stored as 432 tiles instead of 5,184. Second, the apply as one command on every core: y's receiver tiles dealt in contiguous ranges, one a core, 3 to 16 tiles each at about 4,500 weight tiles to read; inside one core, mover A reads the table pages and streams x and the bfp8_b weights from DRAM, the compute CPUs unpack, multiply tile by tile with matmul_block and pack onto the core's own sums in L1, mover B writes y's tiles; one apply takes 2,609.3 us on Sponza. Third, the bounces: the sources L0, E1 = M L0, then Ek = M (albedo / pi Ek-1) for each pass of the scene's count, their sum with the sky into the field.">
 </picture>
 
 *The light transport. Sponza's matrix is drawn from its transport set on 128 x 128
@@ -223,40 +225,48 @@ CC BY 3.0; all three from Morgan McGuire's Computer Graphics Archive.*
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/results-dark.svg">
-  <img src="docs/images/results-light.svg" width="880" alt="Two bar charts. First, the frame in ms on ten scenes at 1,920 x 1,080: gi_threads is faster than gi less its push on nine of them, from 0.71 of it on modern_living_room (18.2 against 25.6 ms) to 0.92 on lynxsdesign_411c9daef8 (49.5 against 53.8), and slower on lynxsdesign_a01894bbb8 (102.1 against 94.2). Second, a glTF file's load in seconds to the first picture, cold and warm: classroom (1.25 million triangles) 62.4 and 7.1, hidden_alley (9.0 million) 104.1 and 16.2, lynxsdesign (29.8 million) 133.7 and 21.3.">
+  <img src="docs/images/results-light.svg" width="880" alt="Two bar charts. First, the frame in ms on ten scenes at 1,920 x 1,080: gi less its push, gi_threads while the camera moves and while it stands; standing, gi_threads takes 0.38 (37.8 against 100.6 ms on lynxsdesign_6efc48febc, 29.8 million triangles) to 0.74 (18.4 against 24.9 on modern_hall) of gi less its push, and moving 0.67 to 0.84. Second, a glTF file's load with gi_threads in seconds to the first picture, cold and warm: classroom (1.25 million triangles) 67.4 and 13.7, italian_flat (4.8 million) 75.5 and 17.0, lynxsdesign (29.8 million) 122.2 and 33.4.">
 </picture>
 
 *The frame and the load. The frame: the table below. The load: `prism_cli open` with
-`lit`, the host part and the card part added, cold (the file converted, the caches empty,
-the program built) and warm
-([measurements/open](measurements/open/README.md), the waste cut).*
+`gi_threads`, cold (the file converted, the caches empty, the program built; drawn without
+the far field, which is built on the host after it) and warm (the far field built, the
+program found), main at f614f61
+([measurements/open](measurements/open/README.md#gi_threads-from-the-file)).*
 
 **The renderer's frame.** `gi_threads` against its stage-wise form `gi`: one Blackhole
-P150A, 120 cores, AICLK 1,350 MHz, Komorebi 0.6.0, 2026-11-27, 1,920 x 1,080, 64 frames at
-the view's camera, the median over frames 2 to 64, then over three runs, in ms; every
-`gi_threads` picture equal to `gi`'s byte for byte. `gi` pushes its picture into the
-host's memory inside its frame (0.565 ms) and `gi_threads` does not, so the like frame is
-`gi` less its push; the ratio is `gi_threads` over it
-([gi_threads](docs/performance/gi_threads.md)).
+P150A, 120 cores, AICLK 1,350 MHz, its link at 16 GT/s, Komorebi 0.6.0, 2026-11-28,
+1,920 x 1,080, 64 frames at the view's camera, the median over frames 2 to 64, then over
+three runs, in ms; every `gi_threads` picture equal to `gi`'s byte for byte. `gi` pushes
+its picture into the host's memory inside its frame (0.564 ms) and `gi_threads` does
+not, so the like frame is `gi` less its push; each ratio is `gi_threads` over it
+([gi_threads](docs/performance/gi_threads.md)). `gi_threads` keeps a frame's lists while
+the view does not change (on by default; its option `keep_lists` false makes them again
+every frame), so a standing camera's frame is the tile pull alone; while the camera
+moves, the count, sums and place pulls run first. The headline is the standing frame,
+what a viewer shows most of the time; the moving frame is the cost while the camera
+moves.
 
-| scene (view) | `gi` less push | `gi_threads` | ratio |
-|---|---:|---:|---:|
-| sponza (overview) | 22.447 | 18.610 | 0.83 |
-| bistro_interior (overview) | 33.282 | 24.182 | 0.73 |
-| breakfast_room (overview) | 18.422 | 15.303 | 0.83 |
-| salle_de_bain (overview) | 21.842 | 19.189 | 0.88 |
-| modern_hall (overview) | 23.966 | 18.639 | 0.78 |
-| modern_living_room (overview) | 25.647 | 18.196 | 0.71 |
-| classroom_a1c62e93f7 (camera) | 21.394 | 19.170 | 0.90 |
-| lynxsdesign_411c9daef8 (camera) | 53.802 | 49.474 | 0.92 |
-| italian_flat_97f97a20ba (camera) | 48.023 | 42.224 | 0.88 |
-| lynxsdesign_a01894bbb8 (camera) | 94.159 | 102.094 | 1.08 |
+| scene (view) | `gi` less push | `gi_threads`, camera moves | `gi_threads`, camera stands | ratio moves | ratio stands |
+|---|---:|---:|---:|---:|---:|
+| sponza (overview) | 24.125 | 20.003 | 16.795 | 0.83 | 0.70 |
+| bistro_interior (overview) | 35.663 | 25.247 | 21.154 | 0.71 | 0.59 |
+| breakfast_room (overview) | 19.421 | 16.341 | 14.056 | 0.84 | 0.72 |
+| salle_de_bain (overview) | 23.344 | 19.696 | 16.010 | 0.84 | 0.69 |
+| modern_hall (overview) | 24.893 | 19.384 | 18.370 | 0.78 | 0.74 |
+| modern_living_room (overview) | 26.956 | 20.089 | 15.149 | 0.75 | 0.56 |
+| classroom_3f4180c5d0 (camera) | 34.017 | 26.514 | 22.037 | 0.78 | 0.65 |
+| lynxsdesign_b49574c042 (camera) | 58.016 | 43.664 | 29.433 | 0.75 | 0.51 |
+| italian_flat_69651f32b4 (camera) | 52.324 | 40.904 | 29.680 | 0.78 | 0.57 |
+| lynxsdesign_6efc48febc (camera) | 100.578 | 67.163 | 37.753 | 0.67 | 0.38 |
 
-The threads' form is behind only on the largest scene, lynxsdesign_a01894bbb8: its count
-and place pulls take 67.4 ms, against 69.9 ms for all the stage-wise raster's passes
-with fill included, and the tile pull adds 34.4 ms on top. After a sun move `gi` stops
-for 161.6 to 471.6 ms; `gi_threads` draws 2 to 7 frames during its update, each 1.25 to
-1.36 times the steady frame.
+The four artists' scenes have 1.25, 8.8, 4.8 and 29.8 million triangles. On the largest
+the count and place pulls take 29.1 ms of the moving frame. At 3,840 x 2,160 on Sponza
+`gi_threads` takes 57.1 ms standing and 66.5 ms moving (`gi` does not fit in L1 at that
+size). After a sun move `gi` stops for 173.4 to 350.9 ms (on the largest scene its run
+did not end within 900 s); `gi_threads` draws 4 to 19 frames during its update (the
+scene's own count of passes, 2 to 15), the first at the moving frame's time, the others
+at the steady frame's.
 
 **The threads' frame against the stage-wise frame, by preset.** One Blackhole P150A, 120 cores,
 AICLK 1,350 MHz, 2026-11-27, 1,920 x 1,080, 16 frames at the scene's camera: the median
@@ -318,7 +328,7 @@ against Cycles reading the same glTF file in [glTF truth](docs/performance/gltf_
 | kind | which | how they come |
 |---|---|---|
 | public scenes | `sponza`, `bistro_interior`, `bistro_exterior`, `conference`, `breakfast_room`, `salle_de_bain`, `modern_hall`, `modern_living_room` | downloaded from their sources and converted by `scripts/data/public_scenes.py`, each under its own licence ([scenes](docs/concepts/scenes.md)) |
-| glTF files | any `.glb` or `.gltf`; measured on artists' scenes of 0.6 to 9 million triangles (classroom, italian_flat, lynxsdesign, hidden_alley) | `python -m prism_cli open FILE` ([glTF scenes](docs/guides/gltf_scenes.md)); Blender scenes exported by the workbench ([artists' scenes](docs/guides/artist_scenes.md)) |
+| glTF files | any `.glb` or `.gltf`; measured on artists' scenes of 1.25 to 29.8 million triangles (classroom, italian_flat, lynxsdesign, hidden_alley) | `python -m prism_cli open FILE` ([glTF scenes](docs/guides/gltf_scenes.md)); Blender scenes exported by the workbench ([artists' scenes](docs/guides/artist_scenes.md)) |
 | generated scenes | `tiny`, `s10k`, `s100k`, `s1m` | `scripts/data/generated_scenes.py`; vertex colours only (`raster`) |
 
 ## Limits
@@ -327,18 +337,21 @@ against Cycles reading the same glTF file in [glTF truth](docs/performance/gltf_
 - **What a scene's materials and lights keep**: no refraction, no glass behind glass (one
   transparent layer, the nearest), no coloured shadows, no mirrors or metals'
   reflections; masked, blended and transmitting surfaces cast opaque shadows; sheen and
-  clearcoat are dropped; Blender's view transforms (Filmic, AgX) are not applied: the
-  display is a power transfer (2.2) or the standard sRGB one
-  ([scenes](docs/concepts/scenes.md#limits), [glTF truth](docs/performance/gltf_truth.md)).
+  clearcoat are dropped; a Blender view transform (AgX, Filmic and their looks) is drawn
+  on the card when the scene's sidecar carries its tables, otherwise the display is a
+  power transfer (2.2) or the standard sRGB one
+  ([scenes](docs/concepts/scenes.md#limits), [the view on the card](docs/internals/post/show.md#a-files-view-transform-on-the-card),
+  [glTF truth](docs/performance/gltf_truth.md)).
 - **32 lamps a scene.** LIGHT's table holds 32 lamps (`kLampsMax`); a scene with more is
   refused when its lamps are lit.
 - **No tile is cut in the threads' presets** (`heavy` 0): a tile with far more entries
   than the others is one tile thread and can end the tile pull. A weight that follows the
   frame's data on the card is not in the threads' form.
 - **A scene opened from glTF has no far field** until its transport is built: the
-  indirect file and the transport set are made on the host once per scene by
-  `public_scenes.py indirect` (Sponza: 78 s block by block, 561 s dense;
-  [the transport's build](docs/performance/transport_build.md)), and until then `gi`,
+  first open starts the build of the indirect file and the transport set on the host,
+  beside the frames, once per scene (Sponza: 78 s block by block, 561 s dense;
+  [the transport's build](docs/performance/transport_build.md); three artists' scenes
+  opened from their files, 149 to 260 s, [load](docs/performance/load.md)), and until it lands `gi`,
   `gi_threads` and `gi_tile` draw it without the indirect light.
 - **A plain glTF export loses part of an artist's scene** (materials, sky, framing or
   geometry, by scene): what it keeps and what it loses is in

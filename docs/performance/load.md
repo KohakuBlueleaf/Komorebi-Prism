@@ -12,10 +12,32 @@ Seconds.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../images/results-dark.svg">
-  <img src="../images/results-light.svg" width="880" alt="Bar charts: gi_threads against gi less its push on ten scenes, ms; a glTF file's load to its first picture, cold and warm, on three artists' scenes, s.">
+  <img src="../images/results-light.svg" width="880" alt="Bar charts: gi_threads, its camera standing and moving, against gi less its push on ten scenes, ms; a glTF file's load with gi_threads to its first picture, cold and warm, on three artists' scenes, s.">
 </picture>
 
-*The frame (above) from [measurements/gi_threads](../../measurements/gi_threads/README.md); the load (below) from [measurements/open](../../measurements/open/README.md), the waste cut, 2026-11-27.*
+*The frame (above) from [measurements/gi_threads](../../measurements/gi_threads/README.md); the load (below) from [measurements/open](../../measurements/open/README.md#gi_threads-from-the-file), 2026-11-28, main at f614f61.*
+
+## The renderer from the file, 2026-11-28
+
+`python -m prism_cli open <folder>/scene.glb --pipeline gi_threads --bake none --size
+1920 1080`, main at f614f61, 24 host CPUs, each scene's caches empty at its first open.
+The cold open converts the file and builds the program, draws without the far field and
+starts its build on the host; the next open after that build draws with it; the warm open
+is the same command again.
+
+| scene | triangles drawn | cold | first with the far field | warm | far field's build |
+|---|---:|---:|---:|---:|---:|
+| classroom | 1,252,126 | 67.4 | 53.9 | 13.7 | 174.3 |
+| italian_flat | 4,821,520 | 75.5 | 425.6 | 17.0 | 149.1 |
+| lynxsdesign | 29,756,735 | 122.2 | 85.5 | 33.4 | 259.8 |
+
+A cold open's largest parts are Komorebi's host module built (17 s), the conversion
+(7.2 to 29.2 s), the program built and launched (17 to 20 s) and the hosts' tables (3.2
+to 29.0 s). The first open with the far field fits and builds a new program: its
+"program made" is 31.7 to 348.4 s (italian_flat's 348.4 s one run, not repeated), and
+2.6 to 4.2 s at the warm open after it. A warm open is the hosts' tables (5.7 to 20.5 s,
+`model.raster` and `model.direct.light` the largest), the read back and the session's
+start.
 
 ## The first picture, 2026-11-26
 
