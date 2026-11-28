@@ -19,6 +19,8 @@ from prism.check.threads.model import (
 from prism.check.threads.tile_half import model_of
 from prism.stages.raster.model.numbers import SLOT
 from prism.stages.raster.model.threads import R
+from prism_reference.raster import cull
+from prism_reference.raster.setup import grid
 
 
 def read_back(loop, laid_one, cores):
@@ -76,6 +78,21 @@ def judged(laid, got, held):
     return out
 
 
+def never_dealt(host, scene):
+    """(ranges,) bool: the view's ranges in a group the cull finds outside its view
+    (prism_reference.raster.cull outside), layer after layer; none without the cull."""
+    out = []
+    for name in host.layers:
+        ranges = host.ranges_of(host.scenes[name])
+        if not host.cull:
+            out.append(np.zeros(len(ranges), dtype=bool))
+            continue
+        groups = cull.group_boxes(ranges, host.group_ranges)
+        hidden = cull.outside(scene["camera"], groups, grid(scene))
+        out.append(np.repeat(hidden, host.group_ranges)[: len(ranges)])
+    return np.concatenate(out)
+
+
 def run_once(open_loop, threads_name, scene, cores, options=None):
     """One view's count, sums and place at `cores` (None: every core), read back after
     the stop and judged against the model for the card's log: its record."""
@@ -96,7 +113,8 @@ def run_once(open_loop, threads_name, scene, cores, options=None):
     _, host = names.threads_host(loop.loaded)
     held = names.capacity(host)
     try:
-        log, ranks = log_cores(got["log"], got["ranges"])
+        untaken = never_dealt(host, scene)
+        log, ranks = log_cores(got["log"], got["ranges"], untaken)
         laid = model_of(loop, scene, log, count)
     except ValueError as error:
         return out | {"stop": stop, "model": str(error), "equal": False}
@@ -104,6 +122,7 @@ def run_once(open_loop, threads_name, scene, cores, options=None):
     return out | {
         "stop": stop,
         "ranks_counted": len(ranks),
+        "never_dealt": int(untaken.sum()),
         "results": results,
         "equal": all(one["equal"] for one in results),
     }

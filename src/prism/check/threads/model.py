@@ -127,11 +127,12 @@ def positions_used(laid, page_words):
     return used
 
 
-def log_cores(raw, ranges):
+def log_cores(raw, ranges, untaken=None):
     """The core of each of `ranges` ranges from the count pull's log (bytes of the
     region): a count a port's core, then its ranges; a port core is its rank.
     (cores of the ranges, the ranks that took any); ValueError on a range taken
-    twice or by none."""
+    twice, or by none where `untaken` ((ranges,) bool: the ranges never dealt; None:
+    none) does not say so; an untaken range is given core 0."""
     words = np.frombuffer(bytes(raw), dtype=np.uint32)
     held = len(words) // PORTS_CORES - 1
     counts, lists = words[:PORTS_CORES], words[PORTS_CORES:]
@@ -142,6 +143,13 @@ def log_cores(raw, ranges):
             if taken >= ranges or out[taken] != NO_CORE:
                 raise ValueError(f"log: range {taken} taken twice or past {ranges}")
             out[taken] = core
-    if (out == NO_CORE).any():
-        raise ValueError(f"log: {int((out == NO_CORE).sum())} ranges taken by none")
-    return out, sorted(set(out.tolist()))
+    none = out == NO_CORE
+    expected = np.zeros(ranges, dtype=bool) if untaken is None else untaken
+    if (none != expected).any():
+        raise ValueError(
+            f"log: {int(none.sum())} ranges taken by none, {int(expected.sum())} never "
+            f"dealt by the cull, {int((none != expected).sum())} apart"
+        )
+    ranks = sorted(set(out[~none].tolist()))
+    out[none] = 0
+    return out, ranks
