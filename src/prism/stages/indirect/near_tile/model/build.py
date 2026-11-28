@@ -11,28 +11,28 @@ from prism.stages.indirect.near_tile.model.weights import (
 )
 from prism.stages.indirect.near_tile.steps.step import NS
 from prism_reference.indirect.near.half import upsample_weights
-from prism_reference.indirect.near.one_tile import FORM
 from prism_reference.indirect.near.view import furnace_values, view_frame, view_operator
 
 
 def built(scene, materials, lights, model, workers=1, furnace=None, terms=("ambient",)):
     """The records' bytes of `scene` (a scene dict with its camera and size) under the
-    field `model`, its frame lit by `terms`: a dict of bytes, values, the upsample's
-    weights, the half frame's operator, the frame, seconds."""
+    field `model`, its frame lit by `terms`: a dict of bytes, values, tables, the
+    upsample's weights, the half frame's operator, the frame, seconds."""
     started = time.perf_counter()
     furnace = furnace_values(model) if furnace is None else furnace
     frame = view_frame(scene, materials, lights, terms)
     framed = time.perf_counter()
     t_op, marched = view_operator(frame, model, furnace, workers)
-    values = records(t_op["w"], scene["size"])
+    values, tables = records(t_op, scene["size"])
     cam = np.asarray(frame["camera"], np.float64)
     depth = (frame["position"].astype(np.float64) - cam[0:3]) @ cam[9:12]
     taps = upsample_weights(
-        marched["depth"], depth, frame["normal"].astype(np.float64), FORM["tile"]
+        marched["depth"], depth, frame["normal"].astype(np.float64), 0
     )
     return {
         "bytes": encode(values),
         "values": values,
+        "tables": tables,
         "upsample": upsample_records(taps, scene["size"], NS["kNearQuarters"]),
         "operator": t_op,
         "marched": marched,

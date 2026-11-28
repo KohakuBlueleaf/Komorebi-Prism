@@ -10,13 +10,14 @@ import numpy as np
 
 from prism.stages.indirect.near_tile.model.build import built
 from prism.stages.indirect.near_tile.model.operand import (
-    light_pages,
     operand_raw,
     operands,
+    region_light,
 )
 from prism.stages.indirect.near_tile.model.weights import (
-    HALF_TILE,
-    RECORD_TILES,
+    MOST_BLOCKS,
+    SIDE,
+    TABLE_WORDS,
     decode,
     encode,
 )
@@ -130,15 +131,15 @@ class NearTileHost:
             self.standing = eye
         self.last = eye
         on = self.standing is not None and eye == self.standing
-        for name in ("weights", "operand", "upsample"):
+        for name in ("weights", "operand", "upsample", "table"):
             tensor = self.tensors.get(name)
             loaded.number(f"near_{name}", 0 if tensor is None else tensor.address)
         loaded.number("near_half", half_word(eye[1]))
         loaded.number("near_on", int(on))
 
     def build(self, camera, size):
-        """The records, the operands and the upsample's weights of `camera` at `size`
-        in their tensors."""
+        """The records, the operands, the upsample's weights and the tables of `camera`
+        at `size` in their tensors."""
         scene = {**self.scene, "camera": camera, "size": size}
         out = built(
             scene,
@@ -157,21 +158,23 @@ class NearTileHost:
             self.lights["ambient"],
             size,
         )
-        e = light_pages(decode(raw), s)  # the product as the host makes it
+        e = region_light(decode(raw), out["tables"], s, SIDE)  # the host's product
         self.made(size)
         self.write("weights", raw)
         self.write("operand", operand_raw(operand_tiles(s)))
         self.write("upsample", out["upsample"])
-        self.built = {**out, "s": s, "e": e[:, : 3 * HALF_TILE * HALF_TILE]}
+        self.write("table", out["tables"])
+        self.built = {**out, "s": s, "e": e}
         self.seconds = out["seconds"]
 
     def made(self, size):
         """The tensors of a frame of `size`: the records, the operands, the upsample's
-        weights, zero, made again when the size changes (before a load)."""
+        weights, the tables, zero, made again when the size changes (before a load)."""
         across, down = frame_grid(size)
         tiles = across * down
         shapes = {
-            "weights": ((tiles * RECORD_TILES, TILE, TILE), "bfp8_b", "tile"),
+            "weights": ((tiles * MOST_BLOCKS, TILE, TILE), "bfp8_b", "tile"),
+            "table": ((tiles, TABLE_WORDS), "u32", "row"),
             "operand": ((tiles, TILE, TILE), "bf16", "tile"),
             "upsample": (
                 (tiles * QUARTERS, NEAR_TAPS * TILE * TILE // QUARTERS),

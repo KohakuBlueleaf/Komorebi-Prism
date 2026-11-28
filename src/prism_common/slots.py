@@ -126,8 +126,8 @@ slot(
     "near.weights",
     "bfp8_b",
     "tile",
-    "the one-tile product's weights W_T of the standing camera: a screen tile's record "
-    "of 8 tiles, a half pixel a row, its 32 columns",
+    "the one-tile product's weights W_T of the standing camera: a screen tile's row "
+    "blocks of 32 half pixels, a tile an operand, 32 tiles a screen tile",
 )
 slot(
     "near.light",

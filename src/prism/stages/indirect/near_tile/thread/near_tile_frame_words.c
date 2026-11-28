@@ -17,10 +17,13 @@ uint32_t near_tile_frame_words(
     page[PRISM_TF_NEAR_TILE_UPSAMPLE] = dr_number(
         frame, DR_INDIRECT_NEAR_TILE_N_NEAR_UPSAMPLE
     );
+    page[PRISM_TF_NEAR_TILE_TABLE] = dr_number(
+        frame, DR_INDIRECT_NEAR_TILE_N_NEAR_TABLE
+    );
     page[PRISM_TF_NEAR_TILE_HALF] = dr_number(frame, DR_INDIRECT_NEAR_TILE_N_NEAR_HALF);
     page[PRISM_TF_NEAR_TILE_ON] = page[PRISM_TF_NEAR_TILE_WEIGHTS] != 0 &&
         page[PRISM_TF_NEAR_TILE_OPERAND] != 0 &&
-        page[PRISM_TF_NEAR_TILE_UPSAMPLE] != 0 &&
+        page[PRISM_TF_NEAR_TILE_UPSAMPLE] != 0 && page[PRISM_TF_NEAR_TILE_TABLE] != 0 &&
         dr_number(frame, DR_INDIRECT_NEAR_TILE_N_NEAR_ON) != 0;
     return 0;
 }
