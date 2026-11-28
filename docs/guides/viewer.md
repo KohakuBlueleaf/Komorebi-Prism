@@ -329,6 +329,20 @@ preset's `JUDGE` against its `REFERENCE` at that setting, its numbers reported a
 one as loaded (what the control changed) and the JPEG against the unencoded pictures. One
 JSON line; exit 1 on a failure.
 
+The `JUDGE` and the `REFERENCE` are drawn on the host and take far longer than the frames
+on a large scene. On a shared card, run the check as two commands, so that the card is held
+only for the frames:
+
+```
+python -m prism_viewer.server.check --pipeline gi_threads --scene S --view camera --keep run.pkl
+python -m prism_viewer.server.check --judge run.pkl
+```
+
+`--keep` runs the server's half and the loop's pictures, keeps them with what the judge
+reads of the loop at each picture, and exits. `--judge` opens no card: it makes the
+numbers and prints the same record with the same exit.
+The kept file is a Python pickle: judge only a file you kept yourself.
+
 Its options: `--pipeline` (default `raster`), `--scene` and `--view` (default `sponza`,
 `overview`), `--port` (8791), `--card` (0), `--log FILE` (the server's output) and
 `--no-reference` (the loop's pictures not judged by the preset's `JUDGE` nor

@@ -9,7 +9,8 @@ and back (prism_viewer.server.check_fov); the server stopped by SIGTERM; then, t
 control set and that pose on a loop of the check's own, each frame's JPEG against
 the loop's picture through the same encoder (at most SERVED_BOUND apart; another pose's
 must be further) and the loop's picture by the preset's JUDGE (not with --no-reference).
-One JSON line; exit 1 on a failure.
+One JSON line; exit 1 on a failure. --keep FILE: the card's half only, kept in FILE;
+--judge FILE: no card, that file judged, the same record and exit.
 python -m prism_viewer.server.check [--pipeline raster --scene sponza --view overview]
 """
 
@@ -17,6 +18,7 @@ import argparse
 import json
 import math
 import os
+import pickle
 import secrets
 import signal
 import subprocess
@@ -25,6 +27,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from types import SimpleNamespace
 
 import komorebi as km
 import numpy as np
@@ -356,19 +359,47 @@ def settled(loop, camera):
         graph.served(wait=True)
 
 
-def own_pictures(args, pose, other, size, pictures):
+def plain(value):
+    """True for what a kept snapshot holds: numbers, strings, arrays, None and tuples,
+    lists and dicts of them."""
+    if value is None or isinstance(value, bool | int | float | str | np.ndarray):
+        return True
+    if isinstance(value, np.generic):
+        return True
+    if isinstance(value, tuple | list):
+        return all(plain(v) for v in value)
+    if isinstance(value, dict):
+        return all(isinstance(k, str) and plain(v) for k, v in value.items())
+    return False
+
+
+def standing(loop):
+    """What a preset's JUDGE and REFERENCE read of `loop`, kept as it stands and
+    picklable: its options, its run's options and each host's plain attributes."""
+
+    def kept(values):
+        return {k: dict(v) if isinstance(v, dict) else v for k, v in values.items()}
+
+    def host_of(host):
+        return SimpleNamespace(
+            **kept({k: v for k, v in vars(host).items() if plain(v)})
+        )
+
+    hosts = {name: host_of(host) for name, host in loop.loaded.hosts.items()}
+    loaded = SimpleNamespace(options=kept(loop.loaded.options), hosts=hosts)
+    return SimpleNamespace(options=kept(loop.options), loaded=loaded)
+
+
+def card_pictures(args, pose, other, size, pictures):
     """Each served picture (a label, the controls set, its JPEG, its pose when not
     `pose`), those controls set on a loop of its own at that pose (else `pose`, the
     view's own) and `size`: the JPEG against the loop's picture through the same
-    encoder (it is the loop's picture), the loop's picture by the preset's JUDGE (it is
-    right); the first against the pose `other`'s too (must differ). The JPEG against
-    the unencoded pictures is reported; with --no-reference, no JUDGE and no REFERENCE.
-    """
+    encoder, the first against the pose `other`'s too (must differ); the numbers, and
+    per picture shown (label, JPEG, the loop's picture, camera, the loop's snapshot)."""
     preset = opened(args.pipeline, args.scene, args.view, size)
-    scene = preset.scene
-    first, _ = flown(scene)
+    first, _ = flown(preset.scene)
     own_pose = json.loads(json.dumps(pose_of(first)))
-    out, base = {}, None
+    out, base, taken = {}, None, []
     with km.Session(card=args.card) as session:
         loop = preset.open(session)
         try:
@@ -383,10 +414,6 @@ def own_pictures(args, pose, other, size, pictures):
                 if frame.code:
                     raise RuntimeError(f"the loop's frame code {frame.code}")
                 own = encode.colour(frame.picture, size)
-                view = with_size(dict(scene, camera=camera), size)
-                judge = None if args.no_reference else preset.judge(loop, view)
-                made = None if args.no_reference else preset.reference(loop, view)
-                want = None if made is None else encode.colour(made, size)
                 got = None if data is None else encode.decoded(data)
                 base = got if base is None else base
                 out[label] = {"set": setting} | (
@@ -394,14 +421,12 @@ def own_pictures(args, pose, other, size, pictures):
                     if got is None
                     else {
                         "served": compared(got, coded(own)),
-                        "judged": None if judge is None else judge(frame.picture),
                         "from_loaded": compared(got, base),
-                        "unencoded": {
-                            "own": compared(got, own),
-                            "reference": None if want is None else compared(got, want),
-                        },
+                        "unencoded": {"own": compared(got, own)},
                     }
                 )
+                if got is not None:
+                    taken.append((label, got, frame.picture, camera, standing(loop)))
                 if label == pictures[0][0] and got is not None:
                     away = loop.frame(sized_camera(camera_of(first, other), size), True)
                     if away.code:
@@ -414,23 +439,60 @@ def own_pictures(args, pose, other, size, pictures):
                     settled(loop, sized_camera(camera, size))
         finally:
             loop.stop()
+    return out, taken
+
+
+def judged(args, size, out, taken):
+    """`out` with each shown picture's numbers by the preset's JUDGE and its JPEG
+    against the REFERENCE's picture, made of the loop's snapshot at that picture (no
+    card); with --no-reference, neither."""
+    if args.no_reference:
+        return out
+    preset = opened(args.pipeline, args.scene, args.view, size)
+    for label, got, picture, camera, stood in taken:
+        view = with_size(dict(preset.scene, camera=camera), size)
+        judge = preset.judge(stood, view)
+        made = preset.reference(stood, view)
+        want = None if made is None else encode.colour(made, size)
+        out[label]["judged"] = None if judge is None else judge(picture)
+        out[label]["unencoded"]["reference"] = (
+            None if want is None else compared(got, want)
+        )
     return out
 
 
-def main():
-    parser = argparse.ArgumentParser(prog="prism_viewer.server.check")
-    parser.add_argument("--pipeline", default="raster")
-    parser.add_argument("--scene", default="sponza")
-    parser.add_argument("--view", default="overview")
-    parser.add_argument("--port", type=int, default=8791)
-    parser.add_argument("--card", type=int, default=0)
-    parser.add_argument("--log", default=None, help="the server's output file")
-    parser.add_argument(
-        "--no-reference",
-        action="store_true",
-        help="the loop's pictures not judged by the preset's JUDGE nor REFERENCE",
-    )
-    args = parser.parse_args()
+def verdict(record, size, numbers):
+    """The record's pictures (`numbers` by label) and their failures added; its exit."""
+    record["pictures"] = {"size": list(size), "by_setting": numbers}
+    record["pictures"]["bound"] = {"served_mean": SERVED_BOUND}
+    fail = record["failures"]
+    for label, one in numbers.items():
+        if not one.get("shown", True):
+            fail.append(f"{label}: no picture")
+            continue
+        if one["served"]["mean"] > SERVED_BOUND:
+            fail.append(f"{label}: the served picture is not the loop's")
+        if one.get("other_pose", {"mean": math.inf})["mean"] <= SERVED_BOUND:
+            fail.append("the bound does not tell another pose apart")
+        want = record.get("expect", {}).get(label)
+        near = one["from_loaded"]["mean"] <= SERVED_BOUND
+        if want is not None and near != (want == "same"):
+            fail.append(f"{label}: not {want} as loaded")
+    record["ok"] = not fail
+    print(json.dumps(record, default=str), flush=True)
+    return 0 if record["ok"] else 1
+
+
+def unjudged(record):
+    """The record of a check stopped before the pictures; its exit."""
+    record["ok"] = not record["failures"]
+    print(json.dumps(record, default=str), flush=True)
+    return 0 if record["ok"] else 1
+
+
+def on_card(args):
+    """The server's half and the loop's pictures on the card: the record, and the
+    pictures' size, numbers and what judging them needs (None without pictures)."""
     token, base = secrets.token_hex(16), f"http://127.0.0.1:{args.port}"
     command = [sys.executable, "-m", "prism_viewer.server", "--host", "127.0.0.1"]
     command += ["--port", str(args.port), "--token", token, "--card", str(args.card)]
@@ -454,27 +516,51 @@ def main():
             record["failures"].append("the server did not stop on SIGTERM")
     if record["server_exit"] != 0:
         record["failures"].append(f"server exit {record['server_exit']}")
-    if result is not None:
-        pictures, pose, other, size = result
-        judged = own_pictures(args, pose, other, size, pictures)
-        record["pictures"] = {"size": list(size), "by_setting": judged}
-        record["pictures"]["bound"] = {"served_mean": SERVED_BOUND}
-        fail = record["failures"]
-        for label, numbers in judged.items():
-            if not numbers.get("shown", True):
-                fail.append(f"{label}: no picture")
-                continue
-            if numbers["served"]["mean"] > SERVED_BOUND:
-                fail.append(f"{label}: the served picture is not the loop's")
-            if numbers.get("other_pose", {"mean": math.inf})["mean"] <= SERVED_BOUND:
-                fail.append("the bound does not tell another pose apart")
-            want = record.get("expect", {}).get(label)
-            near = numbers["from_loaded"]["mean"] <= SERVED_BOUND
-            if want is not None and near != (want == "same"):
-                fail.append(f"{label}: not {want} as loaded")
-    record["ok"] = not record["failures"]
-    print(json.dumps(record, default=str), flush=True)
-    return 0 if record["ok"] else 1
+    if result is None:
+        return record, None
+    pictures, pose, other, size = result
+    return record, (size, *card_pictures(args, pose, other, size, pictures))
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="prism_viewer.server.check")
+    parser.add_argument("--pipeline", default="raster")
+    parser.add_argument("--scene", default="sponza")
+    parser.add_argument("--view", default="overview")
+    parser.add_argument("--port", type=int, default=8791)
+    parser.add_argument("--card", type=int, default=0)
+    parser.add_argument("--log", default=None, help="the server's output file")
+    parser.add_argument(
+        "--no-reference",
+        action="store_true",
+        help="the loop's pictures not judged by the preset's JUDGE nor REFERENCE",
+    )
+    kept = parser.add_mutually_exclusive_group()
+    kept.add_argument(
+        "--keep", default=None, help="the card's half only, kept in this file"
+    )
+    kept.add_argument(
+        "--judge", default=None, help="no card: judges a --keep file, the record"
+    )
+    args = parser.parse_args()
+    if args.judge:
+        with open(args.judge, "rb") as f:
+            saved = pickle.load(f)
+        record, pictures = saved["record"], saved["pictures"]
+        if pictures is None:
+            return unjudged(record)
+        size, out, taken = pictures
+        return verdict(record, size, judged(saved["args"], size, out, taken))
+    record, pictures = on_card(args)
+    if args.keep:
+        with open(args.keep, "wb") as f:
+            pickle.dump({"args": args, "record": record, "pictures": pictures}, f)
+        print(json.dumps(record | {"judge": args.keep}, default=str), flush=True)
+        return 1 if record["failures"] else 0
+    if pictures is None:
+        return unjudged(record)
+    size, out, taken = pictures
+    return verdict(record, size, judged(args, size, out, taken))
 
 
 if __name__ == "__main__":
