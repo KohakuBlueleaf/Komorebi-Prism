@@ -19,6 +19,7 @@ from prism.stages.material.texture.host import with_table
 from prism.stages.raster.model.counts import kept_counts
 from prism.stages.raster.model.numbers import PAGE_SLOTS, PAGE_WORDS
 from prism.stages.raster.threads import layout
+from prism_common.mesh import kept
 from prism_reference.raster import cull
 from prism_reference.scene.frame import frame_grid, frame_size
 
@@ -27,6 +28,7 @@ LISTS = "frame.lists"  # each layer's lists by its name (the texture host's rows
 ATTRIBUTES = "mesh.attributes"  # each layer's shade blocks, by its name
 DISPLAY = "display.picture"  # the target a COLOUR view's post step writes
 CAMERAS = "view.depth"  # another host's DEPTH views: indices, cameras, frame size
+BLOCK_BOXES_VERSION = 1  # of the kept boxes of a layer's triangle blocks
 DEPTH_LAYERS = raster_host.DEPTH_LAYERS  # the layers a DEPTH view draws
 BALANCE = 5  # the pull's end imbalance over a range's own cost, in blocks walked
 BOX_WORDS = 16  # a count range's box: a 64-byte page
@@ -158,7 +160,14 @@ class ThreadsHost(Host):
     def ranges_of(self, scene):
         """A layer's count ranges' boxes (ranges, 2, 3) float32."""
         positions = np.asarray(scene["positions"], dtype=np.float32)
-        blocks = cull.block_boxes(positions, np.asarray(scene["indices"]))
+        indices = np.asarray(scene["indices"])
+        blocks = kept(
+            positions,
+            indices,
+            "block_boxes",
+            BLOCK_BOXES_VERSION,
+            lambda: cull.block_boxes(positions, indices),
+        )
         return cull.group_boxes(blocks, self.range_blocks)
 
     def boxes_of(self, ranges):

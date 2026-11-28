@@ -18,6 +18,7 @@ from prism.stages.direct.light.model.numbers import (
     SUN_PATH_STEP,
 )
 from prism.stages.direct.light.model.table import light_table
+from prism_common.mesh import kept
 from prism_reference.direct.frame import TERMS
 from prism_reference.direct.lights import shadow_side, sun_angles, sun_direction
 from prism_reference.direct.shadow import (
@@ -30,12 +31,21 @@ from prism_reference.direct.sky import sh_turned
 from prism_reference.raster.setup import camera_space, to_screen
 from prism_reference.scene.frame import HEIGHT, TILE, WIDTH
 
+BOX_VERSION = 1  # of a kept scene box
+
 
 def scene_box(scene):
     """The scene's box as a scene of two points (its least and greatest corner): what
     sun_camera and shadow_map's texel read of the positions."""
     positions = scene["positions"]
-    return {"positions": np.stack([positions.min(0), positions.max(0)])}
+    corners = kept(
+        positions,
+        scene["indices"],
+        "box",
+        BOX_VERSION,
+        lambda: np.stack([positions.min(0), positions.max(0)]),
+    )
+    return {"positions": corners}
 
 
 def sun_lights(lights, scene, azimuth, elevation):
