@@ -11,6 +11,24 @@
 
 namespace setup_k {
 
+    // Piece `lane`'s held 1/z bounds (raster.h kRecWLeast, kRecWMost) from
+    // the screen slots the vector unit left (1/z beyond the near distance: positive).
+    inline void piece_depths(uint32_t* words, uint32_t lane) {
+        const volatile uint32_t* window = setup_pass::window();
+        float least = 0.0f, most = 0.0f;
+        for (uint32_t corner = 0; corner < 3; ++corner) {
+            const float depth = value(
+                window
+                    [setup_pass::word(setup_pass::kSlotScreen + 3 * corner + 2) +
+                     2 * lane]
+            );
+            least = corner == 0 || depth < least ? depth : least;
+            most = corner == 0 || depth > most ? depth : most;
+        }
+        words[fill_k::kRecWLeast] = bits(fmul(least, value(fill_k::kHeldLeast)));
+        words[fill_k::kRecWMost] = bits(fmul(most, value(fill_k::kHeldMost)));
+    }
+
     // The out pages to the writer: SETUP up to kOutEntries records, each with its box
     // word; COUNT up to kOutWords box words.
     struct Out {
@@ -245,6 +263,9 @@ namespace setup_k {
             );
             ckernel::tensix_sync();
             setup_pass::records_out(records);
+            for (uint32_t j = 0; j < piece_count; ++j) {
+                piece_depths(records + 32 * j, j);
+            }
             const volatile uint32_t* areas =
                 (setup_pass::window() + setup_pass::word(setup_pass::kSlotArea));
             for (uint32_t j = 0; j < piece_count && succeeded; ++j) {

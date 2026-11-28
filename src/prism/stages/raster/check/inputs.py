@@ -60,9 +60,8 @@ def items_region(host, mid, totals, heavy, hprefix_address):
     the base words, HSUM's pages' address, the frame, item and core words."""
     sizes = host.sizes
     region = np.zeros(-(-sizes["kItemsRegionBytes"] // 4096) * 1024, dtype=np.uint32)
-    region[: sizes["kItemsBytes"] // 4] = middle.item_table(mid["items"])[
-        : sizes["kItemsBytes"] // 4
-    ]
+    table = middle.item_table(mid["items"], sizes["kTiles"], sizes["kItems"])
+    region[: len(table)] = table
     core_of, header, core_words = layout(mid, totals)
     heavy_index = {tile: i + 1 for i, (tile, _) in enumerate(heavy)}
     base = np.where(totals > 0, header + 1, 0).astype(np.uint32)

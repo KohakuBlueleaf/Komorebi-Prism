@@ -65,17 +65,20 @@ constexpr uint32_t kHdrRow1 = 4;  // bounds; 0 and 32 for the whole tile
 constexpr uint32_t kRecA = 0;  // edge k: a at kRecA + k, b at kRecB + k, c at kRecC + k
 constexpr uint32_t kRecB = 3;
 constexpr uint32_t kRecC = 6;
-constexpr uint32_t kRecT = 9;       // edge k inside when e > T: +0, or -0's lower
-                                    // neighbour 0x80000001 on a top or left edge
-constexpr uint32_t kRecW = 12;      // 1/z plane: px, py, constant coefficients
-constexpr uint32_t kRecCol = 15;    // colour channel c: kRecCol + 3 c + (0, 1, 2)
-constexpr uint32_t kRecX0 = 24;     // first pixel column of the box, as float16
-constexpr uint32_t kRecX1 = 25;     // last pixel column + 1, as float16 (both float32
-                                    // in a wide build, grid.h)
-constexpr uint32_t kRecY0 = 26;     // first pixel row of the box (int)
-constexpr uint32_t kRecY1 = 27;     // last pixel row of the box (int)
-constexpr uint32_t kRecTri = 28;    // triangle n: the bits kTriBase + n
-constexpr uint32_t kRecIndex = 29;  // record number (int)
+constexpr uint32_t kRecT = 9;        // edge k inside when e > T: +0, or -0's lower
+                                     // neighbour 0x80000001 on a top or left edge
+constexpr uint32_t kRecW = 12;       // 1/z plane: px, py, constant coefficients
+constexpr uint32_t kRecCol = 15;     // colour channel c: kRecCol + 3 c + (0, 1, 2)
+constexpr uint32_t kRecX0 = 24;      // first pixel column of the box, as float16
+constexpr uint32_t kRecX1 = 25;      // last pixel column + 1, as float16 (both float32
+                                     // in a wide build, grid.h)
+constexpr uint32_t kRecY0 = 26;      // first pixel row of the box (int)
+constexpr uint32_t kRecY1 = 27;      // last pixel row of the box (int)
+constexpr uint32_t kRecTri = 28;     // triangle n: the bits kTriBase + n
+constexpr uint32_t kRecWLeast = 29;  // its corners' least 1/z times kHeldLeast and
+constexpr uint32_t kRecWMost = 31;   // most times kHeldMost: its drawn 1/z between
+constexpr uint32_t kHeldLeast = 0x3F7FFF00;  // 1 - 2^-16
+constexpr uint32_t kHeldMost = 0x3F800080;   // 1 + 2^-16
 // The bits of the float 1.0: a triangle's word is kTriBase + n, a positive normal
 // float.
 constexpr uint32_t kTriBase = 0x3F800000;

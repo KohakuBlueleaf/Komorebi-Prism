@@ -163,7 +163,8 @@ namespace setup_k {
         );
     }
 
-    // The words the vector unit leaves raw: thresholds (top-left), box, triangle.
+    // The words the vector unit leaves raw: thresholds (top-left), box, triangle, word
+    // 30 (the corners' 1/z words are the piece's, pass.hpp piece_depths).
     void finish(uint32_t* words, const Box& box, uint32_t triangle) {
         for (uint32_t corner = 0; corner < 3; ++corner) {
             const int32_t edge_a = static_cast<int32_t>(words[corner]);
@@ -182,9 +183,7 @@ namespace setup_k {
         words[26] = box.first_row;
         words[27] = box.last_row;
         words[28] = fill_k::kTriBase + triangle;
-        words[29] = 0;
         words[30] = 0;
-        words[31] = 0;
     }
 
     uint32_t* cb_ptr(uint32_t cb) {
